@@ -226,6 +226,28 @@
             min-width: 46px;
         }
 
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            color: #cccce0;
+        }
+        .data-table th {
+            color: var(--text-secondary);
+            text-align: left;
+            padding: 10px 12px;
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .data-table td {
+            padding: 12px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            color: #bbb8d8;
+        }
+        .data-table .hl { color: var(--text-bright); font-weight: 700; }
+
         @media (max-width: 768px) {
             .grid-2, .grid-3 { grid-template-columns: 1fr; }
             .container { padding: 0 14px; }
@@ -257,6 +279,38 @@
                 <span class="badge">📊 2018→2025</span>
             </div>
         </header>
+        <div id="player-cards"></div>
+        <section class="reveal">
+            <div class="section-label">⏤ 历年 HLTV 排名与 Rating ⏤</div>
+            <div class="glass" style="overflow-x:auto;">
+                <table class="data-table" id="hltv-table">
+                    <thead>
+                        <tr><th>赛季</th><th>ZywOo</th><th>donk</th><th>m0NESY</th><th>赛季主题</th></tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="reveal">
+            <div class="section-label">⏤ 2025 赛季大赛成绩 ⏤</div>
+            <div class="glass" style="overflow-x:auto;">
+                <table class="data-table" id="t2025-table">
+                    <thead><tr><th>赛事</th><th>ZywOo (Vitality)</th><th>donk (Spirit)</th><th>m0NESY <span style="color:#ff9966;">(Falcons)</span></th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="reveal">
+            <div class="section-label">⏤ 直接对决 · 历史 + 2025 ⏤</div>
+            <div class="glass" style="overflow-x:auto;">
+                <table class="data-table" id="h2h-table">
+                    <thead><tr><th>对阵</th><th>历史总交手</th><th>2025</th><th>Rating差</th><th>关键看点</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
     </div>
     <script>
         const players = {
@@ -472,6 +526,50 @@
         </div>
       </section>`;
     }
+
+    // Render player cards
+    const cardsContainer = document.getElementById('player-cards');
+    playerOrder.forEach(id => {
+      cardsContainer.insertAdjacentHTML('beforeend', renderPlayerCard(players[id]));
+    });
+
+const hltvTbody = document.querySelector('#hltv-table tbody');
+const years = [2018,2019,2020,2021,2022,2023,2024,2025];
+const themes = ['ZywOo新秀','最年轻#1','蝉联','s1mple#1','s1mple#1','三巨头会师','donk新王登基','ZywOo第四次加冕'];
+
+years.forEach((yr, i) => {
+  const z = players.zywoo.hltvRanks[i];
+  const d = players.donk.hltvRanks[i];
+  const m = players.monesy.hltvRanks[i];
+
+  const zCell = z.rating ? '<span class="hl">' + z.rank + '</span> · ' + z.rating : z.rank;
+  const dCell = d.rating ? '<span class="hl">' + d.rank + '</span> · ' + d.rating : d.rank;
+  const mCell = m.rating
+    ? '<span class="hl">' + m.rank + '</span> · ' + m.rating + (yr===2025?' <span style="color:#ff9966;">(Falcons)</span>':(yr>=2022&&yr<=2024?' <span style="color:#ff5555;">(G2)</span>':''))
+    : m.rank;
+
+  const themeCell = i >= 6 || i <= 2 ? '<span class="hl">' + themes[i] + '</span>' : themes[i];
+
+  hltvTbody.insertAdjacentHTML('beforeend',
+    '<tr><td><strong>' + yr + '</strong></td><td>' + zCell + '</td><td>' + dCell + '</td><td>' + mCell + '</td><td>' + themeCell + '</td></tr>'
+  );
+});
+
+// 2025 tournaments
+const t2025Tbody = document.querySelector('#t2025-table tbody');
+tournaments2025.forEach(t => {
+  t2025Tbody.insertAdjacentHTML('beforeend',
+    '<tr><td><strong>' + t.name + '</strong></td><td class="hl">' + t.zywoo + '</td><td class="hl">' + t.donk + '</td><td class="hl">' + t.monesy + '</td></tr>'
+  );
+});
+
+// Head-to-head
+const h2hTbody = document.querySelector('#h2h-table tbody');
+h2h.forEach(h => {
+  h2hTbody.insertAdjacentHTML('beforeend',
+    '<tr><td><strong>' + h.matchup + '</strong></td><td>' + h.history + '</td><td>' + h.y2025 + '</td><td class="hl">' + h.ratingDiff + '</td><td>' + h.note + '</td></tr>'
+  );
+});
     </script>
 </body>
 </html>
