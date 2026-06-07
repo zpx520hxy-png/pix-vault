@@ -106,7 +106,135 @@
         <!-- Content sections go here -->
     </div>
     <script>
-        // Data and charts go here
+        const players = {
+      zywoo: {
+        id: 'zywoo',
+        name: 'Mathieu "ZywOo" Herbaut',
+        nick: 'ZywOo',
+        country: '🇫🇷',
+        team: 'Team Vitality',
+        teamSpan: '2018 至今',
+        age: 24,
+        careerRating: 1.28,
+        activeYears: [2019,2020,2021,2022,2023,2024,2025],
+        stats: { hltv1: 4, major: 3, mvp: 25, kd: 1.43, adr: 84.5, kast: '74.5%', evp: 15 },
+        skills: { awp: 97, rifle: 95, clutch: 96, consistency: 98, impact: 97, bigMatch: 97 },
+        skillColor: 'var(--zywoo-1)',
+        skillColor2: 'var(--zywoo-2)',
+        timeline: [
+          [2016,'14岁接触CS:GO'], [2018,'加入Vitality·HLTV#8'],
+          [2019,'🥇HLTV#1·最年轻TOP1(19岁)'], [2020,'🥇蝉联HLTV#1'],
+          [2021,'🥈HLTV#2'], [2022,'🥈HLTV#2'],
+          [2023,'🥇HLTV#1·ParisMajor🏆'], [2024,'🥈HLTV#2·上海Major🏆'],
+          [2025,'🥇HLTV#1·AustinMajor🏆·6MVP']
+        ],
+        yearlyRating: [1.18,1.30,1.29,1.29,1.27,1.27,1.27,1.31],
+        hltvRanks: [
+          {year:2018,rank:'#8',rating:1.18},
+          {year:2019,rank:'🥇#1',rating:1.30},
+          {year:2020,rank:'🥇#1',rating:1.29},
+          {year:2021,rank:'#2',rating:1.29},
+          {year:2022,rank:'#2',rating:1.27},
+          {year:2023,rank:'🥇#1',rating:1.27},
+          {year:2024,rank:'#2',rating:1.27},
+          {year:2025,rank:'🥇#1',rating:1.31}
+        ],
+        teamHistory: 'Team Vitality · 🇫🇷 · 2013至今 · 3xMajor',
+        teamRank: '#1',
+        teamCore: 'ZywOo·flameZ·ropz·apEX·mezii',
+        teamColor: '#ffd700'
+      },
+      donk: {
+        id: 'donk',
+        name: 'Danil "donk" Kryshkovets',
+        nick: 'donk',
+        country: '🇷🇺',
+        team: 'Team Spirit',
+        teamSpan: '2023 至今',
+        age: 18,
+        careerRating: 1.33,
+        activeYears: [2023,2024,2025],
+        stats: { hltv1: 1, major: 1, mvp: 10, kd: 1.48, adr: 89.5, kast: '75.8%', evp: 6 },
+        skills: { awp: 70, rifle: 99, clutch: 86, consistency: 88, impact: 99, bigMatch: 94 },
+        skillColor: 'var(--donk-1)',
+        skillColor2: 'var(--donk-2)',
+        timeline: [
+          [2021,'加入SpiritAcademy·14岁'], [2023,'晋升主队·HLTV#4'],
+          [2024,'🥇HLTV#1·上海Major🏆·KatowiceMVP(1.51)'],
+          [2025,'🥈HLTV#2·Katowice三连·Dallas🏆·5MVP']
+        ],
+        yearlyRating: [null,null,null,null,null,1.12,1.36,1.33],
+        hltvRanks: [
+          {year:2018,rank:'—',rating:null},
+          {year:2019,rank:'—',rating:null},
+          {year:2020,rank:'—',rating:null},
+          {year:2021,rank:'—',rating:null},
+          {year:2022,rank:'—',rating:null},
+          {year:2023,rank:'#4',rating:1.12},
+          {year:2024,rank:'🥇#1',rating:1.36},
+          {year:2025,rank:'🥈#2',rating:1.33}
+        ],
+        teamHistory: 'Team Spirit · 🇷🇺 · 2015至今 · 1xMajor',
+        teamRank: '#2',
+        teamCore: 'donk·sh1ro·zont1x·chopper·magixx',
+        teamColor: '#ff8080'
+      },
+      monesy: {
+        id: 'monesy',
+        name: 'Ilya "m0NESY" Osipov',
+        nick: 'm0NESY',
+        country: '🇷🇺',
+        team: 'Team Falcons',
+        teamSpan: '2025 至今 (前G2 2022-2024)',
+        age: 20,
+        careerRating: 1.24,
+        activeYears: [2022,2023,2024,2025],
+        stats: { hltvBest: '#2×2', major: 0, majorBest: '半决赛', mvp: 11, kd: 1.38, adr: 78.8, kast: '73.1%', evp: 12 },
+        skills: { awp: 99, rifle: 84, clutch: 95, consistency: 86, impact: 92, bigMatch: 90 },
+        skillColor: 'var(--monesy-1)',
+        skillColor2: 'var(--monesy-2)',
+        timeline: [
+          [2020,'加入NAVIJunior·14岁天才'], [2022,'G2以$600k签下·HLTV#7'],
+          [2023,'🥈HLTV#2·IEMCologne🏆'], [2024,'🥈HLTV#2·3冠赛季'],
+          [2025,'转会Falcons·🥉HLTV#3·11MVP']
+        ],
+        yearlyRating: [null,null,null,null,1.17,1.21,1.27,1.28],
+        hltvRanks: [
+          {year:2018,rank:'—',rating:null},
+          {year:2019,rank:'—',rating:null},
+          {year:2020,rank:'—',rating:null},
+          {year:2021,rank:'—',rating:null},
+          {year:2022,rank:'#7',rating:1.17},
+          {year:2023,rank:'🥈#2',rating:1.21},
+          {year:2024,rank:'🥈#2',rating:1.27},
+          {year:2025,rank:'🥉#3',rating:1.28}
+        ],
+        teamHistory: 'G2 (22-24) → Falcons (25至今)',
+        teamRank: '#6',
+        teamCore: 'm0NESY·NiKo·Magisk',
+        teamColor: '#ff9966'
+      }
+    };
+
+    const playerOrder = ['zywoo', 'donk', 'monesy'];
+
+    // 2025 tournament data
+    const tournaments2025 = [
+      { name: 'IEM Katowice', zywoo: '🥈亚军·1.29', donk: '🥇冠军·1.45MVP', monesy: '四强·1.22' },
+      { name: 'ESL Pro League S22', zywoo: '🥇冠军·1.35MVP', donk: '六强·1.24', monesy: '八强·1.18' },
+      { name: 'BLAST Spring', zywoo: '🥇冠军·1.32MVP', donk: '🥈亚军·1.38', monesy: '四强·1.26' },
+      { name: 'IEM Dallas', zywoo: '四强·1.25', donk: '🥇冠军·1.40MVP', monesy: '🥈亚军·1.31' },
+      { name: 'BLAST Austin Major', zywoo: '🥇冠军·1.33MVP', donk: '🥈亚军·1.42', monesy: '半决赛·1.28' },
+      { name: 'IEM Cologne', zywoo: '🥇冠军·1.30MVP', donk: '四强·1.25', monesy: '🥈亚军·1.35' },
+      { name: 'BLAST World Final', zywoo: '🥇冠军·1.34MVP', donk: '四强·1.27', monesy: '六强·1.20' }
+    ];
+
+    // Head-to-head data
+    const h2h = [
+      { matchup: 'ZywOo vs donk', history: 'Vitality 12:8 Spirit', y2025: '6:4', ratingDiff: '+0.03(Z)', note: '全能vs突破' },
+      { matchup: 'donk vs m0NESY', history: 'Spirit 8:4 G2/Falcons', y2025: '5:2', ratingDiff: '+0.10(d)', note: '突破vsAWP' },
+      { matchup: 'm0NESY vs ZywOo', history: 'G2/Falcons 4:14 Vitality', y2025: '1:5', ratingDiff: '+0.06(Z)', note: 'AWP对话' }
+    ];
     </script>
 </body>
 </html>
