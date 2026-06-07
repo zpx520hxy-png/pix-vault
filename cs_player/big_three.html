@@ -258,6 +258,13 @@
             line-height: 1.7;
         }
 
+        .footer-sec {
+            text-align: center;
+            padding: 36px 0 20px;
+            color: #7777aa;
+            font-size: 12px;
+        }
+
         @media (max-width: 768px) {
             .grid-2, .grid-3 { grid-template-columns: 1fr; }
             .container { padding: 0 14px; }
@@ -347,6 +354,23 @@
             <div class="section-label">⏤ 生涯 Rating 走势 (2018-2025) ⏤</div>
             <div class="glass" style="display:flex;align-items:center;justify-content:center;min-height:320px;">
                 <canvas id="ratingTrendChart" style="max-width:100%;max-height:300px;"></canvas>
+            </div>
+        </section>
+
+        <section class="reveal">
+            <div class="section-label">⏤ 所属战队 ⏤</div>
+            <div class="grid-3" id="teams-row"></div>
+        </section>
+
+        <section class="hero reveal" style="border-bottom:none;">
+            <h2 style="font-size:clamp(24px,5vw,34px);font-weight:800;color:#e0dfff;margin:0;">时代在变，传奇永存</h2>
+            <p class="hero-sub" style="max-width:640px;margin:18px auto;">
+                ZywOo的四冠王朝 · donk的狂暴突破 · m0NESY在新的战场追寻Major——<br>
+                2025赛季结束，2026的故事刚刚开始。
+            </p>
+            <div style="display:flex;gap:24px;justify-content:center;margin-top:28px;flex-wrap:wrap;" id="closing-stats"></div>
+            <div class="footer-sec">
+                数据来源：HLTV.org · Liquipedia · ESL/BLAST/PGL 官方统计 · 截至2026年6月
             </div>
         </section>
     </div>
@@ -760,6 +784,46 @@ new Chart(trendCtx, {
     }
   }
 });
+
+// Team cards
+var teams = [
+  { name:'Vitality', desc:'🇫🇷法国·2013至今·3xMajor', stat1:['2025排名','#1'], stat2:['核心','ZywOo·flameZ·ropz'], color:'#ffd700' },
+  { name:'Spirit', desc:'🇷🇺俄罗斯·2015至今·1xMajor', stat1:['2025排名','#2'], stat2:['核心','donk·sh1ro·zont1x'], color:'#ff8080' },
+  { name:'Falcons', desc:'🇸🇦·2025 m0NESY加盟', stat1:['2025排名','#6'], stat2:['核心','m0NESY·NiKo·Magisk'], color:'#ff9966' }
+];
+var teamsRow = document.getElementById('teams-row');
+teams.forEach(function(t) {
+  teamsRow.insertAdjacentHTML('beforeend',
+    '<div class="glass" style="text-align:center;">' +
+      '<div style="font-size:20px;font-weight:800;color:' + t.color + ';">' + t.name + '</div>' +
+      '<div class="team-name">' + t.desc + '</div>' +
+      statLine(t.stat1[0], t.stat1[1]) + statLine(t.stat2[0], t.stat2[1]) +
+    '</div>'
+  );
+});
+
+// Closing stats
+var closingStats = document.getElementById('closing-stats');
+var closing = [
+  ['46','合计MVP'], ['7','HLTV#1次数'], ['4','Major🏆'], ['20.7','平均年龄']
+];
+closing.forEach(function(item) {
+  closingStats.insertAdjacentHTML('beforeend',
+    '<div style="text-align:center;"><div style="font-size:32px;font-weight:900;color:#d0d8ff;">' + item[0] + '</div><div style="font-size:12px;color:#9999bb;">' + item[1] + '</div></div>'
+  );
+});
+
+// Intersection Observer for scroll reveal
+var observer = new IntersectionObserver(function(entries) {
+  entries.forEach(function(entry) {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+      observer.unobserve(entry.target);
+    }
+  });
+}, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+
+document.querySelectorAll('.reveal').forEach(function(el) { observer.observe(el); });
     </script>
 </body>
 </html>
