@@ -83,6 +83,149 @@
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
         .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 
+        /* Hero */
+        .hero {
+            text-align: center;
+            padding: 64px 0 44px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .hero-tag {
+            color: var(--text-secondary);
+            font-size: 11px;
+            letter-spacing: 6px;
+            margin-bottom: 14px;
+        }
+        .hero h1 {
+            font-size: clamp(36px, 8vw, 56px);
+            font-weight: 900;
+            letter-spacing: -2px;
+            line-height: 1.1;
+            background: linear-gradient(135deg, #c0ccff, #ffffff, #a8b8ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .hero-sub {
+            color: var(--text-secondary);
+            font-size: 15px;
+            margin-top: 14px;
+            line-height: 1.6;
+        }
+        .hero-badges {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 22px;
+            flex-wrap: wrap;
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            background: rgba(180,190,255,0.1);
+            border: 1px solid rgba(180,190,255,0.2);
+            border-radius: 20px;
+            padding: 5px 14px;
+            font-size: 11px;
+            color: var(--text-highlight);
+        }
+        .badge-gold {
+            display: inline-block;
+            background: rgba(255,215,0,0.12);
+            border: 1px solid rgba(255,215,0,0.25);
+            border-radius: 20px;
+            padding: 5px 14px;
+            font-size: 11px;
+            color: var(--gold);
+        }
+
+        /* Typography */
+        .player-name-lg {
+            font-size: 22px;
+            font-weight: 800;
+            color: #e8e8ff;
+        }
+        .team-name {
+            font-size: 13px;
+            color: #8888aa;
+            margin-top: 2px;
+        }
+        .big-stat {
+            font-size: 42px;
+            font-weight: 900;
+            background: linear-gradient(135deg, #98a8ff, #d0daff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .section-subtitle {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-bright);
+            margin-bottom: 12px;
+        }
+
+        /* Stat line */
+        .stat-line {
+            display: flex;
+            justify-content: space-between;
+            padding: 7px 0;
+            font-size: 13px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            color: #aaaacc;
+        }
+        .stat-val {
+            color: var(--text-highlight);
+            font-weight: 700;
+        }
+
+        /* Skill bars */
+        .bar-bg {
+            height: 5px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 3px;
+            margin: 4px 0 10px;
+            overflow: hidden;
+        }
+        .bar-fill {
+            height: 100%;
+            border-radius: 3px;
+        }
+
+        /* Year dots */
+        .year-row {
+            display: flex;
+            gap: 5px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin: 10px 0;
+        }
+        .year-dot {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            font-size: 9px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Timeline */
+        .timeline-entry {
+            padding: 7px 0;
+            font-size: 13px;
+            color: #aaaacc;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .timeline-entry .year {
+            color: #90a0ff;
+            font-weight: 700;
+            min-width: 46px;
+        }
+
         @media (max-width: 768px) {
             .grid-2, .grid-3 { grid-template-columns: 1fr; }
             .container { padding: 0 14px; }
@@ -103,7 +246,17 @@
 </head>
 <body>
     <div class="container" id="app">
-        <!-- Content sections go here -->
+        <header class="hero reveal">
+            <div class="hero-tag">CS:GO → CS2 · 2018 — 2025</div>
+            <h1>THE BIG THREE</h1>
+            <p class="hero-sub">ZywOo (Vitality) · donk (Spirit) · m0NESY (G2→Falcons)<br>8个赛季 · 46MVP · 4座Major · 7次HLTV#1</p>
+            <div class="hero-badges">
+                <span class="badge-gold">🏆 7× HLTV#1</span>
+                <span class="badge">⭐ 46× MVP</span>
+                <span class="badge">🏆 4× Major</span>
+                <span class="badge">📊 2018→2025</span>
+            </div>
+        </header>
     </div>
     <script>
         const players = {
@@ -235,6 +388,90 @@
       { matchup: 'donk vs m0NESY', history: 'Spirit 8:4 G2/Falcons', y2025: '5:2', ratingDiff: '+0.10(d)', note: '突破vsAWP' },
       { matchup: 'm0NESY vs ZywOo', history: 'G2/Falcons 4:14 Vitality', y2025: '1:5', ratingDiff: '+0.06(Z)', note: 'AWP对话' }
     ];
+
+    // DOM helpers
+    function el(tag, cls, html) {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (html !== undefined) e.innerHTML = html;
+      return e;
+    }
+
+    function statLine(label, value) {
+      return `<div class="stat-line"><span>${label}</span><span class="stat-val">${value}</span></div>`;
+    }
+
+    function skillBar(label, value, color1, color2) {
+      return `<div class="stat-line"><span>${label}</span><span class="stat-val">${value}</span></div>
+    <div class="bar-bg"><div class="bar-fill" style="width:${value}%;background:linear-gradient(90deg,${color1},${color2});"></div></div>`;
+    }
+
+    function yearDots(years, color) {
+      return years.map(y => `<span class="year-dot" style="background:${color}20;color:${color};">${String(y).slice(2)}</span>`).join('');
+    }
+
+    function badge(text, cls) {
+      return `<span class="${cls || 'badge'}">${text}</span>`;
+    }
+
+    function renderPlayerCard(p) {
+      const stats = p.stats;
+      const statItems = p.id === 'monesy'
+        ? [
+            statLine('HLTV最佳', stats.hltvBest),
+            statLine('Major最佳', stats.majorBest),
+            statLine('MVP奖牌', stats.mvp),
+            statLine('K/D', stats.kd),
+            statLine('ADR', stats.adr),
+            statLine('KAST', stats.kast + '%'),
+            statLine('EVP', stats.evp)
+          ]
+        : [
+            statLine('HLTV#1', stats.hltv1 + '×'),
+            statLine('Major🏆', stats.major),
+            statLine('MVP奖牌', stats.mvp),
+            statLine('K/D', stats.kd),
+            statLine('ADR', stats.adr),
+            statLine('KAST', stats.kast + '%'),
+            statLine('EVP', stats.evp)
+          ];
+
+      const skillNames = { awp:'AWP狙击', rifle:'步枪全能', clutch:'残局能力', consistency:'稳定性', impact:'影响力', bigMatch:'大赛发挥' };
+      const skillsHTML = Object.entries(p.skills).map(([k,v]) =>
+        skillBar(skillNames[k], v, p.skillColor, p.skillColor2)
+      ).join('');
+
+      const timelineHTML = p.timeline.map(([yr, txt]) =>
+        `<div class="timeline-entry"><span class="year">${yr}</span>${txt}</div>`
+      ).join('');
+
+      return `
+      <section>
+        <div class="section-label">⏤ ${p.nick} · ${p.team} · ${p.teamSpan} ⏤</div>
+        <div class="grid-2 reveal">
+          <div class="glass-accent" style="text-align:center;">
+            <div class="player-name-lg">${p.country} ${p.name}</div>
+            <div class="team-name">${p.team} · ${p.teamSpan} · ${p.age}岁</div>
+            <div style="margin:14px 0;">
+              <div style="font-size:12px;color:#8888aa;margin-bottom:4px;">生涯Rating</div>
+              <span class="big-stat">${p.careerRating}</span>
+            </div>
+            <div class="year-row">${yearDots(p.activeYears, p.skillColor)}</div>
+            <div style="margin-top:12px;">${statItems.join('')}</div>
+          </div>
+          <div>
+            <div class="glass" style="margin-bottom:12px;">
+              <div class="section-subtitle">六维能力</div>
+              ${skillsHTML}
+            </div>
+            <div class="glass">
+              <div class="section-subtitle">📅 生涯时间线</div>
+              ${timelineHTML}
+            </div>
+          </div>
+        </div>
+      </section>`;
+    }
     </script>
 </body>
 </html>
