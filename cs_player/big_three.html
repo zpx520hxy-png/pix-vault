@@ -248,6 +248,16 @@
         }
         .data-table .hl { color: var(--text-bright); font-weight: 700; }
 
+        .insight-box {
+            background: rgba(100,140,255,0.05);
+            border-left: 2px solid rgba(130,160,255,0.5);
+            border-radius: 0 12px 12px 0;
+            padding: 16px 18px;
+            font-size: 13px;
+            color: #b0b8d0;
+            line-height: 1.7;
+        }
+
         @media (max-width: 768px) {
             .grid-2, .grid-3 { grid-template-columns: 1fr; }
             .container { padding: 0 14px; }
@@ -309,6 +319,34 @@
                     <thead><tr><th>对阵</th><th>历史总交手</th><th>2025</th><th>Rating差</th><th>关键看点</th></tr></thead>
                     <tbody></tbody>
                 </table>
+            </div>
+        </section>
+
+        <section class="reveal">
+            <div class="section-label">⏤ 六维能力雷达图 ⏤</div>
+            <div class="grid-2">
+                <div class="glass" style="display:flex;align-items:center;justify-content:center;min-height:340px;">
+                    <canvas id="radarChart" style="max-width:100%;max-height:320px;"></canvas>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:12px;">
+                    <div class="insight-box">
+                        <strong style="color:#c8d4ff;">🔍 八年纵横：三人画像</strong><br>
+                        <strong>ZywOo</strong>：史上最全面选手，六维均衡无短板，2019-2025仅一次跌出TOP2。<br>
+                        <strong>donk</strong>：火力巅峰，影响力99无可匹敌，三年从新秀到#1。<br>
+                        <strong>m0NESY</strong>：AWP艺术，残局之王，等待Major破茧。
+                    </div>
+                    <div class="glass" style="flex:1;">
+                        <div class="section-subtitle">🏅 全赛季之最</div>
+                        <div id="bests-list"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="reveal">
+            <div class="section-label">⏤ 生涯 Rating 走势 (2018-2025) ⏤</div>
+            <div class="glass" style="display:flex;align-items:center;justify-content:center;min-height:320px;">
+                <canvas id="ratingTrendChart" style="max-width:100%;max-height:300px;"></canvas>
             </div>
         </section>
     </div>
@@ -569,6 +607,158 @@ h2h.forEach(h => {
   h2hTbody.insertAdjacentHTML('beforeend',
     '<tr><td><strong>' + h.matchup + '</strong></td><td>' + h.history + '</td><td>' + h.y2025 + '</td><td class="hl">' + h.ratingDiff + '</td><td>' + h.note + '</td></tr>'
   );
+});
+
+// Radar chart
+var radarCtx = document.getElementById('radarChart').getContext('2d');
+new Chart(radarCtx, {
+  type: 'radar',
+  data: {
+    labels: ['AWP狙击', '步枪全能', '残局能力', '稳定性', '影响力', '大赛发挥'],
+    datasets: [
+      {
+        label: 'ZywOo',
+        data: [97,95,96,98,97,97],
+        borderColor: '#6c7cff',
+        backgroundColor: 'rgba(108,124,255,0.1)',
+        borderWidth: 2,
+        pointBackgroundColor: '#6c7cff',
+        pointRadius: 4
+      },
+      {
+        label: 'donk',
+        data: [70,99,86,88,99,94],
+        borderColor: '#ff7070',
+        backgroundColor: 'rgba(255,112,112,0.1)',
+        borderWidth: 2,
+        pointBackgroundColor: '#ff7070',
+        pointRadius: 4
+      },
+      {
+        label: 'm0NESY',
+        data: [99,84,95,86,92,90],
+        borderColor: '#00d090',
+        backgroundColor: 'rgba(0,208,144,0.1)',
+        borderWidth: 2,
+        pointBackgroundColor: '#00d090',
+        pointRadius: 4
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: true,
+    scales: {
+      r: {
+        beginAtZero: true,
+        max: 100,
+        min: 50,
+        ticks: { stepSize: 10, color: '#666688', backdropColor: 'transparent', font: { size: 10 } },
+        grid: { color: 'rgba(255,255,255,0.06)' },
+        angleLines: { color: 'rgba(255,255,255,0.08)' },
+        pointLabels: { color: '#aaaacc', font: { size: 12, weight: '600' } }
+      }
+    },
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: { color: '#aaaacc', font: { size: 13 }, padding: 20, usePointStyle: true }
+      }
+    }
+  }
+});
+
+// Bests list
+var bestsList = document.getElementById('bests-list');
+var bests = [
+  ['最多MVP总数', 'ZywOo (25)'],
+  ['生涯最高Rating', 'donk (1.36 @2024)'],
+  ['最多HLTV#1', 'ZywOo (4次)'],
+  ['最低年龄登顶', 'donk (17岁)'],
+  ['Major冠军最多', 'ZywOo (3座)'],
+  ['AWP最快纪录', 'm0NESY'],
+];
+bests.forEach(function(item) {
+  bestsList.insertAdjacentHTML('beforeend', statLine(item[0], item[1]));
+});
+
+// Rating trend chart
+var trendCtx = document.getElementById('ratingTrendChart').getContext('2d');
+new Chart(trendCtx, {
+  type: 'line',
+  data: {
+    labels: ['2018','2019','2020','2021','2022','2023','2024','2025'],
+    datasets: [
+      {
+        label: 'ZywOo',
+        data: [1.18,1.30,1.29,1.29,1.27,1.27,1.27,1.31],
+        borderColor: '#6c7cff',
+        backgroundColor: 'rgba(108,124,255,0.08)',
+        borderWidth: 2.5,
+        tension: 0.3,
+        pointBackgroundColor: '#6c7cff',
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        fill: true
+      },
+      {
+        label: 'donk',
+        data: [null,null,null,null,null,1.12,1.36,1.33],
+        borderColor: '#ff7070',
+        backgroundColor: 'rgba(255,112,112,0.08)',
+        borderWidth: 2.5,
+        tension: 0.3,
+        pointBackgroundColor: '#ff7070',
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        fill: true,
+        spanGaps: false
+      },
+      {
+        label: 'm0NESY',
+        data: [null,null,null,null,1.17,1.21,1.27,1.28],
+        borderColor: '#00d090',
+        backgroundColor: 'rgba(0,208,144,0.08)',
+        borderWidth: 2.5,
+        tension: 0.3,
+        pointBackgroundColor: '#00d090',
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        fill: true,
+        spanGaps: false
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: true,
+    interaction: { intersect: false, mode: 'index' },
+    scales: {
+      x: {
+        grid: { color: 'rgba(255,255,255,0.04)' },
+        ticks: { color: '#8888aa', font: { size: 12 } }
+      },
+      y: {
+        min: 1.05,
+        max: 1.42,
+        grid: { color: 'rgba(255,255,255,0.04)' },
+        ticks: { color: '#8888aa', font: { size: 11 }, stepSize: 0.05 }
+      }
+    },
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: { color: '#aaaacc', font: { size: 13 }, padding: 20, usePointStyle: true }
+      },
+      tooltip: {
+        callbacks: {
+          label: function(ctx) {
+            return ctx.raw !== null ? ctx.dataset.label + ': ' + ctx.raw : ctx.dataset.label + ': 未出道';
+          }
+        }
+      }
+    }
+  }
 });
     </script>
 </body>
