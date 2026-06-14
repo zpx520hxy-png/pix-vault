@@ -679,7 +679,7 @@ function updateInfo(img) {
 
   // 同步手机栏图标
   $('#mb-fav').innerHTML = isFav ? '♥<span class="mlbl">收藏</span>' : '♡<span class="mlbl">收藏</span>';
-  $('#mb-fav').style.color = isFav ? 'var(--fav)' : '';
+  $('#mb-fav').style.color = isFav ? 'var(--rose)' : '';
   $('#mb-dislike').innerHTML = isDisliked ? '👎<span class="mlbl">不喜欢</span>' : '✕<span class="mlbl">不喜欢</span>';
   $('#mb-dislike').style.color = isDisliked ? 'var(--danger)' : '';
 }
