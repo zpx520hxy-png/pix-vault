@@ -17,7 +17,7 @@ import mimetypes
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
 from pathlib import Path
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, unquote
 
 # ── 配置 ──────────────────────────────────────────────────
 
@@ -304,7 +304,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json({"images": favs, "count": len(favs)})
 
         elif path.startswith("/img/"):
-            rel = path[len("/img/"):]
+            rel = unquote(path[len("/img/"):])
             filepath = (ROOT / rel).resolve()
             if not str(filepath).startswith(str(ROOT.resolve())):
                 self.send_error(403)
@@ -312,7 +312,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send_file(filepath)
 
         elif path.startswith("/static/"):
-            rel = path[len("/static/"):]
+            rel = unquote(path[len("/static/"):])
             safe = Path(rel).as_posix()
             filepath = (STATIC_DIR / safe).resolve()
             if not str(filepath).startswith(str(STATIC_DIR.resolve())):

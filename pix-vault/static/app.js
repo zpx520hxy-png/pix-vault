@@ -118,7 +118,7 @@ function renderCatBar() {
   for (const cat of S.categories) {
     const chip = document.createElement('span');
     chip.className = 'chip' + (S.activeCats.has(cat.name) ? ' on' : '');
-    chip.innerHTML = `${cat.name}<span class="n">${cat.count}</span>`;
+    chip.innerHTML = `${cat.name.replace(/_/g,' ')}<span class="n">${cat.count}</span>`;
     chip.addEventListener('click', () => toggleCat(cat.name));
     bar.appendChild(chip);
   }
@@ -165,7 +165,7 @@ function renderSidebarChips() {
   for (const cat of S.categories) {
     const chip = document.createElement('span');
     chip.className = 'chip' + (S.activeCats.has(cat.name) ? ' on' : '');
-    chip.innerHTML = `${cat.name}<span class="n">${cat.count}</span>`;
+    chip.innerHTML = `${cat.name.replace(/_/g,' ')}<span class="n">${cat.count}</span>`;
     chip.addEventListener('click', () => { toggleCat(cat.name); });
     catChips.appendChild(chip);
   }
@@ -580,9 +580,6 @@ async function randomImage() {
 }
 
 function showEmpty(title, desc) {
-  const el = $('#main-img');
-  el.classList.add('loading'); // 变暗
-  el.classList.remove('show');
   $('#info-name').textContent = title;
   $('#info-meta').textContent = desc;
   $('#info-tags').innerHTML = '';
@@ -617,35 +614,19 @@ function goForward() {
 }
 
 function showImage(img) {
-  // 取消上一次正在预加载的图片
-  if (_preloadImg) {
-    _preloadImg.onload = _preloadImg.onerror = null;
-    _preloadImg.src = '';
-    _preloadImg = null;
-  }
+  if (_preloadImg) { _preloadImg.onload = _preloadImg.onerror = null; _preloadImg = null; }
 
-  // 当前图变暗表示加载中，但不消失
   const el = $('#main-img');
-  el.classList.remove('show');
-  el.classList.add('loading');
-
-  // 用离屏 Image 预加载，加载完再替换
-  const preload = new Image();
-  _preloadImg = preload;
-  preload.onload = () => {
-    _preloadImg = null;
-    el.src = preload.src;
-    el.classList.remove('loading');
-    el.classList.add('show');
-    updateInfo(img);
-  };
-  preload.onerror = () => {
-    _preloadImg = null;
-    el.classList.remove('loading');
-    el.classList.add('show');
-    toast('加载失败: ' + img.name);
-  };
-  preload.src = '/img/' + img.path;
+  el.classList.add('fade-out');
+  // 等 CSS transition 完成 (200ms) 后换图
+  setTimeout(() => {
+    el.src = '/img/' + img.path;
+    el.onload = () => {
+      requestAnimationFrame(() => { el.classList.remove('fade-out'); });
+      updateInfo(img);
+    };
+    el.onerror = () => { el.classList.remove('fade-out'); toast('加载失败: ' + img.name); };
+  }, 220);
 }
 
 function updateInfo(img) {
@@ -938,14 +919,20 @@ $('#main-view').addEventListener('mousemove', () => {
   hideInfoTimer = setTimeout(() => $('#info-overlay').classList.add('hidden'), 3000);
 });
 
-// 触摸滑动
-let touchStartX = 0;
-$('#main-view').addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
+// 触摸滑动（只在图片区域生效，不影响按钮点击）
+let touchStartX = 0, touchStartY = 0, touchOnBtn = false;
+$('#main-view').addEventListener('touchstart', e => {
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+  touchOnBtn = e.target.closest('button, .chip, #fav-chip, #dislike-chip, select') !== null;
+});
 $('#main-view').addEventListener('touchend', e => {
+  if (touchOnBtn) return;
   const dx = e.changedTouches[0].clientX - touchStartX;
-  if (Math.abs(dx) > 60) {
-    dx > 0 ? (S.seqMode ? prevSequential() : goBack())
-           : (S.seqMode ? nextSequential() : goForward());
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+    throttledNav(dx > 0 ? (S.seqMode ? prevSequential() : goBack())
+                         : (S.seqMode ? nextSequential() : goForward()));
   }
 });
 
