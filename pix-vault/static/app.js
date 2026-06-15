@@ -80,10 +80,18 @@ async function refresh() {
   updateCountLabel();
 }
 
-function updateCountLabel() {
+async function updateCountLabel() {
+  try {
+    const r = await fetch('/api/count' + buildQuery());
+    if (r.ok) {
+      const data = await r.json();
+      $('#count-label').textContent = `${data.count} 张`;
+      return;
+    }
+  } catch(e) {}
+  // fallback
   let total = 0;
   for (const c of S.categories) { if (S.activeCats.has(c.name)) total += c.count; }
-  S.poolSize = total;
   $('#count-label').textContent = `${total} 张`;
 }
 
@@ -108,6 +116,7 @@ function toggleTag(tag) {
   if (S.activeTags.has(tag)) S.activeTags.delete(tag);
   else S.activeTags.add(tag);
   renderTagBar();
+  updateCountLabel();
   onFilterChanged();
 }
 
@@ -136,6 +145,7 @@ function renderSidebarChips() {
     if (allTagsOn) { S.activeTags.clear(); }
     else { S.allTags.forEach(t => S.activeTags.add(t)); }
     renderTagBar();
+    updateCountLabel();
     onFilterChanged();
   });
   const tagChips = document.createElement('div');
@@ -158,6 +168,7 @@ function renderSidebarChips() {
     if (allCatsOn) { S.activeCats.clear(); }
     else { S.categories.forEach(c => S.activeCats.add(c.name)); }
     renderCatBar();
+    updateCountLabel();
     onFilterChanged();
   });
   const catChips = document.createElement('div');
