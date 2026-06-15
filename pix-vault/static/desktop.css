@@ -310,3 +310,59 @@ kbd,button,select,#count-label,#hint,.img-meta,.mlbl,.mg-name,.g-label,#error-to
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 ::-webkit-scrollbar-thumb:hover{background:var(--border-accent)}
+
+/* ── Mobile (≤500px) ─────────────────────────────────── */
+@media (max-width:500px){
+  /* Toolbar: hide tag/cat chips, keep core row wrapping */
+  #toolbar-row2{display:none}
+  #toolbar-row1{flex-wrap:wrap;padding:4px 6px;gap:3px 6px;min-height:36px}
+  #toolbar-row1 .brand{font-size:14px}
+  .fav-chip,.dislike-chip{font-size:10px;padding:1px 5px}
+  #btn-delete-disliked,#btn-clear-dislikes{font-size:10px;padding:1px 5px}
+  #controls{margin-left:0;flex-wrap:wrap;gap:3px}
+  #controls button{font-size:10px;padding:2px 5px}
+  #count-label{font-size:10px;min-width:40px}
+  #slide-interval{font-size:10px;padding:1px 3px}
+  /* Hide keyboard hint */
+  #hint{display:none}
+  /* Hide nav arrows (virtual bar replaces) */
+  .nav-arrow{display:none!important}
+  /* Show virtual bar */
+  #mobile-bar{
+    display:flex;position:fixed;bottom:0;left:0;right:0;z-index:500;
+    background:rgba(10,8,6,.93);backdrop-filter:blur(8px);
+    border-top:1px solid var(--border);
+    padding:6px 4px 10px;justify-content:space-evenly;align-items:center;
+    -webkit-tap-highlight-color:transparent;
+  }
+  #mobile-bar button{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    min-width:48px;height:48px;padding:2px 4px;border:none;border-radius:6px;
+    background:transparent;color:var(--text-dim);font-size:22px;cursor:pointer;
+    transition:all .1s;gap:1px;
+    -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+  }
+  #mobile-bar button:active{background:rgba(255,255,255,.06);color:var(--text)}
+  #mobile-bar button .mlbl{font-size:8px;color:var(--text-muted);line-height:1;letter-spacing:.2px;text-transform:uppercase}
+  #mobile-bar button.nav-btn{font-size:24px;min-width:52px;color:var(--text)}
+  /* Adjust main view for bottom bar */
+  #main-view{padding-bottom:62px}
+  /* Image: less max-height so bottom bar doesn't cover */
+  #single-mode{align-items:flex-start;padding-top:2px}
+  #single-mode img{max-height:calc(100vh - 120px)}
+  /* Info overlay: smaller */
+  #info-overlay{padding:40px 8px 6px}
+  .img-name{font-size:14px}
+  .img-meta{font-size:9px;opacity:.5}
+  .img-tags span{font-size:8px;padding:1px 4px;opacity:.5}
+  .fav-badge{font-size:9px}
+  /* Sidebar: narrower */
+  #sidebar{width:300px}
+  #sidebar .chip{font-size:10px;padding:2px 5px}
+  /* Gallery grid: smaller */
+  #gallery-mode .grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px}
+  .grid-item .g-label{font-size:9px}
+  /* Modal: smaller grid */
+  #modal-grid{grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:4px;padding:6px}
+  .mg-item .mg-name{font-size:7px}
+}
