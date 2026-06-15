@@ -710,12 +710,15 @@ function prevSequential() {
 
 function updateModeUI() {
   const btn = $('#btn-mode-toggle');
+  const mbBtn = $('#mb-random');
   if (S.seqMode) {
     btn.textContent = '📋 顺序';
     btn.classList.add('active');
+    mbBtn.innerHTML = '📋<span class="mlbl">顺序</span>';
   } else {
     btn.textContent = '🎲 随机';
     btn.classList.remove('active');
+    mbBtn.innerHTML = '🎲<span class="mlbl">随机</span>';
   }
 }
 
@@ -902,7 +905,7 @@ $('#mb-left').addEventListener('click', () => { throttledNav(S.seqMode ? prevSeq
 $('#mb-right').addEventListener('click', () => { throttledNav(S.seqMode ? nextSequential : goForward); });
 $('#mb-fav').addEventListener('click', toggleFavorite);
 $('#mb-dislike').addEventListener('click', toggleDislike);
-$('#mb-random').addEventListener('click', () => { throttledNav(randomImage); });
+$('#mb-random').addEventListener('click', toggleSeqMode);
 $('#mb-slideshow').addEventListener('click', toggleSlideshow);
 $('#btn-refresh').addEventListener('click', async () => {
   await refresh();

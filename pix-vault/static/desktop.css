@@ -327,12 +327,13 @@ kbd,button,select,#count-label,#hint,.img-meta,.mlbl,.mg-name,.g-label,#error-to
   }
   /* Hide delete/clear on mobile (accessible via dislike chip modal) */
   #btn-delete-disliked,#btn-clear-dislikes{display:none!important}
-  /* Controls: compact, right-aligned, only hamburger + count */
+  /* Controls: compact, right-aligned */
   #controls{
     margin-left:auto;flex-shrink:0;gap:4px;min-width:0;
   }
   #controls button{font-size:11px;padding:3px 5px}
-  #btn-refresh,#btn-mode-toggle,#btn-slideshow,#slide-interval,#btn-q,#btn-mode{display:none!important}
+  #btn-refresh,#btn-mode-toggle,#btn-slideshow,#slide-interval,#btn-q{display:none!important}
+  #btn-mode{display:block!important;font-size:13px!important;padding:3px 6px!important}
   #count-label{font-size:10px;min-width:35px}
   #hamburger{display:flex;font-size:16px;width:28px;height:28px}
   /* ── Hide keyboard hint & nav arrows ── */
