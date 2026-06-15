@@ -326,7 +326,8 @@ kbd,button,select,#count-label,#hint,.img-meta,.mlbl,.mg-name,.g-label,#error-to
     font-size:10px;padding:2px 6px;flex-shrink:0;
   }
   /* Hide delete/clear on mobile (accessible via dislike chip modal) */
-  #btn-delete-disliked,#btn-clear-dislikes{display:none!important}
+  #btn-delete-disliked.show,#btn-clear-dislikes.show{display:inline-block!important}
+  #btn-delete-disliked,#btn-clear-dislikes{font-size:10px;padding:2px 5px;border-radius:3px}
   /* Controls: compact, right-aligned */
   #controls{
     margin-left:auto;flex-shrink:0;gap:4px;min-width:0;
