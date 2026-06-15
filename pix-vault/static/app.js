@@ -91,7 +91,7 @@ function updateCountLabel() {
 function renderTagBar() {
   const bar = $('#tag-bar');
   bar.innerHTML = '';
-  const tagColors = { '写实': 't-写实', '动漫': 't-动漫', '大胸': 't-大胸', '欧美': 't-欧美', '东亚': 't-东亚', 'NSFW': 't-NSFW', '正常': 't-正常' };
+  const tagColors = { '写实':'t-写实','动漫':'t-动漫','NSFW':'t-NSFW','正常':'t-正常','单人':'t-单人','双人':'t-双人','多人':'t-多人','巨乳':'t-巨乳','贫乳':'t-贫乳','特写':'t-特写','半身':'t-半身','全身':'t-全身','POV':'t-POV','低角度':'t-低角度','背光':'t-背光' };
   for (const tag of S.allTags) {
     const chip = document.createElement('span');
     const extraCls = tagColors[tag] || '';
@@ -127,7 +127,7 @@ function renderCatBar() {
 
 // ── 侧边栏（手机）──
 function renderSidebarChips() {
-  const tagColors = { '写实': 't-写实', '动漫': 't-动漫', '大胸': 't-大胸', '欧美': 't-欧美', '东亚': 't-东亚', 'NSFW': 't-NSFW', '正常': 't-正常' };
+  const tagColors = { '写实':'t-写实','动漫':'t-动漫','NSFW':'t-NSFW','正常':'t-正常','单人':'t-单人','双人':'t-双人','多人':'t-多人','巨乳':'t-巨乳','贫乳':'t-贫乳','特写':'t-特写','半身':'t-半身','全身':'t-全身','POV':'t-POV','低角度':'t-低角度','背光':'t-背光' };
   // 标签
   const st = $('#sidebar-tags');
   const allTagsOn = S.allTags.every(t => S.activeTags.has(t));
@@ -726,6 +726,17 @@ function getNextImageFn() {
   return S.seqMode ? nextSequential : randomImage;
 }
 
+const SLIDE_INTERVALS = [3,5,10,15,30,60];
+function cycleSlideInterval() {
+  let cur = parseInt($('#slide-interval').value || '5');
+  let idx = SLIDE_INTERVALS.indexOf(cur);
+  let next = SLIDE_INTERVALS[(idx + 1) % SLIDE_INTERVALS.length];
+  $('#slide-interval').value = next;
+  $('#mb-interval').textContent = next + 's';
+  if (S.slideshow) { stopSlideshow(); startSlideshow(); }
+  toast('间隔 ' + next + 's');
+}
+
 function toggleSlideshow() {
   if (S.slideshow) {
     stopSlideshow();
@@ -734,14 +745,16 @@ function toggleSlideshow() {
   }
 }
 
+function _slideSec() { return parseInt($('#slide-interval').value) || 5; }
+
 function startSlideshow() {
   stopSlideshow();
   const fn = getNextImageFn();
-  const sec = parseInt($('#slide-interval').value) || 5;
+  var sec = _slideSec();
   S.slideshow = setInterval(fn, sec * 1000);
   $('#btn-slideshow').classList.add('slideshow-on');
   $('#btn-slideshow').textContent = '⏸ 停止';
-  $('#mb-slideshow').innerHTML = '⏸<span class="mlbl">停止</span>';
+  $('#mb-slideshow').innerHTML = '⏸<span class="mlbl"><span id="mb-interval">' + sec + 's</span></span>';
   const mode = S.seqMode ? '顺序' : '随机';
   toast(mode + '播放 (' + sec + 's)');
 }
@@ -750,7 +763,8 @@ function stopSlideshow() {
   if (S.slideshow) { clearInterval(S.slideshow); S.slideshow = null; }
   $('#btn-slideshow').classList.remove('slideshow-on');
   $('#btn-slideshow').textContent = '▶ 播放';
-  $('#mb-slideshow').innerHTML = '▶<span class="mlbl">播放</span>';
+  var sec = _slideSec();
+  $('#mb-slideshow').innerHTML = '▶<span class="mlbl"><span id="mb-interval">' + sec + 's</span></span>';
 }
 
 // ── 画廊 ──
@@ -763,13 +777,14 @@ function toggleGallery() {
     $('#gallery-mode').style.display = 'block';
     $('#main-view').classList.add('gallery');
     $('#btn-mode').classList.add('active');
-    // 只在网格为空时才加载
+    $('#mb-grid').innerHTML = '⊞<span class="mlbl">单图</span>';
     if (!$('#gallery-grid').children.length) loadGallery();
   } else {
     $('#single-mode').style.display = '';
     $('#gallery-mode').style.display = 'none';
     $('#main-view').classList.remove('gallery');
     $('#btn-mode').classList.remove('active');
+    $('#mb-grid').innerHTML = '⊞<span class="mlbl">网格</span>';
   }
 }
 
@@ -906,7 +921,15 @@ $('#mb-right').addEventListener('click', () => { throttledNav(S.seqMode ? nextSe
 $('#mb-fav').addEventListener('click', toggleFavorite);
 $('#mb-dislike').addEventListener('click', toggleDislike);
 $('#mb-random').addEventListener('click', toggleSeqMode);
-$('#mb-slideshow').addEventListener('click', toggleSlideshow);
+$('#mb-slideshow').addEventListener('click', (e) => {
+  if (e.target.id === 'mb-interval' || e.target.closest('#mb-interval')) {
+    e.stopPropagation();
+    cycleSlideInterval();
+  } else {
+    toggleSlideshow();
+  }
+});
+$('#mb-grid').addEventListener('click', toggleGallery);
 $('#btn-refresh').addEventListener('click', async () => {
   await refresh();
   if (S.isGallery) { loadGallery(); return; }

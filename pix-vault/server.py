@@ -31,72 +31,56 @@ PID_FILE = BASE_DIR / ".pix-vault.pid"
 
 # ── 标签提取 ──────────────────────────────────────────────
 
-# 只能从 batch log 提取的标签
-BATCH_LOG_TAGS = {"大胸", "NSFW"}
+# 新标签系统：从文件名直接解析中文元数据
+# 文件命名: 画风_人数_分级_身材_构图_模型_编号.png
+# 例: 写实_单人_NSFW_巨乳_半身_realvis_mix_0020.png
+# 旧文件: pony_0740.png, pn1k_0252.png → 从文件夹推断
 
-# 内容标签关键词
-TAG_KEYWORDS = {
-    "大胸": ["large breasts", "huge breasts", "big breasts", "busty",
-             "voluptuous", "giant breasts", "massive breasts", "heavy breasts"],
-    "NSFW": ["nsfw", "explicit", "nude", "naked", "pussy", "cock", "penis",
-             "breasts", "nipple", "bare pussy", "bare breasts", "spread legs",
-             "cum", "creampie", "sex", "fuck", "penetration", "masturbat",
-             "dildo", "vibrator", "bondage", "fetish", "bdsm", "orgy", "threesome"],
+# 文件名标签 → 直接映射
+FILENAME_TAG_MAP = {
+    "写实": "写实", "动漫": "动漫",
+    "NSFW": "NSFW", "正常": "正常",
+    "单人": "单人", "双人": "双人", "多人": "多人",
+    "巨乳": "巨乳", "贫乳": "贫乳",
+    "特写": "特写", "半身": "半身", "全身": "全身",
+    "POV": "POV", "背光": "背光", "低角度": "低角度",
+    "pony": "pony", "realvis": "realvis", "noobai": "noobai", "animagine": "animagine",
 }
 
-# 文件名 → 内容标签（写实/动漫走文件夹，不从文件名猜）
-FILENAME_TAGS = {
-    "大胸": ["busty", "bigbreast", "largebreast", "hugebreast"],
-    "欧美": ["european", "caucasian", "western", "american",
-             "blonde", "freckle", "redhead", "ginger", "sunkissed", "tanned"],
-    "东亚": ["asian", "japanese", "chinese", "korean", "eastasian",
-             "porcelain", "hime", "kimono", "cheongsam", "qipao", "pale skin"],
-}
-
-# 文件夹 → 风格标签（唯一权威来源）
-# NSFW: 文件夹名含 nsfw/sex/nude/noobai 的默认标 NSFW
-FOLDER_TAGS = {
-    "pony_nsfw_1000":    ["动漫", "大胸", "NSFW"],
-    "pony_nsfw_1000_v2": ["动漫", "大胸", "NSFW"],
-    "pony_nsfw_1000_v3": ["动漫", "大胸", "NSFW"],
-    "noobai_1000":       ["动漫", "大胸", "NSFW"],
-    "sex_animagine":     ["动漫", "NSFW"],
-    "sex_pony":          ["动漫", "NSFW"],
-    "real_100":          ["写实"],
-    "sexy_100":          ["写实"],
-    "sexy_100_nude":     ["写实", "NSFW"],
-    "lingerie_50":       ["写实"],
-    "stability":         ["写实"],
+# 文件夹 → 默认标签（仅用于无文件名标签的旧图片）
+FOLDER_DEFAULTS = {
+    "pony_nsfw_1000":    ["动漫", "NSFW", "巨乳", "pony"],
+    "pony_nsfw_1000_v2": ["动漫", "NSFW", "巨乳", "pony"],
+    "pony_nsfw_1000_v3": ["动漫", "NSFW", "巨乳", "pony"],
+    "noobai_1000":       ["动漫", "NSFW", "巨乳", "noobai"],
+    "sex_animagine":     ["动漫", "NSFW", "animagine"],
+    "sex_pony":          ["动漫", "NSFW", "pony"],
+    "real_100":          ["写实", "realvis"],
+    "sexy_100":          ["写实", "realvis"],
+    "sexy_100_nude":     ["写实", "NSFW", "realvis"],
+    "lingerie_50":       ["写实", "realvis"],
+    "stability":         ["写实", "stability"],
     "siliconflow":       ["写实"],
     "comfyui":           ["写实"],
     "gpt_generate":      ["写实"],
-    "model_test":        [],
     "quick_nsfw":        ["NSFW"],
+    "mixed_1000":        [],
+    "model_test":        [],
     "qq_bot_avatar":     [],
 }
 
+# 上层标签优先级（画风/分级/人数/身材 排前面）
+TAG_ORDER = {"NSFW":0,"正常":1,"写实":2,"动漫":3,"单人":4,"双人":5,"多人":6,"巨乳":7,"贫乳":8}
 
-def parse_batch_logs(root: Path) -> dict[str, set[str]]:
-    """解析 _batch_log.txt，只提取 BATCH_LOG_TAGS 中的标签"""
-    folder_tags: dict[str, set[str]] = {}
 
-    for log_path in sorted(root.rglob("_batch_log.txt")):
-        folder = log_path.parent.name
-        tags = set()
-        try:
-            text = log_path.read_text(encoding="utf-8", errors="ignore").lower()
-        except Exception:
-            continue
-
-        for tag in BATCH_LOG_TAGS:
-            for kw in TAG_KEYWORDS.get(tag, []):
-                if kw in text:
-                    tags.add(tag)
-                    break
-        if tags:
-            folder_tags[folder] = tags
-
-    return folder_tags
+def parse_filename_tags(name: str) -> set[str]:
+    """从文件名解析标签，例如 '写实_单人_NSFW_巨乳_半身_realvis_mix_0020.png'"""
+    stem = name.rsplit(".", 1)[0]
+    tags = set()
+    for part in stem.split("_"):
+        if part in FILENAME_TAG_MAP:
+            tags.add(FILENAME_TAG_MAP[part])
+    return tags
 
 
 def build_tag_index(images: list[dict]) -> tuple[dict[str, int], list[str]]:
@@ -109,20 +93,16 @@ def build_tag_index(images: list[dict]) -> tuple[dict[str, int], list[str]]:
     normal_count = 0
     for img in images:
         if "NSFW" not in img.get("tags", []):
-            img["tags"] = img["tags"] + ["正常"]
+            img["tags"].append("正常")
             normal_count += 1
     if normal_count > 0:
         tag_counts["正常"] = normal_count
-    # 排序：正常紧挨 NSFW 后面
-    priority = {"NSFW": 0, "正常": 1}
-    sorted_tags = sorted(tag_counts.keys(), key=lambda t: (priority.get(t, 99), -tag_counts[t]))
+    sorted_tags = sorted(tag_counts.keys(), key=lambda t: (TAG_ORDER.get(t, 99), -tag_counts[t]))
     return tag_counts, sorted_tags
 
 
 def scan_images(root: Path) -> list[dict]:
-    """扫描图片并打标签"""
-    batch_tags = parse_batch_logs(root)
-
+    """扫描图片并打标签：文件名优先 → 文件夹默认 → 「正常」自动补"""
     images = []
     for f in sorted(root.rglob("*")):
         if f.suffix.lower() not in IMG_EXTS:
@@ -133,18 +113,16 @@ def scan_images(root: Path) -> list[dict]:
             continue
         cat = parts[0] if len(parts) > 1 else "(root)"
 
-        # 1. 文件夹默认标签 + batch log 补充
-        tags = set(FOLDER_TAGS.get(cat, []))
-        if cat in batch_tags:
-            tags.update(batch_tags[cat])
+        # 1. 尝试从文件名解析标签
+        tags = parse_filename_tags(f.name)
 
-        # 2. 文件名关键词检测
-        name_lower = f.name.lower()
-        for tag, keywords in FILENAME_TAGS.items():
-            for kw in keywords:
-                if kw in name_lower:
-                    tags.add(tag)
-                    break
+        # 2. 如果文件名没解析出任何内容标签，用文件夹默认值
+        if not tags:
+            tags.update(FOLDER_DEFAULTS.get(cat, []))
+
+        # 3. 兼容文件夹给的数据：有文件夹 NSFW → 保留
+        if "NSFW" in FOLDER_DEFAULTS.get(cat, []) and "NSFW" not in tags and "正常" not in tags:
+            tags.add("NSFW")
 
         images.append({
             "path": str(rel).replace("\\", "/"),

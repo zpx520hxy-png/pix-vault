@@ -71,16 +71,32 @@ kbd,button,select,#count-label,#hint,.img-meta,.mlbl,.mg-name,.g-label,#error-to
 .chip.tag-chip.t-写实.on{background:#5a96dc;border-color:#5a96dc;color:#fff}
 .chip.tag-chip.t-动漫{border-color:rgba(210,120,170,.3);color:#d278aa}
 .chip.tag-chip.t-动漫.on{background:#d278aa;border-color:#d278aa;color:#fff}
-.chip.tag-chip.t-大胸{border-color:rgba(200,148,79,.3);color:var(--accent)}
-.chip.tag-chip.t-大胸.on{background:var(--accent);border-color:var(--accent);color:#0a0806}
-.chip.tag-chip.t-欧美{border-color:rgba(120,160,120,.3);color:#78a078}
-.chip.tag-chip.t-欧美.on{background:#78a078;border-color:#78a078;color:#fff}
-.chip.tag-chip.t-东亚{border-color:rgba(200,130,120,.3);color:#c88278}
-.chip.tag-chip.t-东亚.on{background:#c88278;border-color:#c88278;color:#fff}
 .chip.tag-chip.t-NSFW{border-color:rgba(180,60,60,.35);color:#c04848}
 .chip.tag-chip.t-NSFW.on{background:#b84040;border-color:#b84040;color:#fff}
 .chip.tag-chip.t-正常{border-color:rgba(70,150,90,.35);color:#4a9a5a}
 .chip.tag-chip.t-正常.on{background:#4a9a5a;border-color:#4a9a5a;color:#fff}
+.chip.tag-chip.t-单人{border-color:rgba(160,140,200,.3);color:#a08cc8}
+.chip.tag-chip.t-单人.on{background:#a08cc8;border-color:#a08cc8;color:#fff}
+.chip.tag-chip.t-双人{border-color:rgba(200,160,100,.3);color:#c8a064}
+.chip.tag-chip.t-双人.on{background:#c8a064;border-color:#c8a064;color:#fff}
+.chip.tag-chip.t-多人{border-color:rgba(200,100,100,.3);color:#c86464}
+.chip.tag-chip.t-多人.on{background:#c86464;border-color:#c86464;color:#fff}
+.chip.tag-chip.t-巨乳{border-color:rgba(200,148,79,.3);color:var(--accent)}
+.chip.tag-chip.t-巨乳.on{background:var(--accent);border-color:var(--accent);color:#0a0806}
+.chip.tag-chip.t-贫乳{border-color:rgba(140,180,200,.3);color:#8cb4c8}
+.chip.tag-chip.t-贫乳.on{background:#8cb4c8;border-color:#8cb4c8;color:#fff}
+.chip.tag-chip.t-特写{border-color:rgba(180,160,140,.3);color:#b4a08c}
+.chip.tag-chip.t-特写.on{background:#b4a08c;border-color:#b4a08c;color:#fff}
+.chip.tag-chip.t-半身{border-color:rgba(170,180,150,.3);color:#aab496}
+.chip.tag-chip.t-半身.on{background:#aab496;border-color:#aab496;color:#fff}
+.chip.tag-chip.t-全身{border-color:rgba(150,170,180,.3);color:#96aab4}
+.chip.tag-chip.t-全身.on{background:#96aab4;border-color:#96aab4;color:#fff}
+.chip.tag-chip.t-POV{border-color:rgba(180,130,170,.3);color:#b482aa}
+.chip.tag-chip.t-POV.on{background:#b482aa;border-color:#b482aa;color:#fff}
+.chip.tag-chip.t-低角度{border-color:rgba(160,130,180,.3);color:#a082b4}
+.chip.tag-chip.t-低角度.on{background:#a082b4;border-color:#a082b4;color:#fff}
+.chip.tag-chip.t-背光{border-color:rgba(200,170,100,.3);color:#c8aa64}
+.chip.tag-chip.t-背光.on{background:#c8aa64;border-color:#c8aa64;color:#fff}
 
 .fav-chip,.dislike-chip{font-size:12px;padding:3px 9px;border-radius:4px;cursor:pointer;transition:all .15s;white-space:nowrap;flex-shrink:0}
 .fav-chip{border:1px solid var(--rose);color:var(--rose);background:transparent}
@@ -333,8 +349,7 @@ kbd,button,select,#count-label,#hint,.img-meta,.mlbl,.mg-name,.g-label,#error-to
     margin-left:auto;flex-shrink:0;gap:4px;min-width:0;
   }
   #controls button{font-size:11px;padding:3px 5px}
-  #btn-refresh,#btn-mode-toggle,#btn-slideshow,#slide-interval,#btn-q{display:none!important}
-  #btn-mode{display:block!important;font-size:13px!important;padding:3px 6px!important}
+  #btn-refresh,#btn-mode-toggle,#btn-slideshow,#slide-interval,#btn-q,#btn-mode{display:none!important}
   #count-label{font-size:10px;min-width:35px}
   #hamburger{display:flex;font-size:16px;width:28px;height:28px}
   /* ── Hide keyboard hint & nav arrows ── */
@@ -360,13 +375,17 @@ kbd,button,select,#count-label,#hint,.img-meta,.mlbl,.mg-name,.g-label,#error-to
   }
   #mobile-bar button.nav-btn{font-size:24px;min-width:54px;color:var(--text)}
   /* ── Main view ── */
-  #main-view{padding-bottom:68px}
+  #main-view{padding-bottom:66px}
   #single-mode{align-items:flex-start;padding-top:0}
-  #single-mode img{max-height:calc(100vh - 115px)}
-  /* ── Info overlay ── */
-  #info-overlay{padding:36px 10px 8px}
-  .img-name{font-size:14px}
-  .img-meta{font-size:9px;opacity:.55}
+  #single-mode img{max-height:calc(100vh - 108px)}
+  /* ── Info overlay: top, semi-transparent, no block image ── */
+  #info-overlay{
+    top:0;bottom:auto;padding:6px 10px 20px;
+    background:linear-gradient(rgba(0,0,0,.7), transparent);
+    pointer-events:none;z-index:5;
+  }
+  .img-name{font-size:13px;font-weight:600}
+  .img-meta{font-size:9px;opacity:.6}
   .img-tags span{font-size:8px;padding:1px 5px;opacity:.5}
   .fav-badge{font-size:9px}
   /* ── Sidebar ── */
