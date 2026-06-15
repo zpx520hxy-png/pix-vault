@@ -323,11 +323,23 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/" or path == "/index.html":
             self._serve_html()
 
+        elif path == "/m" or path == "/mobile":
+            self._serve_mobile()
+
         else:
             self.send_error(404)
 
     def _serve_html(self):
-        content = get_html()
+        content = (STATIC_DIR / "index.html").read_text("utf-8")
+        html = content.encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(html)))
+        self.end_headers()
+        self.wfile.write(html)
+
+    def _serve_mobile(self):
+        content = (STATIC_DIR / "mobile.html").read_text("utf-8")
         html = content.encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -434,17 +446,6 @@ class Handler(BaseHTTPRequestHandler):
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     """多线程 HTTP 服务器，支持并发请求"""
     daemon_threads = True  # 主线程退出时自动清理
-
-
-# ── 静态文件 ─────────────────────────────────────────────
-
-HTML_FILE = STATIC_DIR / "index.html"
-
-def get_html() -> str:
-    """读取 index.html，如果文件不存在则返回错误页面"""
-    if HTML_FILE.is_file():
-        return HTML_FILE.read_text("utf-8")
-    return "<!doctype html><meta charset=utf-8><title>PixVault</title><h1>PixVault</h1><p>static/index.html not found</p>"
 
 
 # ── 主入口 ───────────────────────────────────────────────
