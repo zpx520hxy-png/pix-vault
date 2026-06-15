@@ -205,10 +205,13 @@ class Handler(BaseHTTPRequestHandler):
         return pool
 
     def do_GET(self):
-        # 修复中文: Python http.server 用 Latin-1 解码路径, curl 原始 UTF-8 会被错误编码
-        raw_bytes = self.path.encode("latin-1")
-        # latin-1 编码后每个字节都是 0-255, 再解码为 UTF-8 得到正确的中文
-        raw_path = raw_bytes.decode("utf-8")
+        # 修复中文: Python http.server 用 Latin-1 解码路径
+        # self.path 里的字节被错误当成 Latin-1 字符, 还原为原始字节再解码
+        try:
+            raw_bytes = self.path.encode("latin-1")
+            raw_path = raw_bytes.decode("utf-8")
+        except (UnicodeError, LookupError):
+            raw_path = self.path
         parsed = urlparse(raw_path)
         path = parsed.path
         params = parse_qs(parsed.query)
