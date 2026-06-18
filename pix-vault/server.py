@@ -60,7 +60,8 @@ _FILTER_CACHE_MAX = 32
 # 文件名标签 → 直接映射
 FILENAME_TAG_MAP = {
     "写实": "写实", "动漫": "动漫",
-    "NSFW": "NSFW", "正常": "正常",
+    "NSFW": "NSFW",
+    # 注意：不含「正常」— 文件夹分类是权威来源，「正常」由 build_tag_index 自动给无 NSFW 的图补
     "单人": "单人", "双人": "双人", "多人": "多人",
     "巨乳": "巨乳", "贫乳": "贫乳",
     "特写": "特写", "半身": "半身", "全身": "全身",
@@ -152,11 +153,14 @@ def scan_images(root: Path) -> list[dict]:
                     continue
 
                 cat_name = cat if cat else "(root)"
-                tags = parse_filename_tags(entry.name)
-                if not tags:
-                    tags.update(FOLDER_DEFAULTS.get(cat_name, []))
-                if "NSFW" in FOLDER_DEFAULTS.get(cat_name, []) and "NSFW" not in tags and "正常" not in tags:
-                    tags.add("NSFW")
+                folder_defs = FOLDER_DEFAULTS.get(cat_name, [])
+                filename_tags = parse_filename_tags(entry.name)
+
+                # 基线：始终先合并文件夹默认标签（含 NSFW 等语义信息）
+                # 文件夹分类是权威来源，文件名标签是补充
+                tags = set(folder_defs)
+                tags.update(filename_tags)
+                # 注意：不做「正常」↔「NSFW」互斥 — build_tag_index 会自动给无 NSFW 的图补「正常」
 
                 try:
                     size = entry.stat().st_size
