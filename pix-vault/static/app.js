@@ -22,7 +22,26 @@ const S = {
   favCount: 0,
   dislikePaths: new Set(),
   dislikeCount: 0,
+  viewedPaths: new Set(), // 已浏览过的图片路径（刷新不重置）
 };
+
+// ── 已浏览持久化 ──
+function loadViewed() {
+  try {
+    const data = JSON.parse(localStorage.getItem('pv_viewed') || '[]');
+    S.viewedPaths = new Set(data);
+  } catch(e) { S.viewedPaths = new Set(); }
+}
+function saveViewed() {
+  try {
+    localStorage.setItem('pv_viewed', JSON.stringify([...S.viewedPaths]));
+  } catch(e) {}
+}
+function clearViewed() {
+  S.viewedPaths.clear();
+  localStorage.removeItem('pv_viewed');
+  toast('已浏览记录已清空，刷新后重新随机');
+}
 
 // ── API ──
 async function api(url, opts) {
@@ -37,6 +56,12 @@ function buildQuery() {
   if (cats.length < S.categories.length) p.push('cats=' + cats.join(','));
   const tags = [...S.activeTags];
   if (tags.length) p.push('tags=' + tags.join(','));
+  // 排除已浏览过的图片
+  if (S.viewedPaths.size > 0) {
+    // 只传最近 200 条避免 URL 太长
+    const recent = [...S.viewedPaths].slice(-200);
+    p.push('exclude=' + recent.join(','));
+  }
   return p.length ? '?' + p.join('&') : '';
 }
 
@@ -44,6 +69,7 @@ function buildQuery() {
 async function init() {
   showLoading(true);
   try {
+    loadViewed();
     const data = await api('/api/cats');
     S.categories = data.categories;
     S.allTags = data.tags || [];
@@ -582,7 +608,14 @@ async function randomImage() {
     if (!r.ok) throw new Error(r.status);
     const img = await r.json();
     _pendingReq = null;
-    if (!img) { showEmpty('无匹配图片', '当前筛选条件无结果，请调整标签或分类'); return; }
+    if (!img) {
+      if (S.viewedPaths.size > 0) {
+        showEmpty('全部看过了！', '当前筛选下所有图片都已浏览，按 C 清除记录');
+      } else {
+        showEmpty('无匹配图片', '当前筛选条件无结果，请调整标签或分类');
+      }
+      return;
+    }
     addToHistory(img);
   } catch(e) {
     if (e.name !== 'AbortError') { toast('加载失败'); }
@@ -626,6 +659,10 @@ function goForward() {
 
 function showImage(img) {
   if (_preloadImg) { _preloadImg.onload = _preloadImg.onerror = null; _preloadImg = null; }
+
+  // 记录为已浏览
+  S.viewedPaths.add(img.path);
+  saveViewed();
 
   const el = $('#main-img');
   el.classList.add('fade-out');
@@ -870,6 +907,7 @@ document.addEventListener('keydown', e => {
     case 'q': case 'Q': e.preventDefault(); throttledNav(randomImage); break;
     case 'm': case 'M': e.preventDefault(); toggleSeqMode(); break;
     case 'd': case 'D': e.preventDefault(); toggleDislike(); break;
+    case 'c': case 'C': e.preventDefault(); clearViewed(); randomImage(); break;
     case 's': case 'S': toggleSlideshow(); e.preventDefault(); break;
     case 'g': case 'G': toggleGallery(); e.preventDefault(); break;
     case 'r': case 'R': refresh().then(() => randomImage()); e.preventDefault(); break;

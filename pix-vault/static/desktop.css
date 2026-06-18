@@ -48,10 +48,11 @@ kbd,button,select,#count-label,#hint,.img-meta,.mlbl,.mg-name,.g-label,#error-to
   color:var(--accent);white-space:nowrap;font-style:italic;
 }
 #toolbar-row2{
-  display:flex;gap:6px;align-items:center;
-  padding:0 16px 8px;background:var(--surface);
+  display:flex;flex-direction:column;gap:4px;
+  padding:4px 16px 8px;background:var(--surface);
   border-bottom:1px solid var(--border);
 }
+#toolbar-row2 .chip-bar{min-width:0}
 .chip-bar{display:flex;gap:5px;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;align-items:center;}
 .chip-bar::-webkit-scrollbar{height:2px}
 .chip-bar::-webkit-scrollbar-thumb{background:var(--border-accent);border-radius:2px}

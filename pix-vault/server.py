@@ -251,6 +251,11 @@ class Handler(BaseHTTPRequestHandler):
 
         elif path == "/api/random":
             pool = self._filter_images(params)
+            # 排除已浏览（exclude 参数）
+            exclude_param = params.get("exclude", [None])[0]
+            if exclude_param and pool:
+                exclude_set = set(exclude_param.split(","))
+                pool = [img for img in pool if img["path"] not in exclude_set]
             if not pool:
                 self._send_json(None)
                 return
