@@ -926,6 +926,9 @@ function browseScrollY() {
 }
 
 async function loadBrowse() {
+  // 立即清空旧数据，防止加载期间旧 pool 被 paintBrowseRows 使用
+  BROWSE.pool = [];
+  BROWSE.loaded = false;
   showLoading(true);
   try {
     BROWSE.pool = await api('/api/all' + buildQuery());
@@ -992,7 +995,7 @@ function renderBrowseGrid() {
 
 function paintBrowseRows() {
   const mode = $('#browse-mode');
-  if (!mode || !BROWSE.loaded) return;
+  if (!mode || !BROWSE.loaded || BROWSE.pool.length === 0) return;
   const scroll = mode.querySelector('.browse-scroll');
   if (!scroll) return;
 
@@ -1068,32 +1071,40 @@ function paintBrowseRows() {
 }
 
 function toggleBrowse() {
-  S.isBrowse = !S.isBrowse;
-  if (S.isBrowse) {
-    // 关掉 gallery 模式（如果开着）
-    if (S.isGallery) { S.isGallery = false; $('#btn-mode').classList.remove('active'); }
-    $('#single-mode').style.display = 'none';
-    $('#gallery-mode').style.display = 'none';
-    $('#main-view').classList.remove('gallery');
-    $('#btn-mode').classList.remove('active');
-    let mode = $('#browse-mode');
-    if (!mode) {
-      mode = document.createElement('section');
-      mode.id = 'browse-mode';
-      $('#main-view').appendChild(mode);
-    }
-    mode.style.display = '';
-    mode.scrollTop = 0;
-    $('#btn-browse').classList.add('active');
-    $('#mb-grid').innerHTML = '☷<span class="mlbl">单图</span>';
+  // 已在全部浏览模式 → 重新加载（筛选可能变了）
+  if (S.isBrowse && $('#browse-mode') && $('#browse-mode').style.display !== 'none') {
     loadBrowse();
-  } else {
-    closeBrowse();
+    return;
   }
+  // 从单图模式进入（从全部浏览点进来的）
+  if (S.fromBrowse) {
+    S.fromBrowse = false;
+    $('#gallery-close').classList.remove('show');
+  }
+  S.isBrowse = true;
+  // 关掉 gallery 模式（如果开着）
+  if (S.isGallery) { S.isGallery = false; $('#btn-mode').classList.remove('active'); }
+  $('#single-mode').style.display = 'none';
+  $('#gallery-mode').style.display = 'none';
+  $('#main-view').classList.remove('gallery');
+  $('#btn-mode').classList.remove('active');
+  let mode = $('#browse-mode');
+  if (!mode) {
+    mode = document.createElement('section');
+    mode.id = 'browse-mode';
+    $('#main-view').appendChild(mode);
+  }
+  mode.style.display = '';
+  mode.scrollTop = 0;
+  $('#btn-browse').classList.add('active');
+  $('#mb-grid').innerHTML = '☷<span class="mlbl">单图</span>';
+  loadBrowse();
 }
 
 function closeBrowse() {
   S.isBrowse = false;
+  BROWSE.pool = [];
+  BROWSE.loaded = false;
   $('#browse-mode').style.display = 'none';
   $('#single-mode').style.display = '';
   $('#gallery-close').classList.remove('show');
@@ -1205,9 +1216,12 @@ $('#gallery-close').addEventListener('click', () => {
     $('#browse-mode').style.display = '';
     $('#single-mode').style.display = 'none';
     $('#btn-browse').classList.add('active');
-    if (S._browseScrollPos != null) {
-      requestAnimationFrame(() => { $('#browse-mode').scrollTop = S._browseScrollPos; });
-    }
+    // 重载数据（筛选可能在单图模式期间变了）
+    loadBrowse().then(() => {
+      if (S._browseScrollPos != null) {
+        requestAnimationFrame(() => { $('#browse-mode').scrollTop = S._browseScrollPos; });
+      }
+    });
   } else {
     S.fromGallery = false;
     $('#gallery-close').classList.remove('show');
