@@ -13,6 +13,8 @@ import os
 import random
 import re
 import shutil
+import gzip
+import hashlib
 import mimetypes
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -287,16 +289,39 @@ class Handler(BaseHTTPRequestHandler):
     images: list[dict] = []
     tag_counts: dict[str, int] = {}
     all_tags: list[str] = []
+    scan_revision: int = 0  # 每次 scan_images 后 +1，用作 ETag/缓存 key 的版本号
 
     def log_message(self, format, *args):
         pass
 
-    def _send_json(self, data, status=200):
+    def _send_json(self, data, status=200, etag=None, allow_gzip=False):
+        # ETag 命中 → 304 短路，不需要序列化
+        if etag:
+            inm = self.headers.get("If-None-Match", "")
+            if inm == etag:
+                self.send_response(304)
+                self.send_header("ETag", etag)
+                self.end_headers()
+                return
+
         body = json.dumps(data, ensure_ascii=False).encode("utf-8")
+
+        encoding = None
+        if allow_gzip and len(body) > 1024:
+            ae = self.headers.get("Accept-Encoding", "")
+            if "gzip" in ae:
+                body = gzip.compress(body, compresslevel=6)
+                encoding = "gzip"
+
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", len(body))
         self.send_header("Access-Control-Allow-Origin", "*")
+        if encoding:
+            self.send_header("Content-Encoding", encoding)
+            self.send_header("Vary", "Accept-Encoding")
+        if etag:
+            self.send_header("ETag", etag)
         self.end_headers()
         self.wfile.write(body)
 
@@ -357,6 +382,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/rescan":
             Handler.images = scan_images(ROOT)
             Handler.tag_counts, Handler.all_tags = build_tag_index(Handler.images)
+            Handler.scan_revision += 1
             self._send_json({
                 "ok": True,
                 "total": len(Handler.images),
@@ -408,7 +434,10 @@ class Handler(BaseHTTPRequestHandler):
             pool = self._filter_images(params)
             # 按路径排序
             pool.sort(key=lambda x: x["path"])
-            self._send_json(pool)
+            # ETag 基于扫描版本号 + 查询参数（cats/tags/fav）— 只要扫描没变、筛选条件没变就 304
+            etag_key = f"{Handler.scan_revision}|{parsed.query}".encode()
+            etag = '"' + hashlib.md5(etag_key).hexdigest()[:16] + '"'
+            self._send_json(pool, etag=etag, allow_gzip=True)
 
         elif path == "/api/dislikes":
             dl_path = ROOT / ".disliked.json"
@@ -571,6 +600,7 @@ class Handler(BaseHTTPRequestHandler):
             # 重新扫描
             Handler.images = scan_images(ROOT)
             Handler.tag_counts, Handler.all_tags = build_tag_index(Handler.images)
+            Handler.scan_revision += 1
             self._send_json({"ok": True, "deleted": deleted, "total": len(Handler.images)})
 
         else:
@@ -595,6 +625,7 @@ def main():
     print(f"Scanning {ROOT} ...")
     Handler.images = scan_images(ROOT)
     Handler.tag_counts, Handler.all_tags = build_tag_index(Handler.images)
+    Handler.scan_revision += 1
     print(f"   Found {len(Handler.images)} images, {len(Handler.all_tags)} tags: {Handler.all_tags}")
 
     server = ThreadedHTTPServer(("0.0.0.0", PORT), Handler)
