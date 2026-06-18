@@ -32,3 +32,7 @@ archive/
 *.png
 *.jpg
 playwright-output/
+
+# pix-vault
+pix-vault/.thumbs/
+pix-vault/.pix-vault.pid

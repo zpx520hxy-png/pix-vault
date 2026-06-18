@@ -14,10 +14,17 @@ import random
 import re
 import shutil
 import mimetypes
+import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
+
+try:
+    from PIL import Image
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
 
 # ── 配置 ──────────────────────────────────────────────────
 
@@ -28,6 +35,12 @@ IMG_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"}
 PORT = int(os.environ.get("PIXVAULT_PORT", "8720"))
 ROOT = Path(os.environ.get("PIXVAULT_IMAGES", BASE_DIR.parent / "generated_images"))
 PID_FILE = BASE_DIR / ".pix-vault.pid"
+THUMB_DIR = BASE_DIR / ".thumbs"
+THUMB_MAX_WIDTH = 480
+THUMB_QUALITY = 78
+# 缩略图生成锁 — 避免并发请求同一张图重复生成
+_thumb_locks: dict[str, threading.Lock] = {}
+_thumb_locks_master = threading.Lock()
 
 # ── 标签提取 ──────────────────────────────────────────────
 
@@ -200,6 +213,74 @@ def list_favorites(fav_dir: Path) -> list[dict]:
     return favs
 
 
+# ── 缩略图 ────────────────────────────────────────────────
+
+def _thumb_lock_for(rel: str) -> threading.Lock:
+    """每张图一个锁，避免并发请求重复生成。"""
+    with _thumb_locks_master:
+        lk = _thumb_locks.get(rel)
+        if lk is None:
+            lk = threading.Lock()
+            _thumb_locks[rel] = lk
+        return lk
+
+
+def get_thumb_path(rel: str, src: Path) -> Path | None:
+    """返回缩略图路径，按需生成。生成失败返回 None（调用方 fallback 到原图）。
+
+    缩略图存到 .thumbs/<原相对路径>.jpg，按源图 mtime 失效。
+    """
+    if not HAS_PIL:
+        return None
+
+    thumb_path = THUMB_DIR / (rel + ".jpg")
+    try:
+        src_mtime = src.stat().st_mtime
+    except OSError:
+        return None
+
+    # 命中：缩略图存在且不旧于源图
+    if thumb_path.is_file():
+        try:
+            if thumb_path.stat().st_mtime >= src_mtime:
+                return thumb_path
+        except OSError:
+            pass
+
+    # 生成（同图加锁）
+    lock = _thumb_lock_for(rel)
+    with lock:
+        # 双重检查（拿到锁后另一个线程可能已经生成完）
+        if thumb_path.is_file():
+            try:
+                if thumb_path.stat().st_mtime >= src_mtime:
+                    return thumb_path
+            except OSError:
+                pass
+
+        try:
+            thumb_path.parent.mkdir(parents=True, exist_ok=True)
+            with Image.open(src) as im:
+                # 透明通道压平到白底（jpeg 不支持透明）
+                if im.mode in ("RGBA", "LA", "P"):
+                    im = im.convert("RGBA")
+                    bg = Image.new("RGB", im.size, (255, 255, 255))
+                    bg.paste(im, mask=im.split()[-1] if im.mode == "RGBA" else None)
+                    im = bg
+                elif im.mode != "RGB":
+                    im = im.convert("RGB")
+                im.thumbnail((THUMB_MAX_WIDTH, THUMB_MAX_WIDTH * 4), Image.Resampling.LANCZOS)
+                # 临时文件 + 原子替换，避免半截缩略图
+                tmp = thumb_path.with_suffix(".jpg.tmp")
+                im.save(tmp, "JPEG", quality=THUMB_QUALITY, optimize=True, progressive=True)
+                os.replace(tmp, thumb_path)
+        except Exception as e:
+            print(f"thumb fail {rel}: {e}")
+            return None
+
+    return thumb_path
+
+
 # ── HTTP Handler ──────────────────────────────────────────
 
 class Handler(BaseHTTPRequestHandler):
@@ -219,7 +300,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def _send_file(self, filepath: Path):
+    def _send_file(self, filepath: Path, immutable: bool = False):
         if not filepath.is_file():
             self.send_error(404)
             return
@@ -230,7 +311,10 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", mime)
         self.send_header("Content-Length", size)
-        self.send_header("Cache-Control", "public, max-age=3600")
+        if immutable:
+            self.send_header("Cache-Control", "public, max-age=31536000, immutable")
+        else:
+            self.send_header("Cache-Control", "public, max-age=3600")
         self.end_headers()
         with open(filepath, "rb") as f:
             while chunk := f.read(65536):
@@ -344,6 +428,28 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_error(403)
                 return
             self._send_file(filepath)
+
+        elif path.startswith("/thumb/"):
+            rel = unquote(path[len("/thumb/"):])
+            src = (ROOT / rel).resolve()
+            if not str(src).startswith(str(ROOT.resolve())) or not src.is_file():
+                self.send_error(404)
+                return
+            # 小图（< 80 KB）/ gif / 不支持 PIL — 直接返回原图
+            try:
+                src_size = src.stat().st_size
+            except OSError:
+                self.send_error(404)
+                return
+            if src_size < 80 * 1024 or src.suffix.lower() == ".gif" or not HAS_PIL:
+                self._send_file(src)
+                return
+            thumb = get_thumb_path(rel, src)
+            if thumb and thumb.is_file():
+                self._send_file(thumb, immutable=True)
+            else:
+                # 生成失败 fallback 原图
+                self._send_file(src)
 
         elif path.startswith("/static/"):
             rel = unquote(path[len("/static/"):])

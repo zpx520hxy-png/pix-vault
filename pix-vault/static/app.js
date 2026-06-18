@@ -293,7 +293,7 @@ function showModalGrid(title, images) {
     const item = document.createElement('div');
     item.className = 'mg-item';
     item.dataset.idx = i;
-    item.innerHTML = `<img src="/img/${img.path}" loading="lazy"
+    item.innerHTML = `<img src="/thumb/${img.path}" loading="lazy"
       onerror="this.parentElement.remove()"><div class="mg-name">${img.name}</div>
       <button class="mg-cancel" data-idx="${i}">✕</button>
       <div class="mg-check" data-idx="${i}"></div>`;
@@ -370,7 +370,10 @@ async function batchCancelModal() {
   items.forEach(el => {
     if (el.classList.contains('sel')) {
       const img = el.querySelector('img');
-      imagePaths.push({ src: img.src.replace('/img/', ''), el });
+      // src 可能是 /thumb/ 或 /img/，去掉前缀和 origin
+      const u = new URL(img.src, location.origin);
+      const src = u.pathname.replace(/^\/(thumb|img)\//, '');
+      imagePaths.push({ src, el });
     }
   });
 
@@ -845,7 +848,7 @@ async function loadGallery() {
     for (const img of images) {
       const item = document.createElement('div');
       item.className = 'grid-item';
-      item.innerHTML = `<img src="/img/${img.path}" class="lazy" loading="lazy"
+      item.innerHTML = `<img src="/thumb/${img.path}" class="lazy" loading="lazy"
         onload="this.classList.replace('lazy','loaded')"
         onerror="this.parentElement.remove()"><div class="g-label">${img.name}</div>`;
       item.addEventListener('click', () => {
