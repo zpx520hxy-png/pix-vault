@@ -1097,7 +1097,7 @@ function toggleBrowse() {
   mode.style.display = '';
   mode.scrollTop = 0;
   $('#btn-browse').classList.add('active');
-  $('#mb-grid').innerHTML = '☷<span class="mlbl">单图</span>';
+  $('#mb-browse').classList.add('active');
   loadBrowse();
 }
 
@@ -1109,7 +1109,7 @@ function closeBrowse() {
   $('#single-mode').style.display = '';
   $('#gallery-close').classList.remove('show');
   $('#btn-browse').classList.remove('active');
-  $('#mb-grid').innerHTML = '⊞<span class="mlbl">网格</span>';
+  $('#mb-browse').classList.remove('active');
 }
 
 // 窗口 resize 重新计算虚拟滚动布局
@@ -1216,6 +1216,7 @@ $('#gallery-close').addEventListener('click', () => {
     $('#browse-mode').style.display = '';
     $('#single-mode').style.display = 'none';
     $('#btn-browse').classList.add('active');
+    $('#mb-browse').classList.add('active');
     // 重载数据（筛选可能在单图模式期间变了）
     loadBrowse().then(() => {
       if (S._browseScrollPos != null) {
@@ -1248,6 +1249,7 @@ $('#mb-slideshow').addEventListener('click', (e) => {
   }
 });
 $('#mb-grid').addEventListener('click', toggleGallery);
+$('#mb-browse').addEventListener('click', toggleBrowse);
 $('#btn-refresh').addEventListener('click', async () => {
   await refresh();
   if (S.isBrowse) { loadBrowse(); return; }

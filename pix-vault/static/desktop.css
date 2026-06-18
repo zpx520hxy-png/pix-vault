@@ -397,6 +397,8 @@ kbd,button,select,#count-label,#hint,.img-meta,.mlbl,.mg-name,.g-label,#error-to
     -webkit-tap-highlight-color:transparent;touch-action:manipulation;
   }
   #mobile-bar button:active{background:rgba(255,255,255,.06);color:var(--text)}
+  #mobile-bar button.active{background:var(--accent);color:#0a0806;border-color:var(--accent)}
+  #mobile-bar button.active .mlbl{color:rgba(10,8,6,.7)}
   #mobile-bar button .mlbl{
     font-size:9px;color:var(--text-muted);line-height:1;
   }
