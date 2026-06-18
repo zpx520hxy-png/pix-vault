@@ -669,23 +669,44 @@ function goForward() {
 }
 
 function showImage(img) {
+  // 取消可能在飞的旧预加载
   if (_preloadImg) { _preloadImg.onload = _preloadImg.onerror = null; _preloadImg = null; }
 
-  // 记录为已浏览
+  // 记录为已浏览（debounce 写入 localStorage）
   S.viewedPaths.add(img.path);
   saveViewed();
 
   const el = $('#main-img');
+  const url = '/img/' + img.path;
+
+  // 立即开始 fade-out
   el.classList.add('fade-out');
-  // 等 CSS transition 完成 (200ms) 后换图
-  setTimeout(() => {
-    el.src = '/img/' + img.path;
-    el.onload = () => {
-      requestAnimationFrame(() => { el.classList.remove('fade-out'); });
-      updateInfo(img);
-    };
-    el.onerror = () => { el.classList.remove('fade-out'); toast('加载失败: ' + img.name); };
-  }, 220);
+
+  // 同时启动新图预加载（与 fade-out 并行，省去 220ms 串行等待）
+  const pre = new Image();
+  _preloadImg = pre;
+
+  let fadeReady = false, imgReady = false, errored = false;
+  const tryShow = () => {
+    if (errored || _preloadImg !== pre) return;
+    if (!fadeReady || !imgReady) return;
+    el.src = url;
+    requestAnimationFrame(() => el.classList.remove('fade-out'));
+    updateInfo(img);
+    _preloadImg = null;
+  };
+
+  setTimeout(() => { fadeReady = true; tryShow(); }, 220);
+
+  pre.onload = () => { imgReady = true; tryShow(); };
+  pre.onerror = () => {
+    if (_preloadImg !== pre) return;
+    errored = true;
+    el.classList.remove('fade-out');
+    toast('加载失败: ' + img.name);
+    _preloadImg = null;
+  };
+  pre.src = url;
 }
 
 function updateInfo(img) {
