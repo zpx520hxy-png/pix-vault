@@ -32,13 +32,21 @@ function loadViewed() {
     S.viewedPaths = new Set(data);
   } catch(e) { S.viewedPaths = new Set(); }
 }
-function saveViewed() {
+let _saveViewedTimer = null;
+function _saveViewedNow() {
+  if (_saveViewedTimer) { clearTimeout(_saveViewedTimer); _saveViewedTimer = null; }
   try {
     localStorage.setItem('pv_viewed', JSON.stringify([...S.viewedPaths]));
   } catch(e) {}
 }
+function saveViewed() {
+  // debounce 1s — 切图时不阻塞主线程序列化几千条路径
+  if (_saveViewedTimer) clearTimeout(_saveViewedTimer);
+  _saveViewedTimer = setTimeout(_saveViewedNow, 1000);
+}
 function clearViewed() {
   S.viewedPaths.clear();
+  if (_saveViewedTimer) { clearTimeout(_saveViewedTimer); _saveViewedTimer = null; }
   localStorage.removeItem('pv_viewed');
   toast('已浏览记录已清空，刷新后重新随机');
 }
@@ -1016,9 +1024,15 @@ $('#main-view').addEventListener('touchend', e => {
 
 // 页面回来自动刷新
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) {
+  if (document.hidden) {
+    // 隐藏时强制刷写已浏览记录，避免 debounce 还没触发就关页面丢失
+    _saveViewedNow();
+  } else {
     refresh().then(() => { if (S.isGallery) loadGallery(); });
   }
 });
+
+// 关页前再保险一次
+window.addEventListener('beforeunload', _saveViewedNow);
 
 init();
