@@ -286,6 +286,32 @@ kbd,button,select,#count-label,#hint,.img-meta,.mlbl,.mg-name,.g-label,#error-to
 }
 .mp-close:hover{background:rgba(255,255,255,.08)}
 
+/* Browse-all mode (virtual scroll) */
+#browse-mode{
+  position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;
+  background:var(--bg);z-index:5;
+}
+#browse-mode .b-head{
+  position:sticky;top:0;z-index:2;
+  padding:6px 16px;font-size:13px;color:var(--text-dim);
+  background:var(--surface);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;
+}
+#browse-mode .b-head .b-total{color:var(--accent);font-weight:600}
+#browse-mode .browse-scroll{position:relative;width:100%}
+#browse-mode .browse-vrow{position:absolute;left:0;width:100%;display:flex;gap:4px;padding:0 4px;box-sizing:border-box}
+#browse-mode .browse-item{flex:1 1 0;min-width:0;cursor:pointer;overflow:hidden;border-radius:3px;position:relative}
+#browse-mode .browse-item img{width:100%;aspect-ratio:1;object-fit:cover;display:block;transition:opacity .2s}
+#browse-mode .browse-item img.lazy{opacity:0}
+#browse-mode .browse-item img.loaded{opacity:1}
+#browse-mode .browse-item .g-label{
+  position:absolute;bottom:0;left:0;right:0;
+  padding:2px 6px;font-size:10px;color:rgba(255,255,255,.7);
+  background:linear-gradient(transparent,rgba(0,0,0,.6));
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  pointer-events:none;
+}
+
 /* Utilities */
 #loading-indicator{
   position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
