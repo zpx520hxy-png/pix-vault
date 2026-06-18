@@ -964,13 +964,12 @@ function renderBrowseGrid() {
   }
   head.innerHTML = `<span class="b-total">${BROWSE.pool.length}</span> 张全部图片`;
 
-  // 滚动容器
+  // 滚动容器（每次重建时清空旧 DOM，避免残留旧行）
   let scroll = mode.querySelector('.browse-scroll');
-  if (!scroll) {
-    scroll = document.createElement('div');
-    scroll.className = 'browse-scroll';
-    mode.appendChild(scroll);
-  }
+  if (scroll) scroll.remove();
+  scroll = document.createElement('div');
+  scroll.className = 'browse-scroll';
+  mode.appendChild(scroll);
   scroll.style.height = BROWSE.containerH + 'px';
 
   BROWSE.scrollEl = mode;
