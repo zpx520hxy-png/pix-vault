@@ -102,36 +102,102 @@ def build_tag_index(images: list[dict]) -> tuple[dict[str, int], list[str]]:
 
 
 def scan_images(root: Path) -> list[dict]:
-    """扫描图片并打标签：文件名优先 → 文件夹默认 → 「正常」自动补"""
-    images = []
-    for f in sorted(root.rglob("*")):
-        if f.suffix.lower() not in IMG_EXTS:
-            continue
-        rel = f.relative_to(root)
-        parts = rel.parts
-        if parts[0] == "favorites":
-            continue
-        cat = parts[0] if len(parts) > 1 else "(root)"
+    """扫描图片并打标签：文件名优先 → 文件夹默认 → 「正常」自动补
 
-        # 1. 尝试从文件名解析标签
-        tags = parse_filename_tags(f.name)
+    用 os.scandir 递归 — 在 Windows 上 entry.stat() 复用 WIN32_FIND_DATA，
+    不会再发 stat 系统调用，比 Path.rglob('*') + f.stat() 快 5-10×。
+    """
+    images: list[dict] = []
+    root_str = str(root)
 
-        # 2. 如果文件名没解析出任何内容标签，用文件夹默认值
-        if not tags:
-            tags.update(FOLDER_DEFAULTS.get(cat, []))
+    def walk(dir_path: str, cat: str | None):
+        try:
+            it = os.scandir(dir_path)
+        except OSError:
+            return
+        with it:
+            for entry in it:
+                if entry.is_dir(follow_symlinks=False):
+                    # 顶层 favorites 文件夹跳过（不进 pool）
+                    if cat is None and entry.name == "favorites":
+                        continue
+                    # 顶层目录名就是分类，子层级保留首层分类
+                    walk(entry.path, entry.name if cat is None else cat)
+                    continue
+                if not entry.is_file(follow_symlinks=False):
+                    continue
+                ext = os.path.splitext(entry.name)[1].lower()
+                if ext not in IMG_EXTS:
+                    continue
 
-        # 3. 兼容文件夹给的数据：有文件夹 NSFW → 保留
-        if "NSFW" in FOLDER_DEFAULTS.get(cat, []) and "NSFW" not in tags and "正常" not in tags:
-            tags.add("NSFW")
+                cat_name = cat if cat else "(root)"
+                tags = parse_filename_tags(entry.name)
+                if not tags:
+                    tags.update(FOLDER_DEFAULTS.get(cat_name, []))
+                if "NSFW" in FOLDER_DEFAULTS.get(cat_name, []) and "NSFW" not in tags and "正常" not in tags:
+                    tags.add("NSFW")
 
-        images.append({
-            "path": str(rel).replace("\\", "/"),
-            "category": cat,
-            "name": f.name,
-            "size": f.stat().st_size,
-            "tags": sorted(tags),
-        })
+                try:
+                    size = entry.stat().st_size
+                except OSError:
+                    size = 0
+
+                # 相对路径 — 避免构造 Path 对象
+                abs_path = entry.path
+                rel = abs_path[len(root_str):].lstrip("\\/")
+                rel_str = rel.replace("\\", "/")
+
+                images.append({
+                    "path": rel_str,
+                    "category": cat_name,
+                    "name": entry.name,
+                    "size": size,
+                    "tags": sorted(tags),
+                })
+
+    walk(root_str, None)
+    images.sort(key=lambda x: x["path"])
     return images
+
+
+def list_favorites(fav_dir: Path) -> list[dict]:
+    """列出收藏夹下所有图片（scandir 递归）"""
+    favs: list[dict] = []
+    if not fav_dir.is_dir():
+        return favs
+    fav_str = str(fav_dir)
+
+    def walk(dir_path: str):
+        try:
+            it = os.scandir(dir_path)
+        except OSError:
+            return
+        with it:
+            for entry in it:
+                if entry.is_dir(follow_symlinks=False):
+                    walk(entry.path)
+                    continue
+                if not entry.is_file(follow_symlinks=False):
+                    continue
+                ext = os.path.splitext(entry.name)[1].lower()
+                if ext not in IMG_EXTS:
+                    continue
+                try:
+                    size = entry.stat().st_size
+                except OSError:
+                    size = 0
+                rel = entry.path[len(fav_str):].lstrip("\\/").replace("\\", "/")
+                favs.append({
+                    "path": "favorites/" + rel,
+                    "category": "favorites",
+                    "name": entry.name,
+                    "size": size,
+                    "tags": [],
+                })
+
+    walk(fav_str)
+    favs.sort(key=lambda x: x["path"])
+    return favs
 
 
 # ── HTTP Handler ──────────────────────────────────────────
@@ -176,19 +242,7 @@ class Handler(BaseHTTPRequestHandler):
 
         # 收藏夹模式：只返回 favorites 文件夹的图片
         if params.get("fav", [None])[0] == "1":
-            fav_dir = ROOT / "favorites"
-            favs = []
-            if fav_dir.is_dir():
-                for f in sorted(fav_dir.rglob("*")):
-                    if f.suffix.lower() in IMG_EXTS:
-                        favs.append({
-                            "path": "favorites/" + str(f.relative_to(fav_dir)).replace("\\", "/"),
-                            "category": "favorites",
-                            "name": f.name,
-                            "size": f.stat().st_size,
-                            "tags": [],
-                        })
-            return favs
+            return list_favorites(ROOT / "favorites")
 
         # 分类过滤
         cats_param = params.get("cats", [None])[0]
@@ -233,11 +287,8 @@ class Handler(BaseHTTPRequestHandler):
             cat_counts = {}
             for img in self.images:
                 cat_counts[img["category"]] = cat_counts.get(img["category"], 0) + 1
-            # 统计收藏夹图片数
-            fav_dir = ROOT / "favorites"
-            fav_count = 0
-            if fav_dir.is_dir():
-                fav_count = sum(1 for f in fav_dir.rglob("*") if f.suffix.lower() in IMG_EXTS)
+            # 统计收藏夹图片数（用 scandir，避免 rglob 列举非图片文件）
+            fav_count = len(list_favorites(ROOT / "favorites"))
             self._send_json({
                 "total": len(self.images),
                 "categories": [
@@ -283,18 +334,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json({"paths": disliked, "count": len(disliked)})
 
         elif path == "/api/favorites":
-            fav_dir = ROOT / "favorites"
-            favs = []
-            if fav_dir.is_dir():
-                for f in sorted(fav_dir.rglob("*")):
-                    if f.suffix.lower() in IMG_EXTS:
-                        favs.append({
-                            "path": "favorites/" + str(f.relative_to(fav_dir)).replace("\\", "/"),
-                            "name": f.name,
-                            "size": f.stat().st_size,
-                            "category": "favorites",
-                            "tags": [],
-                        })
+            favs = list_favorites(ROOT / "favorites")
             self._send_json({"images": favs, "count": len(favs)})
 
         elif path.startswith("/img/"):
