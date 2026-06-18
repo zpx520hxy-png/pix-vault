@@ -44,6 +44,12 @@ THUMB_QUALITY = 78
 _thumb_locks: dict[str, threading.Lock] = {}
 _thumb_locks_master = threading.Lock()
 
+# 过滤池缓存 — key=(cats_param, tags_param, scan_revision)
+# 同筛选条件下 Q 键连点不会反复 O(N) 过滤；scan_revision 变化时旧条目自然不命中
+_filter_cache: dict[tuple[str, str, int], list[dict]] = {}
+_filter_cache_lock = threading.Lock()
+_FILTER_CACHE_MAX = 32
+
 # ── 标签提取 ──────────────────────────────────────────────
 
 # 新标签系统：从文件名直接解析中文元数据
@@ -346,24 +352,34 @@ class Handler(BaseHTTPRequestHandler):
                 self.wfile.write(chunk)
 
     def _filter_images(self, params: dict) -> list[dict]:
-        """根据 cats / tags / fav 参数过滤"""
-        pool = self.images
-
-        # 收藏夹模式：只返回 favorites 文件夹的图片
+        """根据 cats / tags / fav 参数过滤，结果按 (cats, tags, scan_revision) 缓存"""
+        # 收藏夹模式：每次都即时列举（文件可能变化，不缓存）
         if params.get("fav", [None])[0] == "1":
             return list_favorites(ROOT / "favorites")
 
-        # 分类过滤
-        cats_param = params.get("cats", [None])[0]
+        cats_param = params.get("cats", [None])[0] or ""
+        tags_param = params.get("tags", [None])[0] or ""
+        rev = Handler.scan_revision
+        key = (cats_param, tags_param, rev)
+
+        with _filter_cache_lock:
+            cached = _filter_cache.get(key)
+            if cached is not None:
+                return cached
+
+        pool = Handler.images
         if cats_param:
             cats_filter = set(cats_param.split(","))
             pool = [img for img in pool if img["category"] in cats_filter]
-
-        # 标签过滤
-        tags_param = params.get("tags", [None])[0]
         if tags_param:
             tags_filter = set(tags_param.split(","))
             pool = [img for img in pool if tags_filter.issubset(set(img.get("tags", [])))]
+
+        with _filter_cache_lock:
+            # 简单 LRU：超出上限就清空（同一会话筛选条件本来也不会很多）
+            if len(_filter_cache) >= _FILTER_CACHE_MAX:
+                _filter_cache.clear()
+            _filter_cache[key] = pool
 
         return pool
 
@@ -412,13 +428,22 @@ class Handler(BaseHTTPRequestHandler):
 
         elif path == "/api/random":
             pool = self._filter_images(params)
-            # 排除已浏览（exclude 参数）
-            exclude_param = params.get("exclude", [None])[0]
-            if exclude_param and pool:
-                exclude_set = set(exclude_param.split(","))
-                pool = [img for img in pool if img["path"] not in exclude_set]
             if not pool:
                 self._send_json(None)
+                return
+            exclude_param = params.get("exclude", [None])[0]
+            if exclude_param:
+                exclude_set = set(exclude_param.split(","))
+                # 即时拒抽：先随机抽 10 次试试不在 exclude 中
+                # exclude 一般 ≤ 200，pool 几千张时随机命中率很高
+                for _ in range(10):
+                    cand = random.choice(pool)
+                    if cand["path"] not in exclude_set:
+                        self._send_json(cand)
+                        return
+                # 10 次都被排除 → 退化为全量过滤再抽（少见情况，例如池子小或大半已浏览）
+                filtered = [img for img in pool if img["path"] not in exclude_set]
+                self._send_json(random.choice(filtered) if filtered else None)
                 return
             self._send_json(random.choice(pool))
 
@@ -431,9 +456,8 @@ class Handler(BaseHTTPRequestHandler):
 
         # 顺序模式下获取全量排序列表（只返回元数据）
         elif path == "/api/all":
+            # _filter_images 返回的池子已按 path 排序（scan_images 末尾 sort + filter 保留顺序）
             pool = self._filter_images(params)
-            # 按路径排序
-            pool.sort(key=lambda x: x["path"])
             # ETag 基于扫描版本号 + 查询参数（cats/tags/fav）— 只要扫描没变、筛选条件没变就 304
             etag_key = f"{Handler.scan_revision}|{parsed.query}".encode()
             etag = '"' + hashlib.md5(etag_key).hexdigest()[:16] + '"'
