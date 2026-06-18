@@ -1235,8 +1235,6 @@ $('#gallery-close').addEventListener('click', () => {
 $('#btn-slideshow').addEventListener('click', toggleSlideshow);
 
 // 手机虚拟按键
-$('#mb-left').addEventListener('click', () => { throttledNav(S.seqMode ? prevSequential : goBack); });
-$('#mb-right').addEventListener('click', () => { throttledNav(S.seqMode ? nextSequential : goForward); });
 $('#mb-fav').addEventListener('click', toggleFavorite);
 $('#mb-dislike').addEventListener('click', toggleDislike);
 $('#mb-random').addEventListener('click', toggleSeqMode);
