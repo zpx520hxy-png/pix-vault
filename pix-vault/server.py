@@ -536,7 +536,13 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(html)
 
     def _serve_mobile(self):
-        self._serve_html()
+        content = (STATIC_DIR / "mobile.html").read_text("utf-8")
+        html = content.encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(html)))
+        self.end_headers()
+        self.wfile.write(html)
 
     def do_POST(self):
         parsed = urlparse(self.path)

@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PixVault · Mobile</title>
-<link rel="stylesheet" href="/static/mobile.css?v=2">
+<title>PixVault</title>
+<link rel="stylesheet" href="/static/desktop.css?v=15">
 </head>
 <body>
 
@@ -13,8 +13,8 @@
     <span class="brand">PixVault</span>
     <span class="chip fav-chip" id="fav-chip">♥ 收藏夹</span>
     <span class="chip dislike-chip" id="dislike-chip">💔 不喜欢0</span>
-    <button id="btn-delete-disliked" title="删除所有不喜欢的图片">🗑 删除</button>
     <button id="btn-clear-dislikes" title="清空不喜欢列表（不删文件）" style="display:none">✕ 清空</button>
+    <button id="btn-delete-disliked" title="删除所有不喜欢的图片">🗑 删除</button>
     <div id="controls">
       <button id="hamburger" title="菜单">☰</button>
       <span id="count-label"></span>
@@ -31,6 +31,7 @@
       </select>
       <button id="btn-q" title="随机一张 (Q)">🎲</button>
       <button id="btn-mode" title="网格 (G)">⊞</button>
+      <button id="btn-browse" title="全部浏览 (B)">☷</button>
     </div>
   </div>
   <div id="toolbar-row2">
@@ -58,12 +59,12 @@
 </main>
 
 <nav id="mobile-bar">
-  <button class="nav-btn" id="mb-left" title="上一张">◀<span class="mlbl">上一张</span></button>
   <button id="mb-fav" title="收藏">♡<span class="mlbl">收藏</span></button>
   <button id="mb-dislike" title="不喜欢">✕<span class="mlbl">不喜欢</span></button>
   <button id="mb-random" title="随机">🎲<span class="mlbl">随机</span></button>
-  <button id="mb-slideshow" title="播放">▶<span class="mlbl">播放</span></button>
-  <button class="nav-btn" id="mb-right" title="下一张">▶<span class="mlbl">下一张</span></button>
+  <button id="mb-slideshow" title="播放">▶<span class="mlbl"><span id="mb-interval">5s</span></span></button>
+  <button id="mb-grid" title="网格">⊞<span class="mlbl">网格</span></button>
+  <button id="mb-browse" title="全部浏览">☷<span class="mlbl">全部</span></button>
 </nav>
 
 <div id="sidebar-overlay"></div>
@@ -88,10 +89,9 @@
 <div id="error-toast"></div>
 <div id="favorite-toast">♥</div>
 <footer id="hint">
-  <kbd>←</kbd><kbd>→</kbd> 历史 &nbsp; <kbd>Q</kbd> 随机 &nbsp; <kbd>Space</kbd> 收藏 &nbsp; <kbd>D</kbd> 不喜欢 &nbsp; <kbd>S</kbd> 播放 &nbsp; <kbd>G</kbd> 网格 &nbsp; <kbd>M</kbd> 模式
+  <kbd>←</kbd><kbd>→</kbd> 历史 &nbsp; <kbd>Q</kbd> 随机 &nbsp; <kbd>Space</kbd> 收藏 &nbsp; <kbd>D</kbd> 不喜欢 &nbsp; <kbd>C</kbd> 清记录 &nbsp; <kbd>S</kbd> 播放 &nbsp; <kbd>G</kbd> 网格 &nbsp; <kbd>B</kbd> 全部浏览 &nbsp; <kbd>M</kbd> 模式
 </footer>
 
-
-<script src="/static/app.js?v=25"></script>
+<script src="/static/app.js?v=31"></script>
 </body>
 </html>
