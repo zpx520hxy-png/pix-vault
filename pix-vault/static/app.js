@@ -1058,6 +1058,9 @@ function paintBrowseRows() {
         S._browseScrollPos = mode.scrollTop;
         S.isBrowse = false;
         S.fromBrowse = true;
+        // 让单图左右滑动按 BROWSE.pool 顺序走（无论全局 seqMode 是否开）
+        S.seqPool = BROWSE.pool.slice();
+        S.seqIdx = i;
         $('#browse-mode').style.display = 'none';
         $('#single-mode').style.display = '';
         $('#gallery-close').classList.add('show');
@@ -1071,9 +1074,9 @@ function paintBrowseRows() {
 }
 
 function toggleBrowse() {
-  // 已在全部浏览模式 → 重新加载（筛选可能变了）
+  // 已在全部浏览模式 → 关闭，回到单图模式
   if (S.isBrowse && $('#browse-mode') && $('#browse-mode').style.display !== 'none') {
-    loadBrowse();
+    closeBrowse();
     return;
   }
   // 从单图模式进入（从全部浏览点进来的）
@@ -1148,11 +1151,11 @@ document.addEventListener('keydown', e => {
   switch (e.key) {
     case 'ArrowLeft':
       e.preventDefault();
-      throttledNav(S.seqMode ? prevSequential : goBack);
+      throttledNav((S.seqMode || S.fromBrowse) ? prevSequential : goBack);
       break;
     case 'ArrowRight':
       e.preventDefault();
-      throttledNav(S.seqMode ? nextSequential : goForward);
+      throttledNav((S.seqMode || S.fromBrowse) ? nextSequential : goForward);
       break;
     case ' ':          e.preventDefault(); toggleFavorite(); break;
     case 'q': case 'Q': e.preventDefault(); throttledNav(randomImage); break;
@@ -1197,10 +1200,10 @@ document.addEventListener('keydown', e => {
 $('#btn-q').addEventListener('click', () => throttledNav(randomImage));
 $('#btn-mode-toggle').addEventListener('click', toggleSeqMode);
 $('#btn-left').addEventListener('click', () => {
-  throttledNav(S.seqMode ? prevSequential : goBack);
+  throttledNav((S.seqMode || S.fromBrowse) ? prevSequential : goBack);
 });
 $('#btn-right').addEventListener('click', () => {
-  throttledNav(S.seqMode ? nextSequential : goForward);
+  throttledNav((S.seqMode || S.fromBrowse) ? nextSequential : goForward);
 });
 $('#fav-chip').addEventListener('click', openFavModal);
 $('#dislike-chip').addEventListener('click', openDislikeModal);
@@ -1276,8 +1279,9 @@ $('#main-view').addEventListener('touchend', e => {
   const dx = e.changedTouches[0].clientX - touchStartX;
   const dy = e.changedTouches[0].clientY - touchStartY;
   if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
-    throttledNav(dx > 0 ? (S.seqMode ? prevSequential() : goBack())
-                         : (S.seqMode ? nextSequential() : goForward()));
+    const useSeq = S.seqMode || S.fromBrowse;
+    throttledNav(dx > 0 ? (useSeq ? prevSequential() : goBack())
+                         : (useSeq ? nextSequential() : goForward()));
   }
 });
 
