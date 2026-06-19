@@ -683,10 +683,11 @@ function showImage(img) {
   const el = $('#main-img');
   const url = '/img/' + img.path;
 
-  // 立即开始 fade-out
+  // Ken Burns 呼吸感：旧图淡出 + 放大溢出（scale 1→1.05）
+  el.classList.remove('fade-in-start');
   el.classList.add('fade-out');
 
-  // 同时启动新图预加载（与 fade-out 并行，省去 220ms 串行等待）
+  // 同时启动新图预加载（与退场并行，省去等待）
   const pre = new Image();
   _preloadImg = pre;
 
@@ -694,19 +695,26 @@ function showImage(img) {
   const tryShow = () => {
     if (errored || _preloadImg !== pre) return;
     if (!fadeReady || !imgReady) return;
+    // 换 src 同时把元素瞬时定到入场起始态（opacity 0, scale 0.95），无过渡
+    el.classList.add('fade-in-start');
+    el.classList.remove('fade-out');
     el.src = url;
-    requestAnimationFrame(() => el.classList.remove('fade-out'));
+    // 双 RAF 确保浏览器 commit 起始态后再开始过渡到 (1, 1.0)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => el.classList.remove('fade-in-start'));
+    });
     updateInfo(img);
     _preloadImg = null;
   };
 
-  setTimeout(() => { fadeReady = true; tryShow(); }, 220);
+  // 380ms 让旧图退场动画基本完成（420ms transition 的 ~90%）
+  setTimeout(() => { fadeReady = true; tryShow(); }, 380);
 
   pre.onload = () => { imgReady = true; tryShow(); };
   pre.onerror = () => {
     if (_preloadImg !== pre) return;
     errored = true;
-    el.classList.remove('fade-out');
+    el.classList.remove('fade-out', 'fade-in-start');
     toast('加载失败: ' + img.name);
     _preloadImg = null;
   };

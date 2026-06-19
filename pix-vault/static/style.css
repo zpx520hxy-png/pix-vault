@@ -260,10 +260,20 @@ kbd, button, select, #count-label, #hint, .img-meta,
 }
 
 #single-mode img{
- max-height: calc(100vh - 120px); }
+ max-height: calc(100vh - 120px);
+ transition: opacity .42s cubic-bezier(.4,0,.2,1), transform .42s cubic-bezier(.4,0,.2,1);
+ transform: scale(1);
+ will-change: opacity, transform;
+ backface-visibility: hidden; }
 
+/* 旧图退场: 淡出 + 轻微放大溢出 */
 #single-mode img.fade-out{
- opacity: 0; }
+ opacity: 0; transform: scale(1.05); }
+
+/* 新图入场起始态: 瞬时跳到 透明 + 缩小 0.95，再过渡到 (1, 1.0) */
+#single-mode img.fade-in-start{
+ opacity: 0; transform: scale(.95);
+ transition: none; }
 
 #gallery-close{
 

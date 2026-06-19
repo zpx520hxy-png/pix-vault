@@ -155,9 +155,11 @@ kbd,button,select,#count-label,#hint,.img-meta,.mlbl,.mg-name,.g-label,#error-to
 #single-mode img{
   width:100%;height:100%;object-fit:contain;display:block;
   box-shadow:var(--shadow-lg);position:relative;z-index:1;
-  transition:opacity .2s ease;
+  transition:opacity .42s cubic-bezier(.4,0,.2,1), transform .42s cubic-bezier(.4,0,.2,1);
+  transform:scale(1); will-change:opacity, transform; backface-visibility:hidden;
 }
-#single-mode img.fade-out{opacity:0}
+#single-mode img.fade-out{opacity:0; transform:scale(1.05)}
+#single-mode img.fade-in-start{opacity:0; transform:scale(.95); transition:none}
 
 #gallery-close{
   display:none;position:absolute;top:16px;right:16px;z-index:20;
