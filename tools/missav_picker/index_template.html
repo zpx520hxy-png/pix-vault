@@ -421,6 +421,16 @@
   <div class="filters">
     <div class="filter-row">
       <div class="filter-block">
+        <label>片源</label>
+        <div class="chip-group" id="sourceChips">
+          <span class="chip active" data-source="missav">🌐 MissAV</span>
+          <span class="chip" data-source="jable">🌿 Jable</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="filter-row">
+      <div class="filter-block">
         <label>类型</label>
         <div class="chip-group" id="typeChips">
           <span class="chip active" data-type="all">🌐 全部</span>
@@ -518,14 +528,15 @@
 <script>
 const $ = (id) => document.getElementById(id);
 let DATA = null;
-function p(u){return u&&IMG_PROXY?IMG_PROXY+u.replace('https://',''):u;}
+function p(u){if(!u)return u;return u&&IMG_PROXY?IMG_PROXY+u.replace('https://',''):u;}
 new MutationObserver(function(ms){for(var i=0;i<ms.length;i++)for(var j=0;j<ms[i].addedNodes.length;j++){var n=ms[i].addedNodes[j];if(n.nodeType!==1)continue;if(n.tagName==='IMG'||n.tagName==='VIDEO'||n.tagName==='SOURCE')rw(n);if(n.querySelectorAll)n.querySelectorAll('img,video,source').forEach(rw)}}).observe(document.body,{childList:true,subtree:true});
-function rw(el){['src','poster'].forEach(function(a){var v=el.getAttribute(a);if(v&&v.indexOf('fourhoi.com')!==-1)el.setAttribute(a,IMG_PROXY+v.replace('https://',''))})}
+function rw(el){['src','poster'].forEach(function(a){var v=el.getAttribute(a);if(v&&v.indexOf('/img/')===-1&&(v.indexOf('fourhoi.com')!==-1||v.indexOf('jable.tv')!==-1||v.indexOf('assets-cdn.jable')!==-1))el.setAttribute(a,IMG_PROXY+v.replace('https://',''))})}
 
 // 自动代理所有动态插入的 fourhoi 图片
 
 // 状态
 const state = {
+  source: 'missav', // missav / jable
   type: 'all',      // all / solo / multi / saved
   tags: new Set(),  // 包含
   excludeTags: new Set(),
@@ -778,10 +789,10 @@ function renderResult() {
     <div class="result-card">
       <div class="cover-wrap" onclick="(function(w){w.classList.contains('preview-on')?w.classList.remove('preview-on'):(w.classList.add('preview-on'),w.querySelector('video').play().catch(function(){}))})(this)">
         <video src="${v.preview || ''}" muted loop playsinline disableRemotePlayback preload="auto"
-          poster="${v.cover}"
+          poster="${p(v.cover)}"
           onerror="this.style.display='none'"></video>
         <div class="cover">
-          <img src="${v.cover}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+          <img src="${p(v.cover)}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
             onerror="this.parentElement.innerHTML='<div class=placeholder>封面加载失败</div>'">
         </div>
       </div>
@@ -808,7 +819,7 @@ function renderHistory() {
   $('historyGrid').innerHTML = state.history.map(v => `
     <div class="hist-card" onclick="showFromHistory('${v.code}')">
       <div class="img-wrap">
-        <img src="${v.cover}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+        <img src="${p(v.cover)}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
           onerror="this.parentElement.style.background='var(--border)';this.style.display='none'">
       </div>
       <div class="hist-code">${v.code}</div>
@@ -885,6 +896,31 @@ function deselectAllTags() {
 }
 
 // ---- 事件绑定 ----
+// 片源切换
+$('sourceChips').addEventListener('click', function(e) {
+  var chip = e.target.closest('.chip'); if (!chip) return;
+  document.querySelectorAll('#sourceChips .chip').forEach(function(c) { c.classList.remove('active'); });
+  chip.classList.add('active');
+  var src = chip.dataset.source;
+  if (src === state.source) return;
+  state.source = src;
+  state.tags.clear(); state.actresses.clear(); state.type = 'all';
+  document.querySelectorAll('#typeChips .chip').forEach(function(c) { c.classList.remove('active'); });
+  document.querySelector('#typeChips .chip[data-type="all"]').classList.add('active');
+  $('selectedBar').innerHTML = '';
+  if (src === 'jable') {
+    fetch('jable_data.json?_=' + Date.now()).then(function(r) { return r.json(); }).then(function(d) {
+      DATA = d; $('rollBtn').disabled = false; $('rollBtn').textContent = '🎲 随机抽一部';
+      $('stats').textContent = '📊 ' + DATA.videos.length + ' 部作品 · ' + DATA.actresses.length + ' 位女优 · Jable.TV';
+      renderTagChips(); renderActressGrid(); updateCount();
+    });
+  } else {
+    fetch('picker_index.json?_=' + Date.now()).then(function(r) { return r.json(); }).then(function(d) {
+      IDX = d; init('index');
+    });
+  }
+});
+
 $('typeChips').addEventListener('click', (e) => {
   const chip = e.target.closest('.chip'); if (!chip) return;
   document.querySelectorAll('#typeChips .chip').forEach(c => c.classList.remove('active'));
@@ -957,11 +993,11 @@ function renderBrowse() {
   $('browseGrid').innerHTML = show.map(v => `
     <div class="browse-card" onclick="window.open('${v.url}','_blank')">
       <div class="bc-cover">
-        <img src="${v.cover}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+        <img src="${p(v.cover)}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
           onerror="this.parentElement.style.background='var(--border)';this.style.display='none'">
         <div class="bc-preview">
           <video src="${v.preview || ''}" muted autoplay loop playsinline disableRemotePlayback preload="auto"
-            poster="${v.cover}"
+            poster="${p(v.cover)}"
             onerror="this.parentElement.style.display='none'"></video>
         </div>
       </div>
