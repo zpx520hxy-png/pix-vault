@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎲 MissAV 随机选片器</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0e0a14;
+    --bg-card: #1c1420;
+    --bg-card-hover: #281826;
+    --primary: #e91e63;
+    --primary-dark: #ad1457;
+    --accent: #ffc107;
+    --text: #f0e6ee;
+    --text-mute: #8a7488;
+    --border: #3a2438;
+  }
+  html { color-scheme: dark; }
+  body {
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    min-height: 100vh;
+    padding: 24px;
+  }
+  .container { max-width: 1600px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 28px; }
+  header h1 { font-size: 38px; color: var(--primary); margin-bottom: 8px; }
+  header .stats { color: var(--text-mute); font-size: 15px; }
+
+  /* 筛选区 */
+  .filters {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 24px;
+    border: 1px solid var(--border);
+  }
+  .filter-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; margin-bottom: 16px; }
+  .filter-row:last-child { margin-bottom: 0; }
+  .filter-block { flex: 1; min-width: 240px; }
+  .filter-block > label {
+    display: block; font-size: 13px; color: var(--text-mute);
+    margin-bottom: 8px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;
+  }
+  .chip-group { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 8px 16px;
+    border-radius: 18px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.15s;
+    user-select: none;
+    white-space: nowrap;
+  }
+  .chip:hover { border-color: var(--primary); color: var(--primary); }
+  .chip.active {
+    background: var(--primary); color: #fff; border-color: var(--primary);
+  }
+  .chip .count { color: rgba(255,255,255,0.5); font-size: 11px; margin-left: 4px; }
+  .chip.active .count { color: rgba(255,255,255,0.7); }
+
+  /* 多选下拉(女优) */
+  select[multiple] {
+    width: 100%; min-height: 90px; max-height: 200px;
+    background: var(--bg); color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+  select[multiple]:focus { outline: 2px solid var(--primary); }
+
+  /* 女优圆形头像网格 */
+  .actress-section { margin-bottom: 10px; }
+  .actress-section.collapsed .actress-grid-wrap { display: none; }
+  .section-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px; cursor: pointer; user-select: none;
+    border-radius: 8px; transition: background 0.15s;
+    font-size: 13px; font-weight: 600; color: var(--text);
+    margin-bottom: 6px;
+  }
+  .section-header:hover { background: var(--bg-card-hover); }
+  .section-count { color: var(--text-mute); font-size: 11px; font-weight: 400; }
+  .section-count::before { content: '('; }
+  .section-count::after { content: ')'; }
+  .actress-grid-wrap {
+    max-height: 220px; overflow-y: auto;
+    padding: 4px 0;
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+  }
+  .actress-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 10px 6px;
+    justify-items: center;
+  }
+  .actress-chip {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 4px;
+    cursor: pointer; user-select: none;
+    transition: transform 0.15s;
+    content-visibility: auto;
+    contain-intrinsic-size: 48px 80px;
+  }
+  .actress-chip:hover { transform: scale(1.08); }
+  .actress-chip.active { transform: scale(1.05); }
+  .actress-chip .blob {
+    width: 56px; height: 56px; border-radius: 50%;
+    position: relative; flex-shrink: 0; overflow: hidden;
+    background: linear-gradient(135deg, #2a1a2e, #1c1420);
+  }
+  .actress-chip .blob img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+  }
+  .actress-chip.active .blob {
+    outline: 3px solid var(--primary); outline-offset: 3px;
+  }
+  .actress-chip .name {
+    font-size: 11px; color: var(--text-mute); text-align: center;
+    line-height: 1.3; max-width: 80px;
+    overflow: hidden; text-overflow: ellipsis;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  }
+  .actress-chip.active .name { color: var(--text); font-weight: 600; }
+  .actress-search { width: 100%; margin-bottom: 8px; }
+
+  /* 全选/取消 glow 按钮 */
+  .glow-btn {
+    display: inline-block; padding: 4px 12px;
+    border-radius: 14px; cursor: pointer; user-select: none;
+    font-size: 11px; font-weight: 600;
+    position: relative; transition: filter 0.2s;
+    border: 0; background: transparent;
+  }
+  .glow-btn.sel {
+    color: var(--primary);
+    box-shadow: 0 0 12px 4px rgba(233, 30, 99, 0.25);
+  }
+  .glow-btn.sel:hover { box-shadow: 0 0 18px 6px rgba(233, 30, 99, 0.4); }
+  .glow-btn.desel {
+    color: var(--text-mute);
+    box-shadow: 0 0 8px 2px rgba(138, 116, 136, 0.2);
+  }
+  .glow-btn.desel:hover { box-shadow: 0 0 14px 4px rgba(138, 116, 136, 0.35); }
+
+  input[type="text"], input[type="search"] {
+    width: 100%;
+    background: var(--bg); color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+  input:focus { outline: 2px solid var(--primary); }
+
+  /* 主按钮 */
+  .roll-btn {
+    display: block;
+    width: 100%;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: #fff;
+    border: 0;
+    padding: 22px;
+    font-size: 24px;
+    font-weight: 700;
+    border-radius: 16px;
+    cursor: pointer;
+    margin: 0 0 28px;
+    transition: transform 0.1s, box-shadow 0.2s;
+    letter-spacing: 3px;
+    box-shadow: 0 4px 18px rgba(233, 30, 99, 0.3);
+  }
+  .roll-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(233, 30, 99, 0.5); }
+  .roll-btn:active { transform: translateY(0); }
+  .roll-btn:disabled { background: var(--border); cursor: not-allowed; box-shadow: none; }
+
+  /* 候选数 */
+  .candidate-info {
+    text-align: center;
+    color: var(--text-mute);
+    font-size: 15px;
+    margin-bottom: 14px;
+  }
+  .candidate-info .num { color: var(--primary); font-weight: 700; font-size: 20px; }
+
+  /* 已选标签/女优显式栏 */
+  .sel-bar {
+    display: flex; flex-direction: column; gap: 8px;
+    margin-bottom: 14px; padding: 12px 14px;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+  .sel-tags, .sel-actresses {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  }
+  .sel-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 5px 12px; border-radius: 20px;
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    user-select: none; transition: filter 0.15s;
+    position: relative;
+  }
+  .sel-pill:hover { filter: brightness(1.3); }
+  .sel-pill.tag-pill {
+    color: var(--text);
+    box-shadow: 0 0 14px 4px rgba(233, 30, 99, 0.30);
+    background: rgba(233, 30, 99, 0.12);
+    border: 1px solid rgba(233, 30, 99, 0.3);
+  }
+  .sel-pill.actress-pill {
+    color: var(--text);
+    box-shadow: 0 0 10px 3px rgba(124, 58, 237, 0.25);
+    background: rgba(124, 58, 237, 0.10);
+    border: 1px solid rgba(124, 58, 237, 0.25);
+  }
+  .sel-pill .pill-x { opacity: 0.6; font-size: 14px; line-height: 1; }
+  .sel-pill .pill-x:hover { opacity: 1; }
+
+  /* 已选标签/女优展示 */
+  .selected-bar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    justify-content: center; padding: 10px 14px; margin-bottom: 14px;
+    min-height: 44px; border-radius: 14px;
+    background: var(--bg-card); border: 1px solid var(--border);
+    font-size: 13px; color: var(--text-mute);
+  }
+  .selected-bar:empty::after { content: '未选择标签或女优'; }
+  .sel-blob {
+    width: 36px; height: 36px; border-radius: 50%;
+    overflow: hidden; flex-shrink: 0;
+    background: linear-gradient(135deg, #2a1a2e, #1c1420);
+  }
+  .sel-blob img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .sel-name { font-size: 10px; color: var(--text-mute); text-align: center; max-width: 56px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sel-item { display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; }
+  .sel-item:hover .sel-name { color: var(--primary); }
+  .sel-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 10px; border-radius: 14px; cursor: pointer;
+    font-size: 12px; white-space: nowrap; user-select: none;
+    border: 1px solid var(--border); transition: all 0.15s;
+  }
+  .sel-chip.tag { background: rgba(233,30,99,0.08); color: var(--primary); border-color: var(--primary-dark); }
+  .sel-chip.tag:hover { background: rgba(233,30,99,0.2); }
+  .sel-chip.type { background: rgba(124,58,237,0.1); color: #a78bfa; border-color: #5b21b6; }
+  .sel-chip.type:hover { background: rgba(124,58,237,0.2); }
+
+  /* 当前结果卡 */
+  .result-card {
+    display: grid;
+    grid-template-columns: 420px 1fr;
+    gap: 28px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 28px;
+    margin-bottom: 28px;
+    animation: fadeIn 0.4s;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px);} to { opacity: 1; transform: translateY(0);} }
+  .result-card .cover-wrap { position: relative; border-radius: 12px; overflow: hidden; }
+  .result-card .cover-wrap video {
+    position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; object-fit: cover;
+    display: none;
+  }
+  .result-card .cover-wrap.preview-on video { display: block; }
+  .result-card .cover-wrap.preview-on .cover { opacity: 0; }
+  .result-card .cover {
+    width: 100%; aspect-ratio: 16/11; position: relative; z-index: 1;
+    background: linear-gradient(135deg, #2a1a2e, #1c1420); border-radius: 12px;
+    overflow: hidden; transition: opacity 0.25s;
+  }
+  .result-card .cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .result-card .cover .placeholder { color: var(--text-mute); font-size: 14px; padding: 20px; }
+  .browse-card .bc-preview { display: none; }
+
+  .result-card .info { display: flex; flex-direction: column; gap: 10px; }
+  .result-card .code {
+    font-size: 36px; font-weight: 700; color: var(--primary);
+    letter-spacing: 3px; line-height: 1.2;
+  }
+  .result-card .badges { display: flex; gap: 8px; flex-wrap: wrap; }
+  .badge {
+    background: var(--bg); color: var(--text-mute);
+    padding: 4px 12px; border-radius: 5px; font-size: 13px;
+    border: 1px solid var(--border);
+  }
+  .badge.multi { color: #ffaa44; border-color: #5a4020; background: #2a1f15; }
+  .badge.solo { color: #44d6aa; border-color: #1d4839; background: #142b22; }
+  .badge.saved { color: var(--accent); border-color: #5a4810; background: #2a2110; }
+  .badge.tag { color: var(--primary); border-color: var(--primary-dark); background: rgba(233,30,99,0.08); }
+  .result-card .title { font-size: 17px; line-height: 1.6; color: var(--text); }
+  .result-card .meta { color: var(--text-mute); font-size: 14px; line-height: 1.8; }
+  .result-card .meta strong { color: var(--text); font-weight: 600; }
+  .result-card .actions { display: flex; gap: 12px; margin-top: auto; padding-top: 16px; flex-wrap: wrap; }
+  .btn {
+    padding: 12px 22px; border-radius: 10px; font-size: 15px;
+    text-decoration: none; cursor: pointer; border: 0;
+    transition: all 0.15s; font-weight: 600;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+  .btn-ghost:hover { border-color: var(--primary); color: var(--primary); }
+  .btn-ghost:disabled { opacity: 0.3; cursor: default; }
+  .btn-ghost:disabled:hover { border-color: var(--border); color: var(--text); }
+
+  .browse-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px; max-height: 70vh; overflow-y: auto;
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+    padding-bottom: 20px;
+  }
+  .browse-card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 10px; overflow: hidden; cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .browse-card:hover { border-color: var(--primary); }
+  .browse-card .bc-cover {
+    width: 100%; aspect-ratio: 16/11; background: var(--border);
+    position: relative; overflow: hidden;
+  }
+  .browse-card .bc-cover img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+  }
+  .browse-card .bc-preview {
+    position: absolute; inset: 0; opacity: 0; transition: opacity 0.25s;
+    pointer-events: none; z-index: 2;
+  }
+  .browse-card .bc-preview video {
+    width: 100%; height: 100%; object-fit: cover;
+  }
+  .browse-card .bc-info { padding: 8px 10px; }
+  .browse-card .bc-code {
+    font-size: 12px; color: var(--primary); font-weight: 700; letter-spacing:0.5px;
+  }
+  .browse-card .bc-title {
+    font-size: 11px; color: var(--text-mute); margin-top: 4px; line-height: 1.3;
+    overflow: hidden; text-overflow: ellipsis;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  }
+
+  /* 历史 */
+  .history h2 {
+    font-size: 16px; color: var(--text-mute); margin-bottom: 12px;
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+  .history-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+    contain: layout style;
+  }
+  .hist-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+    content-visibility: auto;
+    contain-intrinsic-size: auto 180px;
+  }
+  .hist-card:hover { border-color: var(--primary); }
+  .hist-card .img-wrap {
+    width: 100%; aspect-ratio: 16/11;
+    border-radius: 4px; overflow: hidden; background: linear-gradient(135deg, #2a1a2e, #1c1420);
+  }
+  .hist-card img {
+    width: 100%; height: 100%; object-fit: cover;
+    display: block;
+  }
+  .hist-card .hist-code {
+    font-size: 11px; color: var(--primary); font-weight: 700;
+    margin-top: 4px; letter-spacing: 0.5px;
+  }
+  .hist-card .hist-title {
+    font-size: 10px; color: var(--text-mute);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  /* 空状态 */
+  .empty {
+    text-align: center; padding: 60px 20px;
+    color: var(--text-mute);
+    background: var(--bg-card); border-radius: 12px;
+    border: 1px dashed var(--border);
+  }
+  .empty .emoji { font-size: 48px; margin-bottom: 12px; }
+
+  @media (max-width: 768px) {
+    body { padding: 12px; }
+    .result-card { grid-template-columns: 1fr; gap: 14px; padding: 14px; }
+    .result-card .code { font-size: 24px; }
+    header h1 { font-size: 22px; }
+    .roll-btn { padding: 14px; font-size: 18px; }
+    .browse-grid { grid-template-columns: 1fr; }
+    .actress-grid { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px 4px; }
+    .actress-chip .blob { width: 44px; height: 44px; }
+    .actress-chip .name { font-size: 9px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>🎲 MissAV 随机选片器</h1>
+    <div class="stats" id="stats">加载中...</div>
+  </header>
+
+  <div class="filters">
+    <div class="filter-row">
+      <div class="filter-block">
+        <label>类型</label>
+        <div class="chip-group" id="typeChips">
+          <span class="chip active" data-type="all">🌐 全部</span>
+          <span class="chip" data-type="solo">👤 单人</span>
+          <span class="chip" data-type="multi">👥 多人</span>
+          <span class="chip" data-type="saved">⭐ 仅收藏</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="filter-row">
+      <div class="filter-block" style="flex: 2;">
+        <label>标签（多选,任一命中即匹配；无选 = 不限）
+          <span style="float:right;font-weight:400;">
+            <span class="glow-btn sel" onclick="selectAllTags()">✅ 全选</span>
+            <span class="glow-btn desel" onclick="deselectAllTags()">✖ 取消</span>
+          </span>
+        </label>
+        <div class="chip-group" id="tagChips"></div>
+      </div>
+    </div>
+
+    <div class="filter-row">
+      <div class="filter-block" style="flex: 0 0 100%; max-width: 100%;">
+        <label>女优（点击圆圈多选；不选 = 不限）
+          <span style="float:right;font-weight:400;">
+            <span class="glow-btn sel" onclick="selectAllActresses()">✅ 全选</span>
+            <span class="glow-btn desel" onclick="deselectAllActresses()">✖ 取消</span>
+          </span>
+        </label>
+        <input type="search" id="actressSearch" placeholder="🔍 搜索女优..." class="actress-search">
+        <div class="actress-section">
+          <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')" style="display:none" id="savedHeader">
+            <span>⭐ 已收藏</span><span class="section-count" id="savedCount"></span>
+          </div>
+          <div class="actress-grid-wrap"><div class="actress-grid" id="savedGrid"></div></div>
+        </div>
+        <div class="actress-section">
+          <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')" style="display:none" id="rookieHeader">
+            <span>🌟 新人</span><span class="section-count" id="rookieCount"></span>
+          </div>
+          <div class="actress-grid-wrap"><div class="actress-grid" id="rookieGrid"></div></div>
+        </div>
+        <div class="actress-section">
+          <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')" style="display:none" id="otherHeader">
+            <span>👤 其他</span><span class="section-count" id="otherCount"></span>
+          </div>
+          <div class="actress-grid-wrap"><div class="actress-grid" id="otherGrid"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="filter-row">
+      <div class="filter-block" style="max-width: 100%;">
+        <label>排除标签</label>
+        <div class="chip-group" id="excludeChips"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="candidate-info">
+    符合条件：<span class="num" id="candidateCount">0</span> 部作品
+  </div>
+
+
+  <div class="selected-bar" id="selectedBar" style="margin-bottom:12px;"></div>
+  <button class="roll-btn" id="rollBtn">🎲 随机抽一部</button>
+  <div style="text-align:center;margin-bottom:20px;">
+    <button class="btn btn-ghost" onclick="openBrowse()" id="browseBtn" style="font-size:12px;padding:6px 14px;">🖼 浏览筛选结果</button>
+  </div>
+
+  <div id="browseArea" style="display:none">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+      <h2 style="font-size:14px;color:var(--text-mute);flex:1;" id="browseTitle"></h2>
+      <button class="btn btn-ghost" onclick="$('browseArea').style.display='none'" style="font-size:11px;padding:4px 12px;">✖ 收起</button>
+    </div>
+    <div class="browse-grid" id="browseGrid"></div>
+    <div id="browsePager" style="display:flex;justify-content:center;align-items:center;gap:4px;margin-top:12px;flex-wrap:wrap;"></div>
+  </div>
+
+  <div id="resultArea">
+    <div class="empty">
+      <div class="emoji">🎰</div>
+      <div>设置筛选条件，点上面的按钮开始随机</div>
+    </div>
+  </div>
+
+  <div class="history" id="historyArea" style="display: none;">
+    <h2>📜 抽过的（点击重看） <button class="btn btn-ghost" onclick="clearHistory()" style="font-size:11px;padding:4px 10px;margin-left:8px;">🗑 清空</button></h2>
+    <div class="history-grid" id="historyGrid"></div>
+  </div>
+
+</div>
+
+<script>const IMG_PROXY = '/img/';</script>
+<script>
+const $ = (id) => document.getElementById(id);
+let DATA = null;
+function p(u){return u&&IMG_PROXY?IMG_PROXY+u.replace('https://',''):u;}
+new MutationObserver(function(ms){for(var i=0;i<ms.length;i++)for(var j=0;j<ms[i].addedNodes.length;j++){var n=ms[i].addedNodes[j];if(n.nodeType!==1)continue;if(n.tagName==='IMG'||n.tagName==='VIDEO'||n.tagName==='SOURCE')rw(n);if(n.querySelectorAll)n.querySelectorAll('img,video,source').forEach(rw)}}).observe(document.body,{childList:true,subtree:true});
+function rw(el){['src','poster'].forEach(function(a){var v=el.getAttribute(a);if(v&&v.indexOf('fourhoi.com')!==-1)el.setAttribute(a,IMG_PROXY+v.replace('https://',''))})}
+
+// 自动代理所有动态插入的 fourhoi 图片
+
+// 状态
+const state = {
+  type: 'all',      // all / solo / multi / saved
+  tags: new Set(),  // 包含
+  excludeTags: new Set(),
+  actresses: new Set(),
+  current: null,
+  history: [],
+};
+
+// ---- 渲染筛选 UI ----
+const EXCLUDE_PRESET = ['BEST', '强奸', '调教', '春药'];
+
+// 按类型过滤的视频池(不包含标签/女优过滤,因为标签本身就是筛选条件)
+function getTypePool() {
+  return DATA.videos.filter(v => {
+    if (state.type === 'solo' && v.is_multi) return false;
+    if (state.type === 'multi' && !v.is_multi) return false;
+    if (state.type === 'saved' && !v.is_saved) return false;
+    return true;
+  });
+}
+
+function renderTagChips() {
+  if (!DATA) {
+    // 初始渲染:用索引数据
+    $('tagChips').innerHTML = IDX.tags.slice(0, 24).map(t =>
+      `<span class="chip" data-tag="${t}" style="opacity:0.5">${t}<span class="count">${IDX.tag_counts[t]}</span></span>`
+    ).join('');
+    $('excludeChips').innerHTML = EXCLUDE_PRESET.map(t =>
+      `<span class="chip" data-extag="${t}" style="opacity:0.5">🚫 ${t}</span>`
+    ).join('');
+    return;
+  }
+  const pool = getTypePool();
+  const tc = {};
+  for (const v of pool) for (const t of v.tags) tc[t] = (tc[t] || 0) + 1;
+  // 按频次排序,取 top 24
+  const sorted = Object.entries(tc).sort((a, b) => b[1] - a[1]).slice(0, 24);
+  const topSet = new Set(sorted.map(e => e[0]));
+  // 如果当前选中的标签不在 top24 里,也保留
+  for (const t of state.tags) if (!topSet.has(t) && tc[t]) topSet.add(t);
+  // 如果排除的标签不在 top24,也保留
+  for (const t of state.excludeTags) if (!topSet.has(t) && tc[t]) topSet.add(t);
+
+  $('tagChips').innerHTML = [...topSet].map(t => {
+    const n = tc[t] || 0;
+    const dim = n === 0 ? ' style="opacity:0.35"' : '';
+    return `<span class="chip" data-tag="${t}"${dim}>${t}<span class="count">${n}</span></span>`;
+  }).join('');
+
+  // 恢复 active 态
+  for (const t of state.tags) {
+    const chip = document.querySelector(`#tagChips .chip[data-tag="${t}"]`);
+    if (chip) chip.classList.add('active');
+  }
+  for (const t of state.excludeTags) {
+    const chip = document.querySelector(`#excludeChips .chip[data-extag="${t}"]`);
+    if (chip) chip.classList.add('active');
+  }
+
+  $('excludeChips').innerHTML = EXCLUDE_PRESET.map(t => {
+    const n = tc[t] || 0;
+    const dim = n === 0 ? ' style="opacity:0.35"' : '';
+    return `<span class="chip" data-extag="${t}"${dim}>🚫 ${t}</span>`;
+  }).join('');
+  // 恢复 exclude active
+  for (const t of state.excludeTags) {
+    const chip = document.querySelector(`#excludeChips .chip[data-extag="${t}"]`);
+    if (chip) chip.classList.add('active');
+  }
+}
+
+function chipHTML(a) {
+  const sel = state.actresses.has(a) ? ' active' : '';
+  const D = DATA || IDX;
+  const avatar = D.actress_avatars[a];
+  const dispName = (D.actress_display || {})[a] || a;
+  const imgHtml = avatar
+    ? `<img src="${avatar}" alt="${a}" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
+    : '';
+  const initial = a.replace(/[（(].*[）)]/g,'').charAt(0);
+  return `<div class="actress-chip${sel}" data-actress="${a}" title="${dispName}">
+            <div class="blob">${imgHtml || `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px;color:var(--text-mute)">${initial}</span>`}</div>
+            <span class="name">${dispName}</span>
+          </div>`;
+}
+
+function renderActressGrid(filter='') {
+  const D = DATA || IDX;
+  const groups = D.actress_groups || {};
+  const display = D.actress_display || {};
+
+  // classify
+  const saved = [], rookie = [], other = [];
+  const allActresses = (DATA || IDX).actresses;
+  for (const a of allActresses) {
+    if (filter && !a.toLowerCase().includes(filter.toLowerCase())) continue;
+    const g = groups[a] || 'other';
+    if (g === 'saved') saved.push(a);
+    else if (g === 'rookie') rookie.push(a);
+    else other.push(a);
+  }
+
+  function fillGrid(id, list) { $(id).innerHTML = list.map(chipHTML).join(''); }
+
+  fillGrid('savedGrid', saved);
+  fillGrid('rookieGrid', rookie);
+  fillGrid('otherGrid', other);
+
+  // show/hide headers
+  for (const [headerId, gridId, countId, list] of [
+    ['savedHeader','savedGrid','savedCount',saved],
+    ['rookieHeader','rookieGrid','rookieCount',rookie],
+    ['otherHeader','otherGrid','otherCount',other]
+  ]) {
+    const hdr = $(headerId), cnt = $(countId);
+    hdr.style.display = list.length > 0 ? 'flex' : 'none';
+    cnt.textContent = list.length;
+    // auto-collapse empty sections
+    const section = hdr.parentElement;
+    if (list.length === 0 && !section.classList.contains('collapsed')) section.classList.add('collapsed');
+  }
+}
+
+// ---- 候选过滤 ----
+function getCandidates() {
+  return DATA.videos.filter(v => {
+    // 类型
+    if (state.type === 'solo' && v.is_multi) return false;
+    if (state.type === 'multi' && !v.is_multi) return false;
+    if (state.type === 'saved' && !v.is_saved) return false;
+    // 包含标签(任一命中)
+    if (state.tags.size > 0) {
+      const hit = v.tags.some(t => state.tags.has(t));
+      if (!hit) return false;
+    }
+    // 排除标签
+    if (state.excludeTags.size > 0) {
+      const exHit = v.tags.some(t => state.excludeTags.has(t));
+      if (exHit) return false;
+    }
+    // 女优
+    if (state.actresses.size > 0) {
+      const hit = v.actresses.some(a => state.actresses.has(a));
+      if (!hit) return false;
+    }
+    return true;
+  });
+}
+
+function deselectTag(t) {
+  state.tags.delete(t);
+  const chip = document.querySelector('#tagChips .chip[data-tag="'+t+'"]');
+  if (chip) chip.classList.remove('active');
+  renderTagChips(); updateCount();
+}
+function deselectActress(a) {
+  state.actresses.delete(a);
+  document.querySelectorAll('.actress-chip').forEach(function(c) {
+    if (c.dataset.actress === a) c.classList.remove('active');
+  });
+  updateCount();
+}
+
+function renderSelBar() {
+  const sb = $('selectedBar');
+  if (!state.actresses.size && !state.tags.size && state.type === 'all') {
+    sb.innerHTML = ''; return;
+  }
+  const D = DATA || IDX;
+  const parts = [];
+  if (state.type !== 'all') {
+    const tl = {all:'',solo:'👤 单人',multi:'👥 多人',saved:'⭐ 仅收藏'}[state.type];
+    parts.push('<span class="sel-chip type" data-click="clearType">'+tl+' ×</span>');
+  }
+  state.tags.forEach(t => parts.push('<span class="sel-chip tag" data-click="dropTag" data-tag="'+t.replace(/"/g,'&quot;')+'">'+t+' ×</span>'));
+  state.actresses.forEach(a => {
+    const av = D.actress_avatars[a];
+    const disp = (D.actress_display||{})[a] || a;
+    const img = av ? '<img src="'+av+'" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'">' : '';
+    parts.push('<span class="sel-item" data-click="dropActress" data-actress="'+a.replace(/"/g,'&quot;')+'" title="'+disp.replace(/"/g,'&quot;')+'"><span class="sel-blob">'+img+'</span><span class="sel-name">'+disp+'</span></span>');
+  });
+  sb.innerHTML = parts.join('');
+}
+
+$('selectedBar').addEventListener('click', function(e) {
+  const el = e.target.closest('[data-click]'); if (!el) return;
+  const action = el.dataset.click;
+  if (action === 'clearType') { clearType(); }
+  else if (action === 'dropTag') { dropTag(el.dataset.tag); }
+  else if (action === 'dropActress') { dropActress(el.dataset.actress); }
+});
+
+function dropTag(t) { state.tags.delete(t); renderTagChips(); updateCount(); }
+function dropActress(a) {
+  state.actresses.delete(a);
+  document.querySelectorAll('.actress-chip').forEach(c => { if (c.dataset.actress === a) c.classList.remove('active'); });
+  updateCount();
+}
+function clearType() {
+  state.type = 'all';
+  document.querySelectorAll('#typeChips .chip').forEach(c => c.classList.remove('active'));
+  document.querySelector('#typeChips .chip[data-type="all"]').classList.add('active');
+  renderTagChips(); updateCount();
+}
+
+function updateCount() {
+  const n = getCandidates().length;
+  $('candidateCount').textContent = n;
+  $('rollBtn').disabled = n === 0;
+  renderSelBar();
+}
+
+// ---- 随机抽 ----
+function rollOne() {
+  const cands = getCandidates();
+  if (cands.length === 0) return;
+  // 排除历史上已随机过的
+  let pool = cands.filter(v => !state.history.some(h => h.code === v.code));
+  if (pool.length === 0) {
+    // 全部抽过了,清空历史重新来
+    state.history = [];
+    pool = cands;
+  }
+  const v = pool[Math.floor(Math.random() * pool.length)];
+  state.current = v;
+  // 历史(去重,前置)
+  state.history = [v, ...state.history.filter(h => h.code !== v.code)].slice(0, 12);
+  saveHistory();
+  renderResult();
+  renderHistory();
+}
+
+// ---- 渲染结果 ----
+function renderResult() {
+  const v = state.current;
+  if (!v) return;
+  const badges = [];
+  badges.push(v.is_multi
+    ? `<span class="badge multi">👥 多人 · ${v.actresses.length} 位</span>`
+    : `<span class="badge solo">👤 单人</span>`);
+  if (v.is_saved) badges.push('<span class="badge saved">⭐ 已收藏</span>');
+  if (v.date) badges.push(`<span class="badge">📅 ${v.date}</span>`);
+  v.tags.forEach(t => badges.push(`<span class="badge tag">${t}</span>`));
+
+  const actressText = v.actresses.length > 0
+    ? v.actresses.map(a => `<strong>${a}</strong>`).join('、')
+    : '<span style="color:var(--text-mute)">未知</span>';
+
+  $('resultArea').innerHTML = `
+    <div class="result-card">
+      <div class="cover-wrap" onclick="(function(w){w.classList.contains('preview-on')?w.classList.remove('preview-on'):(w.classList.add('preview-on'),w.querySelector('video').play().catch(function(){}))})(this)">
+        <video src="${v.preview || ''}" muted loop playsinline disableRemotePlayback preload="auto"
+          poster="${v.cover}"
+          onerror="this.style.display='none'"></video>
+        <div class="cover">
+          <img src="${v.cover}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+            onerror="this.parentElement.innerHTML='<div class=placeholder>封面加载失败</div>'">
+        </div>
+      </div>
+      <div class="info">
+        <div class="code">${v.code}</div>
+        <div class="badges">${badges.join('')}</div>
+        <div class="title">${v.title || '（无标题）'}</div>
+        <div class="meta">
+          <strong>女优</strong>：${actressText}<br>
+          <strong>发布日期</strong>：${v.date || '—'}
+        </div>
+        <div class="actions">
+          <a class="btn btn-primary" href="${v.url}" target="_blank" rel="noopener">▶️ 去 MissAV 观看</a>
+          <button class="btn btn-ghost" onclick="rollOne()">🎲 再抽一部</button>
+          <button class="btn btn-ghost" onclick="copyCode('${v.code}')">📋 复制番号</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderHistory() {
+  if (state.history.length === 0) { $('historyArea').style.display = 'none'; return; }
+  $('historyArea').style.display = 'block';
+  $('historyGrid').innerHTML = state.history.map(v => `
+    <div class="hist-card" onclick="showFromHistory('${v.code}')">
+      <div class="img-wrap">
+        <img src="${v.cover}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+          onerror="this.parentElement.style.background='var(--border)';this.style.display='none'">
+      </div>
+      <div class="hist-code">${v.code}</div>
+      <div class="hist-title">${v.title.slice(0, 30) || '—'}</div>
+    </div>
+  `).join('');
+}
+
+function showFromHistory(code) {
+  const v = state.history.find(h => h.code === code) || DATA.videos.find(x => x.code === code);
+  if (v) { state.current = v; renderResult(); }
+}
+
+function copyCode(code) {
+  navigator.clipboard.writeText(code).then(() => {
+    const btn = event.target;
+    const old = btn.textContent;
+    btn.textContent = '✅ 已复制';
+    setTimeout(() => btn.textContent = old, 1000);
+  });
+}
+
+// ---- 持久化 ----
+function saveHistory() {
+  try {
+    localStorage.setItem('missav_picker_history',
+      JSON.stringify(state.history.map(v => v.code)));
+  } catch(e) {}
+}
+function loadHistory() {
+  try {
+    const codes = JSON.parse(localStorage.getItem('missav_picker_history') || '[]');
+    state.history = codes
+      .map(c => DATA.videos.find(v => v.code === c))
+      .filter(Boolean);
+    renderHistory();
+  } catch(e) {}
+}
+
+function clearHistory() {
+  state.history = [];
+  localStorage.removeItem('missav_picker_history');
+  renderHistory();
+}
+
+function selectAllActresses() {
+  for (const gid of ['savedGrid','rookieGrid','otherGrid']) {
+    $(gid).querySelectorAll('.actress-chip').forEach(c => {
+      state.actresses.add(c.dataset.actress);
+      c.classList.add('active');
+    });
+  }
+  updateCount();
+}
+
+function deselectAllActresses() {
+  state.actresses.clear();
+  document.querySelectorAll('.actress-chip.active').forEach(c => c.classList.remove('active'));
+  updateCount();
+}
+
+function selectAllTags() {
+  document.querySelectorAll('#tagChips .chip').forEach(c => {
+    state.tags.add(c.dataset.tag);
+    c.classList.add('active');
+  });
+  updateCount();
+}
+
+function deselectAllTags() {
+  state.tags.clear();
+  document.querySelectorAll('#tagChips .chip').forEach(c => c.classList.remove('active'));
+  updateCount();
+}
+
+// ---- 事件绑定 ----
+$('typeChips').addEventListener('click', (e) => {
+  const chip = e.target.closest('.chip'); if (!chip) return;
+  document.querySelectorAll('#typeChips .chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  state.type = chip.dataset.type;
+  renderTagChips();
+  updateCount();
+});
+
+$('tagChips').addEventListener('click', (e) => {
+  const chip = e.target.closest('.chip'); if (!chip) return;
+  const tag = chip.dataset.tag;
+  if (state.tags.has(tag)) { state.tags.delete(tag); chip.classList.remove('active'); }
+  else { state.tags.add(tag); chip.classList.add('active'); }
+  updateCount();
+});
+
+$('excludeChips').addEventListener('click', (e) => {
+  const chip = e.target.closest('.chip'); if (!chip) return;
+  const tag = chip.dataset.extag;
+  if (state.excludeTags.has(tag)) { state.excludeTags.delete(tag); chip.classList.remove('active'); }
+  else { state.excludeTags.add(tag); chip.classList.add('active'); }
+  updateCount();
+});
+
+for (const gid of ['savedGrid','rookieGrid','otherGrid']) {
+  $(gid).addEventListener('click', (e) => {
+    const chip = e.target.closest('.actress-chip'); if (!chip) return;
+    const name = chip.dataset.actress;
+    if (state.actresses.has(name)) {
+      state.actresses.delete(name);
+      chip.classList.remove('active');
+    } else {
+      state.actresses.add(name);
+      chip.classList.add('active');
+    }
+    updateCount();
+  });
+}
+
+$('actressSearch').addEventListener('input', (e) => {
+  renderActressGrid(e.target.value);
+});
+
+$('rollBtn').addEventListener('click', rollOne);
+
+let browsePage = 0;
+const BROWSE_PER = 30;
+
+function openBrowse() {
+  browsePage = 0;
+  renderBrowse();
+  $('browseArea').style.display = 'block';
+  $('browseArea').scrollIntoView({behavior:'smooth'});
+}
+
+function browseGo(page) {
+  browsePage = page;
+  renderBrowse();
+  $('browseArea').scrollIntoView({behavior:'smooth'});
+}
+
+function renderBrowse() {
+  const cands = getCandidates();
+  const totalPages = Math.ceil(cands.length / BROWSE_PER);
+  const start = browsePage * BROWSE_PER;
+  const end = Math.min(start + BROWSE_PER, cands.length);
+  const show = cands.slice(start, end);
+  $('browseTitle').textContent = `🖼 ${cands.length} 部作品 · 第 ${browsePage + 1} / ${totalPages} 页`;
+  $('browseGrid').innerHTML = show.map(v => `
+    <div class="browse-card" onclick="window.open('${v.url}','_blank')">
+      <div class="bc-cover">
+        <img src="${v.cover}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+          onerror="this.parentElement.style.background='var(--border)';this.style.display='none'">
+        <div class="bc-preview">
+          <video src="${v.preview || ''}" muted autoplay loop playsinline disableRemotePlayback preload="auto"
+            poster="${v.cover}"
+            onerror="this.parentElement.style.display='none'"></video>
+        </div>
+      </div>
+      <div class="bc-info">
+        <div class="bc-code">${v.code}</div>
+        <div class="bc-title">${v.title}</div>
+      </div>
+    </div>
+  `).join('');
+
+  // 渲染分页器
+  const pager = $('browsePager');
+  if (totalPages <= 1) { pager.innerHTML = ''; return; }
+  let html = '';
+  html += `<button class="btn btn-ghost" onclick="browseGo(${browsePage - 1})" ${browsePage === 0 ? 'disabled' : ''} style="font-size:11px;padding:4px 10px;">◀ 上一页</button>`;
+  // 页码: 最多显示 7 个
+  let pStart = Math.max(0, browsePage - 3);
+  let pEnd = Math.min(totalPages, pStart + 7);
+  if (pEnd - pStart < 7) pStart = Math.max(0, pEnd - 7);
+  for (let p = pStart; p < pEnd; p++) {
+    const active = p === browsePage ? ' style="background:var(--primary);color:#fff;"' : '';
+    html += `<button class="btn btn-ghost" onclick="browseGo(${p})"${active} style="font-size:11px;padding:4px 10px;">${p + 1}</button>`;
+  }
+  html += `<button class="btn btn-ghost" onclick="browseGo(${browsePage + 1})" ${browsePage >= totalPages - 1 ? 'disabled' : ''} style="font-size:11px;padding:4px 10px;">下一页 ▶</button>`;
+  pager.innerHTML = html;
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' && e.target === document.body) {
+    e.preventDefault(); rollOne();
+  }
+});
+
+// ---- 启动 ----
+function init(stage) {
+  if (stage === 'index') {
+    // 索引已加载(actresses/groups/avatars/display/tags),立即渲染 UI
+    $('stats').textContent = `📊 ${IDX.video_count} 部作品 · ${IDX.actresses.length} 位女优 · ${IDX.tags.length} 个标签 · 按空格快速抽`;
+    renderTagChips();
+    renderActressGrid();
+    loadHistory();
+    // 异步加载完整数据
+    $('rollBtn').disabled = true;
+    $('rollBtn').textContent = '⏳ 加载作品数据...';
+    fetch(location.pathname.replace(/[^/]*$/, '') + 'picker_data.json?_=' + Date.now())
+      .then(r => r.json())
+      .then(d => {
+        DATA = d;
+        $('rollBtn').disabled = false;
+        $('rollBtn').textContent = '🎲 随机抽一部';
+        updateCount();
+      })
+      .catch(e => { $('stats').textContent = '加载失败,请刷新'; });
+  } else {
+    // file:// 一次性内嵌
+    $('stats').textContent = `📊 ${DATA.videos.length} 部作品 · ${DATA.actresses.length} 位女优 · ${DATA.tags.length} 个标签 · 按空格快速抽`;
+    renderTagChips();
+    renderActressGrid();
+    loadHistory();
+    updateCount();
+  }
+}
+
+// 让 getCandidates 能同时工作于 DATA 未加载时(返回空)
+const origGetCandidates = getCandidates;
+getCandidates = function() {
+  if (!DATA) return [];
+  return origGetCandidates();
+};
+
+if (location.protocol === 'file:') {
+  DATA = JSON.parse(document.getElementById('DATA').textContent);
+  init('full');
+} else {
+  IDX = null;
+  fetch(location.pathname.replace(/[^/]*$/, '') + 'picker_index.json?_=' + Date.now())
+    .then(r => r.json())
+    .then(d => { IDX = d; init('index'); })
+    .catch(e => $('stats').textContent = '加载失败,请刷新');
+}
+</script>
+<script id="DATA" type="application/json">__DATA_JSON_PLACEHOLDER__</script>
+</body>
+</html>
