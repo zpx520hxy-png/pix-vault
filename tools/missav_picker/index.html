@@ -63,7 +63,7 @@
   .chip.active {
     background: var(--primary); color: #fff; border-color: var(--primary);
   }
-  .chip .count { color: rgba(255,255,255,0.5); font-size: 11px; margin-left: 4px; }
+  .chip .count { color: rgba(255,255,255,0.78); font-size: 11px; margin-left: 4px; font-variant-numeric: tabular-nums; }
   .chip.active .count { color: rgba(255,255,255,0.7); }
 
   /* 多选下拉(女优) */
@@ -115,10 +115,24 @@
   .actress-chip .blob {
     width: 56px; height: 56px; border-radius: 50%;
     position: relative; flex-shrink: 0; overflow: hidden;
-    background: linear-gradient(135deg, #2a1a2e, #1c1420);
+    background: linear-gradient(135deg, rgba(255,79,135,.32), rgba(103,232,249,.18));
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
   }
   .actress-chip .blob img {
+    position: absolute; inset: 0;
     width: 100%; height: 100%; object-fit: cover; display: block;
+    z-index: 2;
+  }
+  .avatar-fallback {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(255,255,255,.82);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0;
+    background:
+      radial-gradient(circle at 35% 24%, rgba(255,255,255,.18), transparent 30%),
+      linear-gradient(135deg, rgba(255,79,135,.32), rgba(103,232,249,.18));
   }
   .actress-chip.active .blob {
     outline: 3px solid var(--primary); outline-offset: 3px;
@@ -132,24 +146,29 @@
   .actress-chip.active .name { color: var(--text); font-weight: 600; }
   .actress-search { width: 100%; margin-bottom: 8px; }
 
-  /* 全选/取消 glow 按钮 */
+  /* 全选/取消 按钮 */
   .glow-btn {
-    display: inline-block; padding: 4px 12px;
-    border-radius: 14px; cursor: pointer; user-select: none;
-    font-size: 11px; font-weight: 600;
-    position: relative; transition: filter 0.2s;
-    border: 0; background: transparent;
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 6px 14px;
+    border-radius: 999px; cursor: pointer; user-select: none;
+    font-size: 12px; font-weight: 600; letter-spacing: .02em;
+    position: relative; border: 0; background: transparent;
+    transition: transform .22s var(--ease-out), background .22s, box-shadow .22s, color .22s, border-color .22s;
   }
   .glow-btn.sel {
-    color: var(--primary);
-    box-shadow: 0 0 12px 4px rgba(233, 30, 99, 0.25);
+    color: #fff;
+    background: linear-gradient(135deg, rgba(52,211,153,.92), rgba(16,185,129,.92));
+    box-shadow: 0 8px 22px rgba(16,185,129,.28), inset 0 1px 0 rgba(255,255,255,.22);
   }
-  .glow-btn.sel:hover { box-shadow: 0 0 18px 6px rgba(233, 30, 99, 0.4); }
+  .glow-btn.sel:hover { transform: translateY(-1px); box-shadow: 0 12px 30px rgba(16,185,129,.4); }
+  .glow-btn.sel:active { transform: translateY(0) scale(.97); }
   .glow-btn.desel {
-    color: var(--text-mute);
-    box-shadow: 0 0 8px 2px rgba(138, 116, 136, 0.2);
+    color: #d8c9d4;
+    border: 1px solid rgba(255,255,255,.14);
+    background: rgba(255,255,255,.04);
   }
-  .glow-btn.desel:hover { box-shadow: 0 0 14px 4px rgba(138, 116, 136, 0.35); }
+  .glow-btn.desel:hover { color: #ff8a8a; border-color: rgba(255,79,79,.5); background: rgba(255,79,79,.08); transform: translateY(-1px); }
+  .glow-btn.desel:active { transform: translateY(0) scale(.97); }
 
   input[type="text"], input[type="search"] {
     width: 100%;
@@ -236,9 +255,11 @@
   .sel-blob {
     width: 36px; height: 36px; border-radius: 50%;
     overflow: hidden; flex-shrink: 0;
-    background: linear-gradient(135deg, #2a1a2e, #1c1420);
+    position: relative;
+    background: linear-gradient(135deg, rgba(255,79,135,.26), rgba(103,232,249,.16));
   }
-  .sel-blob img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .sel-blob img { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; object-fit: cover; display: block; }
+  .sel-blob .avatar-fallback { font-size: 13px; }
   .sel-name { font-size: 10px; color: var(--text-mute); text-align: center; max-width: 56px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .sel-item { display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; }
   .sel-item:hover .sel-name { color: var(--primary); }
@@ -357,6 +378,40 @@
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   }
 
+  .shortlist {
+    display: none;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 18px;
+  }
+  .shortlist-head {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .shortlist-head h2 {
+    flex: 1; font-size: 15px; color: var(--text-mute);
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+  .shortlist-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 10px;
+  }
+  .short-card {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; overflow: hidden; cursor: pointer;
+    transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+  }
+  .short-card:hover { transform: translateY(-2px); border-color: var(--primary); box-shadow: 0 8px 22px rgba(233,30,99,0.16); }
+  .short-card .img-wrap { width: 100%; aspect-ratio: 16/11; background: linear-gradient(135deg, #2a1a2e, #1c1420); overflow: hidden; }
+  .short-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .short-card .info { padding: 9px 10px; display: flex; flex-direction: column; gap: 5px; }
+  .short-card .code { font-size: 12px; color: var(--primary); font-weight: 700; letter-spacing: 0.5px; }
+  .short-card .title { font-size: 11px; color: var(--text-mute); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .short-card .meta { font-size: 10px; color: var(--text-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
   /* 历史 */
   .history h2 {
     font-size: 16px; color: var(--text-mute); margin-bottom: 12px;
@@ -461,6 +516,7 @@
     .result-card .meta { font-size: 13px; }
     .result-card .actions { gap: 8px; }
     .result-card .actions .btn { padding: 10px 14px; font-size: 13px; }
+    .shortlist-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     header h1 { font-size: 22px; }
     .roll-btn { padding: 14px; font-size: 18px; }
     .browse-grid { grid-template-columns: 1fr; }
@@ -624,6 +680,439 @@
     font-size: 13px; font-variant-numeric: tabular-nums; color: var(--text);
     padding: 0 8px; min-width: 64px; text-align: center;
   }
+
+  /* Premium branch skin */
+  :root {
+    --bg: #07090f;
+    --bg-card: rgba(17, 21, 33, 0.78);
+    --bg-card-hover: rgba(31, 38, 58, 0.9);
+    --primary: #ff4f87;
+    --primary-dark: #b91d59;
+    --accent: #f6c177;
+    --cyan: #67e8f9;
+    --text: #f7efe8;
+    --text-mute: #a99bab;
+    --border: rgba(255, 255, 255, 0.1);
+    --surface-strong: rgba(12, 15, 24, 0.86);
+    --surface-soft: rgba(255, 255, 255, 0.045);
+    --shadow-lg: 0 26px 80px rgba(0, 0, 0, 0.48);
+    --shadow-glow: 0 18px 52px rgba(255, 79, 135, 0.18);
+    --ease-out: cubic-bezier(.16, 1, .3, 1);
+  }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: "Aptos Display", "Segoe UI Variable", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+    background:
+      radial-gradient(circle at 12% -8%, rgba(255, 79, 135, 0.28), transparent 34rem),
+      radial-gradient(circle at 86% 2%, rgba(103, 232, 249, 0.16), transparent 28rem),
+      linear-gradient(145deg, #07090f 0%, #11131f 48%, #08070d 100%);
+    letter-spacing: 0.01em;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0; pointer-events: none; z-index: -1;
+    background-image:
+      linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+    background-size: 54px 54px;
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,.75), transparent 74%);
+  }
+  .container { max-width: 1480px; animation: pageRise .52s var(--ease-out) both; }
+  header {
+    position: relative;
+    overflow: hidden;
+    text-align: left;
+    margin-bottom: 26px;
+    padding: 28px 30px;
+    border: 1px solid var(--border);
+    border-radius: 28px;
+    background:
+      linear-gradient(135deg, rgba(255,255,255,.11), rgba(255,255,255,.035)),
+      linear-gradient(120deg, rgba(255,79,135,.16), rgba(103,232,249,.07));
+    box-shadow: var(--shadow-lg);
+    backdrop-filter: blur(22px) saturate(130%);
+  }
+  header::after {
+    content: '';
+    position: absolute; inset: auto -10% -70% 42%; height: 220px;
+    background: radial-gradient(circle, rgba(255, 79, 135, .36), transparent 65%);
+    filter: blur(6px);
+  }
+  header h1 {
+    position: relative; z-index: 1;
+    display: inline-flex; align-items: center; gap: 12px;
+    margin-bottom: 10px;
+    color: var(--text);
+    font-size: clamp(28px, 3.5vw, 44px);
+    line-height: 1.06;
+    letter-spacing: -0.04em;
+    text-shadow: 0 10px 36px rgba(255,79,135,.18);
+  }
+  header .stats {
+    position: relative; z-index: 1;
+    display: inline-flex; align-items: center;
+    min-height: 32px;
+    padding: 6px 12px;
+    border: 1px solid rgba(255,255,255,.14);
+    border-radius: 999px;
+    background: rgba(255,255,255,.07);
+    color: #e7dbe2;
+    font-size: 12.5px;
+    backdrop-filter: blur(16px);
+  }
+  .hero-copy {
+    position: relative; z-index: 1;
+    max-width: 640px;
+    margin: -2px 0 16px;
+    color: #cdbdca;
+    font-size: 15px;
+    line-height: 1.7;
+  }
+  .filters, .favorites, .shortlist, .selected-bar, .result-card {
+    border: 1px solid var(--border);
+    background:
+      linear-gradient(145deg, rgba(255,255,255,.075), rgba(255,255,255,.026)),
+      var(--bg-card);
+    box-shadow: 0 18px 52px rgba(0,0,0,.28);
+    backdrop-filter: blur(18px) saturate(128%);
+  }
+  .filters { border-radius: 26px; padding: 26px; }
+  .filter-row { gap: 18px; margin-bottom: 18px; }
+  .filter-block > label {
+    color: #d9c7d1;
+    font-size: 12px;
+    letter-spacing: .12em;
+  }
+  .chip, .btn, .glow-btn, .jp-seek-btn {
+    min-height: 38px;
+    transition: transform .22s var(--ease-out), border-color .22s, background .22s, color .22s, box-shadow .22s, opacity .22s;
+  }
+  .chip {
+    border-color: rgba(255,255,255,.11);
+    background: rgba(255,255,255,.045);
+    border-radius: 999px;
+    padding: 9px 16px;
+    color: #dcd0d9;
+  }
+  .chip:hover { transform: translateY(-1px); background: rgba(255,255,255,.075); box-shadow: 0 10px 24px rgba(0,0,0,.18); }
+  .chip.active {
+    background: linear-gradient(135deg, #ff4f87, #ff8a5b);
+    border-color: rgba(255,255,255,.22);
+    color: white;
+    box-shadow: 0 12px 34px rgba(255,79,135,.28);
+  }
+  input[type="text"], input[type="search"], select[multiple] {
+    min-height: 42px;
+    border-radius: 14px;
+    border-color: rgba(255,255,255,.12);
+    background: rgba(3, 5, 10, .42);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
+  }
+  input:focus, select[multiple]:focus {
+    outline: 0;
+    border-color: rgba(255,79,135,.72);
+    box-shadow: 0 0 0 4px rgba(255,79,135,.14), inset 0 1px 0 rgba(255,255,255,.06);
+  }
+  .roll-btn {
+    position: relative;
+    overflow: hidden;
+    border-radius: 24px;
+    padding: 24px;
+    background: linear-gradient(135deg, #ff4f87 0%, #ff7a59 52%, #f6c177 100%);
+    box-shadow: 0 22px 60px rgba(255,79,135,.28), inset 0 1px 0 rgba(255,255,255,.26);
+    letter-spacing: .08em;
+  }
+  .roll-btn::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(110deg, transparent 0 34%, rgba(255,255,255,.34) 46%, transparent 58% 100%);
+    transform: translateX(-120%);
+    transition: transform .75s var(--ease-out);
+  }
+  .roll-btn:hover { transform: translateY(-3px); box-shadow: 0 28px 72px rgba(255,79,135,.36); }
+  .roll-btn:hover::after { transform: translateX(120%); }
+  .btn {
+    border-radius: 14px;
+    min-height: 42px;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #ff4f87, #ff7a59);
+    box-shadow: var(--shadow-glow);
+  }
+  .btn-ghost {
+    background: rgba(255,255,255,.055);
+    border-color: rgba(255,255,255,.12);
+  }
+  .btn-ghost:hover { transform: translateY(-1px); background: rgba(255,79,135,.12); box-shadow: 0 12px 28px rgba(0,0,0,.22); }
+  .candidate-info {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    margin: 4px auto 16px;
+    color: #c9bdc6;
+    font-size: 14px;
+  }
+  .candidate-info .num { color: var(--accent); text-shadow: 0 0 24px rgba(246,193,119,.28); }
+  .selected-bar { border-radius: 20px; background: rgba(255,255,255,.045); }
+  .selected-bar:empty::after { color: #7f7480; }
+  .actress-grid-wrap { padding: 8px 3px; }
+  .actress-chip { transition: transform .22s var(--ease-out), opacity .22s; }
+  .actress-chip:hover { transform: translateY(-3px) scale(1.04); }
+  .actress-chip .blob, .sel-blob {
+    box-shadow: 0 10px 26px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.12);
+  }
+  .actress-chip.active .blob {
+    outline: 0;
+    box-shadow: 0 0 0 3px rgba(255,79,135,.9), 0 0 0 7px rgba(255,79,135,.18), 0 14px 32px rgba(255,79,135,.2);
+  }
+  .result-card {
+    border-radius: 28px;
+    animation: cardIn .42s var(--ease-out);
+  }
+  .result-card .cover, .result-card .cover-wrap, .jplayer {
+    border-radius: 18px;
+    box-shadow: 0 22px 54px rgba(0,0,0,.34);
+  }
+  .result-card .code {
+    color: #ff7aa6;
+    letter-spacing: .06em;
+    text-shadow: 0 0 30px rgba(255,79,135,.24);
+  }
+  .badge {
+    border-radius: 999px;
+    background: rgba(255,255,255,.052);
+    border-color: rgba(255,255,255,.11);
+  }
+  .browse-card, .fav-card, .hist-card, .short-card {
+    border-color: rgba(255,255,255,.1);
+    background: rgba(255,255,255,.045);
+    box-shadow: 0 10px 28px rgba(0,0,0,.2);
+  }
+  .browse-card:hover, .fav-card:hover, .hist-card:hover, .short-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(255,79,135,.6);
+    box-shadow: 0 22px 48px rgba(0,0,0,.28), 0 0 0 1px rgba(255,79,135,.12);
+  }
+  .shortlist { border-radius: 24px; }
+  .short-card { border-radius: 16px; }
+  .short-card .img-wrap, .fav-card .img-wrap, .hist-card .img-wrap, .browse-card .bc-cover { background: linear-gradient(135deg, #151a26, #0d0f17); }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: rgba(255,255,255,.035); }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.16); border: 2px solid transparent; border-radius: 999px; background-clip: content-box; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,79,135,.45); background-clip: content-box; }
+  @keyframes pageRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes cardIn { from { opacity: 0; transform: translateY(16px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  @media (max-width: 768px) {
+    body { padding: 12px; }
+    header { padding: 22px 18px; border-radius: 22px; }
+    header h1 { font-size: 28px; letter-spacing: -0.035em; }
+    .filters { padding: 18px; border-radius: 22px; }
+    .chip { padding: 9px 13px; font-size: 13px; }
+    .shortlist-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  .trending {
+    position: relative;
+    border: 1px solid var(--border);
+    border-radius: 26px;
+    padding: 22px 22px 24px;
+    margin-bottom: 24px;
+    background:
+      linear-gradient(145deg, rgba(255,79,135,.10), rgba(103,232,249,.06)),
+      var(--bg-card);
+    box-shadow: 0 18px 52px rgba(0,0,0,.28);
+    backdrop-filter: blur(18px) saturate(128%);
+    animation: pageRise .5s var(--ease-out) both;
+  }
+  .trending::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(circle at 12% 0%, rgba(255,79,135,.18), transparent 32%);
+    border-radius: inherit;
+    pointer-events: none;
+  }
+  .trending-head {
+    position: relative;
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .trending-title {
+    display: inline-flex; align-items: baseline; gap: 10px;
+    color: var(--text);
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .trending-emoji { font-size: 18px; filter: drop-shadow(0 4px 12px rgba(255,79,135,.35)); }
+  .trending-source {
+    padding: 2px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 600; letter-spacing: .04em;
+    color: #ffcad8; background: rgba(255,79,135,.16);
+    border: 1px solid rgba(255,79,135,.3);
+  }
+  .trending-tabs { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; }
+  .period-chip {
+    appearance: none; border: 1px solid rgba(255,255,255,.1);
+    background: rgba(255,255,255,.045);
+    color: #d8c9d4; font-size: 12.5px; font-weight: 600;
+    padding: 7px 14px; border-radius: 999px; cursor: pointer;
+    transition: transform .2s var(--ease-out), background .2s, color .2s, border-color .2s, box-shadow .2s;
+  }
+  .period-chip:hover { transform: translateY(-1px); color: #fff; }
+  .period-chip.active {
+    color: #fff;
+    background: linear-gradient(135deg, #ff4f87, #ff8a5b);
+    border-color: rgba(255,255,255,.22);
+    box-shadow: 0 10px 26px rgba(255,79,135,.32);
+  }
+  .period-chip.ghost { background: transparent; }
+  .trending-body {
+    position: relative;
+    overflow: hidden;
+    max-height: 4000px;
+    transition: max-height .4s var(--ease-out), opacity .25s var(--ease-out), margin-top .3s var(--ease-out);
+    opacity: 1;
+  }
+
+  /* 单卡收起 / 展开 */
+  .card-collapse {
+    appearance: none; cursor: pointer;
+    position: absolute; top: 12px; right: 12px; z-index: 4;
+    height: 28px;
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 0 10px;
+    border-radius: 999px;
+    background: rgba(8, 10, 18, .55);
+    border: 1px solid rgba(255,255,255,.18);
+    color: rgba(255,255,255,.92);
+    font-size: 12px; font-weight: 600; line-height: 1;
+    backdrop-filter: blur(8px);
+    transition: transform .2s var(--ease-out), background .2s, color .2s, border-color .2s;
+  }
+  .card-collapse:hover { background: rgba(255,79,135,.85); border-color: rgba(255,79,135,.6); transform: scale(1.04); }
+  .card-collapse .x,
+  .card-collapse .arr { display: inline-block; transition: transform .25s var(--ease-out); font-size: 14px; line-height: 1; }
+  .card-collapse .arr { transform: rotate(0deg); }
+  .card-collapse .lbl { letter-spacing: .02em; }
+  .is-collapsed .card-collapse .arr { transform: rotate(180deg); }
+  .is-collapsed .card-collapse .x { display: none; }
+
+  /* 文字完整显示(去掉 line-clamp) */
+  .trend-card .title {
+    -webkit-line-clamp: unset !important;
+    display: block !important;
+    -webkit-box-orient: unset !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+  }
+  .result-card .title { white-space: normal; word-break: break-word; }
+
+  /* 结果卡折叠:仅显示标题 + 番号 */
+  .result-card.is-collapsed {
+    grid-template-columns: 1fr !important;
+    padding: 16px 22px !important;
+  }
+  .result-card.is-collapsed .media-col { display: none !important; }
+  .result-card.is-collapsed .info .badges,
+  .result-card.is-collapsed .info .meta,
+  .result-card.is-collapsed .info .actions { display: none !important; }
+  .result-card.is-collapsed .info { display: flex; flex-direction: column; gap: 4px; }
+  .result-card.is-collapsed .info .title { font-size: 16px; }
+
+  /* 右上角统一绝对定位(覆盖之前的 static) */
+  .result-card { position: relative; }
+  .result-card .info-head { display: flex; align-items: flex-start; gap: 10px; padding-right: 44px; }
+  .result-card .info-head .code { flex: 1; }
+  .result-card .info-head .card-collapse,
+  .filters .card-collapse { position: absolute; top: 14px; right: 14px; }
+
+  /* history 区:按钮在 h2 内,不走绝对定位 */
+  .history h2 { position: relative; }
+  .history h2 .right { float: right; display: inline-flex; align-items: center; gap: 8px; }
+  .history h2 .card-collapse { position: static; }
+  .history-body {
+    overflow: hidden;
+    max-height: 4000px;
+    transition: max-height .4s var(--ease-out), opacity .25s var(--ease-out), margin-top .3s var(--ease-out);
+    opacity: 1;
+  }
+  .history.is-collapsed .history-body { max-height: 0 !important; opacity: 0; margin-top: 0; }
+
+  /* 筛选区折叠:仅显示标题 + 按钮 */
+  .filters { position: relative; padding-top: 52px; }
+  .filters-head {
+    position: absolute; top: 22px; left: 26px; right: 54px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .filters-head .filters-title {
+    font-size: 14px; font-weight: 700;
+    color: #f0dde5; letter-spacing: 0.02em;
+  }
+  .filters.is-collapsed .filter-row { display: none !important; }
+  .trending.collapsed .trending-body {
+    max-height: 0;
+    opacity: 0;
+    margin-top: 0;
+  }
+  .trending.collapsed .trending-head { margin-bottom: 0; }
+  #trendingToggle .chev { display: inline-block; transition: transform .25s var(--ease-out); }
+  .trending.collapsed #trendingToggle .chev { transform: rotate(-90deg); }
+  .trending-grid {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+  }
+  .trend-card {
+    position: relative;
+    border: 1px solid rgba(255,255,255,.08);
+    background: rgba(255,255,255,.04);
+    border-radius: 18px; overflow: hidden;
+    cursor: pointer;
+    transition: transform .22s var(--ease-out), border-color .22s, box-shadow .22s;
+    box-shadow: 0 12px 28px rgba(0,0,0,.22);
+  }
+  .trend-card:hover { transform: translateY(-4px); border-color: rgba(255,79,135,.55); box-shadow: 0 24px 50px rgba(0,0,0,.36), 0 0 0 1px rgba(255,79,135,.18); }
+  .trend-card .cover {
+    width: 100%; aspect-ratio: 16/11; background: linear-gradient(135deg, #151a26, #0d0f17);
+    position: relative; overflow: hidden;
+  }
+  .trend-card .cover img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+  }
+  .trend-card .preview {
+    position: absolute; inset: 0; opacity: 0; transition: opacity 0.25s;
+    pointer-events: none; z-index: 2;
+  }
+  .trend-card .preview video {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    background: #0d0f17;
+  }
+  .trend-card:hover .preview { opacity: 1; }
+  .trend-card .info { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 4px; }
+  .trend-card .code { color: #ff7aa6; font-size: 12.5px; font-weight: 700; letter-spacing: 0.04em; }
+  .trend-card .title { font-size: 12px; color: #d6c8d2; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .trend-card.is-jable .code { color: #67e8f9; }
+  .trend-card.is-jable:hover { border-color: rgba(103,232,249,.55); box-shadow: 0 24px 50px rgba(0,0,0,.36), 0 0 0 1px rgba(103,232,249,.18); }
+  .trend-card .rank {
+    position: absolute; top: 10px; left: 10px;
+    width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #ff4f87, #ff8a5b);
+    color: #fff; font-size: 12.5px; font-weight: 800; border-radius: 8px;
+    box-shadow: 0 6px 16px rgba(255,79,135,.4);
+    z-index: 3;
+  }
+  .trending-empty {
+    grid-column: 1 / -1;
+    text-align: center; color: var(--text-mute); font-size: 13px;
+    padding: 18px 0;
+  }
+  @media (max-width: 1100px) { .trending-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (max-width: 820px)  { .trending-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 600px)  { .trending-grid { grid-template-columns: repeat(1, minmax(0, 1fr)); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
+  }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
 </head>
@@ -631,8 +1120,30 @@
 <div class="container">
   <header>
     <h1>🎲 MissAV 随机选片器</h1>
+    <p class="hero-copy">更顺滑的筛选、候选抽卡和沉浸式选片体验。</p>
     <div class="stats" id="stats">加载中...</div>
   </header>
+
+  <section class="trending" id="trending">
+    <div class="trending-head">
+      <div class="trending-title">
+        <span class="trending-emoji" id="trendingEmoji">🔥</span>
+        <span id="trendingHeading">🔥 今日热门</span>
+        <span class="trending-source" id="trendingSource">MissAV</span>
+      </div>
+      <div class="trending-tabs" role="tablist">
+        <button class="period-chip active" data-period="daily" type="button">今日</button>
+        <button class="period-chip" data-period="weekly" type="button">本周</button>
+        <button class="period-chip ghost" id="trendingRefresh" type="button" title="刷新">↻ 刷新</button>
+        <button class="period-chip ghost" id="trendingToggle" type="button" title="收起" aria-expanded="true"><span class="lbl">收起</span> <span class="chev">▾</span></button>
+      </div>
+    </div>
+    <div class="trending-body" id="trendingBody">
+      <div class="trending-grid" id="trendingGrid">
+        <div class="trending-empty">正在拉取…</div>
+      </div>
+    </div>
+  </section>
 
   <div class="favorites" id="missavFavArea" style="display:none;">
     <h2><span class="left">⭐ MissAV 收藏</span><button class="btn btn-ghost" onclick="clearFavorites('missav')" style="font-size:11px;padding:4px 10px;">🗑 清空</button></h2>
@@ -645,6 +1156,12 @@
   </div>
 
   <div class="filters">
+    <div class="filters-head">
+      <span class="filters-title">🧰 筛选条件</span>
+    </div>
+    <button class="card-collapse" type="button" data-collapse="card">
+      <span class="x">×</span><span class="lbl">收起</span><span class="arr">▾</span>
+    </button>
     <div class="filter-row">
       <div class="filter-block">
         <label>片源</label>
@@ -671,8 +1188,8 @@
       <div class="filter-block" style="flex: 2;">
         <label>标签（多选,任一命中即匹配；无选 = 不限）
           <span style="float:right;font-weight:400;">
-            <span class="glow-btn sel" onclick="selectAllTags()">✅ 全选</span>
-            <span class="glow-btn desel" onclick="deselectAllTags()">✖ 取消</span>
+            <span class="glow-btn sel" onclick="selectAllTags()">全选</span>
+            <span class="glow-btn desel" onclick="deselectAllTags()">清除</span>
           </span>
         </label>
         <div class="chip-group" id="tagChips"></div>
@@ -683,8 +1200,8 @@
       <div class="filter-block" style="flex: 0 0 100%; max-width: 100%;">
         <label>女优（点击圆圈多选；不选 = 不限）
           <span style="float:right;font-weight:400;">
-            <span class="glow-btn sel" onclick="selectAllActresses()">✅ 全选</span>
-            <span class="glow-btn desel" onclick="deselectAllActresses()">✖ 取消</span>
+            <span class="glow-btn sel" onclick="selectAllActresses()">全选</span>
+            <span class="glow-btn desel" onclick="deselectAllActresses()">清除</span>
           </span>
         </label>
         <input type="search" id="actressSearch" placeholder="🔍 搜索女优..." class="actress-search">
@@ -724,7 +1241,17 @@
   <div class="selected-bar" id="selectedBar" style="margin-bottom:12px;"></div>
   <button class="roll-btn" id="rollBtn">🎲 随机抽一部</button>
   <div style="text-align:center;margin-bottom:20px;">
+    <button class="btn btn-ghost" onclick="rollShortlist()" id="shortlistBtn" style="font-size:12px;padding:6px 14px;">🎰 抽 6 部候选</button>
     <button class="btn btn-ghost" onclick="openBrowse()" id="browseBtn" style="font-size:12px;padding:6px 14px;">🖼 浏览筛选结果</button>
+  </div>
+
+  <div class="shortlist" id="shortlistArea">
+    <div class="shortlist-head">
+      <h2 id="shortlistTitle">🎰 本轮候选</h2>
+      <button class="btn btn-ghost" onclick="rollShortlist()" style="font-size:11px;padding:4px 12px;">🔄 重抽</button>
+      <button class="btn btn-ghost" onclick="clearShortlist()" style="font-size:11px;padding:4px 12px;">✖ 收起</button>
+    </div>
+    <div class="shortlist-grid" id="shortlistGrid"></div>
   </div>
 
   <div id="browseArea" style="display:none">
@@ -744,8 +1271,18 @@
   </div>
 
   <div class="history" id="historyArea" style="display: none;">
-    <h2>📜 抽过的（点击重看） <button class="btn btn-ghost" onclick="clearHistory()" style="font-size:11px;padding:4px 10px;margin-left:8px;">🗑 清空</button></h2>
-    <div class="history-grid" id="historyGrid"></div>
+    <h2>
+      <span class="left">📜 抽过的（点击重看）</span>
+      <span class="right">
+        <button class="btn btn-ghost" onclick="clearHistory()" style="font-size:11px;padding:4px 10px;">🗑 清空</button>
+        <button class="card-collapse" type="button" data-collapse="card">
+          <span class="x">×</span><span class="lbl">收起</span><span class="arr">▾</span>
+        </button>
+      </span>
+    </h2>
+    <div class="history-body" id="historyBody">
+      <div class="history-grid" id="historyGrid"></div>
+    </div>
   </div>
 
 </div>
@@ -756,7 +1293,7 @@ const $ = (id) => document.getElementById(id);
 let DATA = null;
 function p(u){if(!u)return u;return u&&IMG_PROXY?IMG_PROXY+u.replace('https://',''):u;}
 new MutationObserver(function(ms){for(var i=0;i<ms.length;i++)for(var j=0;j<ms[i].addedNodes.length;j++){var n=ms[i].addedNodes[j];if(n.nodeType!==1)continue;if(n.tagName==='IMG'||n.tagName==='VIDEO'||n.tagName==='SOURCE')rw(n);if(n.querySelectorAll)n.querySelectorAll('img,video,source').forEach(rw)}}).observe(document.body,{childList:true,subtree:true});
-function rw(el){['src','poster'].forEach(function(a){var v=el.getAttribute(a);if(v&&v.indexOf('/img/')===-1&&(v.indexOf('fourhoi.com')!==-1||v.indexOf('jable.tv')!==-1||v.indexOf('assets-cdn.jable')!==-1))el.setAttribute(a,IMG_PROXY+v.replace('https://',''))})}
+function rw(el){if(el.getAttribute && el.getAttribute('data-no-proxy')==='1')return;['src','poster'].forEach(function(a){var v=el.getAttribute(a);if(v&&v.indexOf('/img/')===-1&&(v.indexOf('fourhoi.com')!==-1||v.indexOf('jable.tv')!==-1||v.indexOf('assets-cdn.jable')!==-1))el.setAttribute(a,IMG_PROXY+v.replace('https://',''))})}
 
 // 自动代理所有动态插入的 fourhoi 图片
 
@@ -769,12 +1306,21 @@ const state = {
   actresses: new Set(),
   current: null,
   history: [],
+  shortlist: [],
   favoritesMissav: [],
   favoritesJable: [],
 };
 
 function currentSourceOf(v) {
   return (v && (v.source || (DATA && DATA.source) || state.source)) || 'missav';
+}
+function coverUrl(v) {
+  // MissAV 封面直连，避免所有封面都绕本地 /img/ 代理导致加载慢。
+  // Jable 仍走代理，因为很多线路需要代理访问其 CDN。
+  return currentSourceOf(v) === 'jable' ? p(v.cover) : (v.cover || '');
+}
+function previewUrl(v) {
+  return p(v.preview || '');
 }
 function favListForSource(src) {
   return src === 'jable' ? state.favoritesJable : state.favoritesMissav;
@@ -806,6 +1352,131 @@ function normFavorite(v, src) {
     is_saved: !!v.is_saved,
     source: src || currentSourceOf(v)
   };
+}
+
+let SYNC_LAST_UPDATED = 0;
+let SYNC_SUPPRESS_SAVE = false;
+let syncSaveTimer = null;
+
+function slimVideoRef(v) {
+  if (!v) return null;
+  return { code: v.code, source: currentSourceOf(v) };
+}
+
+function exportSyncState() {
+  return {
+    version: 1,
+    source: state.source,
+    type: state.type,
+    tags: [...state.tags],
+    excludeTags: [...state.excludeTags],
+    actresses: [...state.actresses],
+    current: slimVideoRef(state.current),
+    shortlist: state.shortlist.map(slimVideoRef).filter(Boolean),
+    history: state.history.map(slimVideoRef).filter(Boolean),
+    favoritesMissav: state.favoritesMissav,
+    favoritesJable: state.favoritesJable,
+    browsePage,
+    browseOpen: $('browseArea').style.display !== 'none'
+  };
+}
+
+function findVideoByRef(ref) {
+  if (!ref || !ref.code) return null;
+  const pool = ref.source === 'jable' ? state.favoritesJable.concat((DATA && DATA.videos) || []) : state.favoritesMissav.concat((DATA && DATA.videos) || []);
+  return pool.find(v => v.code === ref.code) || null;
+}
+
+async function loadSourceData(src) {
+  if (src === 'jable') {
+    if (DATA && DATA.source === 'jable') return;
+    const d = await (await fetch('jable_data.json?_=' + Date.now())).json();
+    DATA = d;
+    var uniq = {};
+    DATA.videos.forEach(function(v){(v.actresses||[]).forEach(function(a){uniq[a]=1});});
+    DATA.actresses = Object.keys(uniq);
+    $('stats').textContent = '📊 ' + DATA.videos.length + ' 部作品 · ' + DATA.actresses.length + ' 位女优 · Jable.TV';
+  } else {
+    if (DATA && (!DATA.source || DATA.source === 'missav')) return;
+    const d = await (await fetch('picker_data.json?_=' + Date.now())).json();
+    DATA = d;
+    $('stats').textContent = `📊 ${DATA.videos.length} 部作品 · ${(DATA.actresses||[]).length} 位女优 · 按空格快速抽`;
+  }
+  renderTagChips();
+  renderActressGrid();
+  renderFavorites();
+  updateCount();
+}
+
+async function applySyncState(payload) {
+  if (!payload || !payload.version) return;
+  SYNC_SUPPRESS_SAVE = true;
+  try {
+    const src = payload.source || 'missav';
+    await loadSourceData(src);
+    document.querySelectorAll('#sourceChips .chip').forEach(c => c.classList.remove('active'));
+    const chip = document.querySelector(`#sourceChips .chip[data-source="${src}"]`);
+    if (chip) chip.classList.add('active');
+    state.source = src;
+    state.type = payload.type || 'all';
+    state.tags = new Set(payload.tags || []);
+    state.excludeTags = new Set(payload.excludeTags || []);
+    state.actresses = new Set(payload.actresses || []);
+    state.favoritesMissav = Array.isArray(payload.favoritesMissav) ? payload.favoritesMissav : [];
+    state.favoritesJable = Array.isArray(payload.favoritesJable) ? payload.favoritesJable : [];
+    state.shortlist = (payload.shortlist || []).map(findVideoByRef).filter(Boolean);
+    state.history = (payload.history || []).map(findVideoByRef).filter(Boolean);
+    browsePage = payload.browsePage || 0;
+
+    document.querySelectorAll('#typeChips .chip').forEach(c => c.classList.remove('active'));
+    const typeChip = document.querySelector(`#typeChips .chip[data-type="${state.type}"]`);
+    if (typeChip) typeChip.classList.add('active');
+
+    renderFavorites();
+    renderTagChips();
+    renderActressGrid();
+    updateCount();
+
+    state.current = findVideoByRef(payload.current);
+    if (state.current) renderResult(); else $('resultArea').innerHTML = `<div class="empty"><div class="emoji">🎰</div><div>设置筛选条件，点上面的按钮开始随机</div></div>`;
+    renderShortlist();
+    renderHistory();
+    if (payload.browseOpen) {
+      renderBrowse();
+      $('browseArea').style.display = 'block';
+    } else {
+      $('browseArea').style.display = 'none';
+    }
+    SYNC_LAST_UPDATED = payload.updatedAt || 0;
+  } finally {
+    SYNC_SUPPRESS_SAVE = false;
+  }
+}
+
+function scheduleSyncSave() {
+  if (SYNC_SUPPRESS_SAVE) return;
+  clearTimeout(syncSaveTimer);
+  syncSaveTimer = setTimeout(async () => {
+    try {
+      const payload = exportSyncState();
+      const r = await fetch('/sync_state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (r.ok) SYNC_LAST_UPDATED = Date.now();
+    } catch(e) {}
+  }, 350);
+}
+
+async function pullSyncState() {
+  try {
+    const r = await fetch('/sync_state.json?_=' + Date.now());
+    const payload = await r.json();
+    if ((payload.updatedAt || 0) > (SYNC_LAST_UPDATED || 0)) {
+      await applySyncState(payload);
+    }
+  } catch(e) {}
 }
 
 // ---- 渲染筛选 UI ----
@@ -877,12 +1548,13 @@ function chipHTML(a) {
   const D = DATA || IDX;
   const avatar = (D.actress_avatars || {})[a];
   const dispName = (D.actress_display || {})[a] || a;
-  const imgHtml = avatar
-    ? `<img src="${avatar}" alt="${a}" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
-    : '';
   const initial = a.replace(/[（(].*[）)]/g,'').charAt(0);
+  const fallback = `<span class="avatar-fallback">${initial}</span>`;
+  const imgHtml = avatar
+    ? `<img src="${avatar}" alt="${a}" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`
+    : '';
   return `<div class="actress-chip${sel}" data-actress="${a}" title="${dispName}">
-            <div class="blob">${imgHtml || `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px;color:var(--text-mute)">${initial}</span>`}</div>
+            <div class="blob">${fallback}${imgHtml}</div>
             <span class="name">${dispName}</span>
           </div>`;
 }
@@ -918,9 +1590,13 @@ function renderActressGrid(filter='') {
     const hdr = $(headerId), cnt = $(countId);
     hdr.style.display = list.length > 0 ? 'flex' : 'none';
     cnt.textContent = list.length;
-    // auto-collapse empty sections
+    // auto-collapse ONLY when truly empty; auto-expand when items arrive
     const section = hdr.parentElement;
-    if (list.length === 0 && !section.classList.contains('collapsed')) section.classList.add('collapsed');
+    if (list.length === 0) {
+      if (!section.classList.contains('collapsed')) section.classList.add('collapsed');
+    } else {
+      section.classList.remove('collapsed');
+    }
   }
 }
 
@@ -979,7 +1655,8 @@ function renderSelBar() {
   state.actresses.forEach(a => {
     const av = (D.actress_avatars || {})[a];
     const disp = (D.actress_display||{})[a] || a;
-    const img = av ? '<img src="'+av+'" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'">' : '';
+    const initial = a.replace(/[（(].*[）)]/g,'').charAt(0);
+    const img = '<span class="avatar-fallback">'+initial+'</span>' + (av ? '<img src="'+av+'" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">' : '');
     parts.push('<span class="sel-item" data-click="dropActress" data-actress="'+a.replace(/"/g,'&quot;')+'" title="'+disp.replace(/"/g,'&quot;')+'"><span class="sel-blob">'+img+'</span><span class="sel-name">'+disp+'</span></span>');
   });
   sb.innerHTML = parts.join('');
@@ -1010,6 +1687,7 @@ function updateCount() {
   const n = getCandidates().length;
   $('candidateCount').textContent = n;
   $('rollBtn').disabled = n === 0;
+  $('shortlistBtn').disabled = n === 0;
   renderSelBar();
 }
 
@@ -1031,6 +1709,74 @@ function rollOne() {
   saveHistory();
   renderResult();
   renderHistory();
+  scheduleSyncSave();
+}
+
+function sampleUnique(list, count) {
+  const pool = list.slice();
+  const picked = [];
+  while (pool.length && picked.length < count) {
+    const idx = Math.floor(Math.random() * pool.length);
+    picked.push(pool.splice(idx, 1)[0]);
+  }
+  return picked;
+}
+
+function rollShortlist() {
+  const cands = getCandidates();
+  if (cands.length === 0) return;
+  const fresh = cands.filter(v => !state.history.some(h => h.code === v.code));
+  const pool = fresh.length >= 6 ? fresh : cands;
+  state.shortlist = sampleUnique(pool, Math.min(6, pool.length));
+  renderShortlist();
+  $('shortlistArea').style.display = 'block';
+  $('shortlistArea').scrollIntoView({behavior:'smooth', block:'center'});
+  scheduleSyncSave();
+}
+
+function pickShortlist(code) {
+  const v = state.shortlist.find(x => x.code === code);
+  if (!v) return;
+  state.current = v;
+  state.history = [v, ...state.history.filter(h => h.code !== v.code)].slice(0, 12);
+  saveHistory();
+  renderResult();
+  renderHistory();
+  scheduleSyncSave();
+}
+
+function clearShortlist() {
+  state.shortlist = [];
+  renderShortlist();
+  scheduleSyncSave();
+}
+
+function renderShortlist() {
+  const area = $('shortlistArea');
+  const grid = $('shortlistGrid');
+  if (!state.shortlist.length) {
+    area.style.display = 'none';
+    grid.innerHTML = '';
+    return;
+  }
+  area.style.display = 'block';
+  $('shortlistTitle').textContent = `🎰 本轮候选 · ${state.shortlist.length} 部（点卡片选中）`;
+  grid.innerHTML = state.shortlist.map(v => {
+    const src = currentSourceOf(v);
+    const actress = (v.actresses || []).slice(0, 2).join('、') || '未知女优';
+    return `
+      <div class="short-card" onclick="pickShortlist('${v.code}')" title="点选 ${v.code}">
+        <div class="img-wrap">
+          <img src="${src === 'jable' ? p(v.cover) : (v.cover || '')}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer" ${src === 'jable' ? '' : 'data-no-proxy="1"'}
+            onerror="this.parentElement.style.background='var(--border)';this.style.display='none'">
+        </div>
+        <div class="info">
+          <div class="code">${v.code}</div>
+          <div class="title">${v.title || '（无标题）'}</div>
+          <div class="meta">${actress}${v.date ? ' · ' + v.date : ''}</div>
+        </div>
+      </div>`;
+  }).join('');
 }
 
 // ---- 渲染结果 ----
@@ -1054,7 +1800,7 @@ function renderResult() {
     ? `<div class="media-col">
          <div class="jplayer" id="jp" data-state="cover">
          <div class="jp-cover" id="jpCover">
-           <img src="${p(v.cover)}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+           <img src="${coverUrl(v)}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer" ${isJable ? '' : 'data-no-proxy="1"'}
              onerror="this.style.display='none'">
            <div class="jp-play-icon">▶</div>
          </div>
@@ -1100,8 +1846,8 @@ function renderResult() {
            poster="${p(v.cover)}"
            onerror="this.style.display='none'"></video>
          <div class="cover">
-           <img src="${p(v.cover)}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
-              onerror="this.parentElement.innerHTML='<div class=placeholder>封面加载失败</div>'">
+            <img src="${coverUrl(v)}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-no-proxy="1"
+               onerror="this.parentElement.innerHTML='<div class=placeholder>封面加载失败</div>'">
          </div>
         </div></div>`;
 
@@ -1109,7 +1855,12 @@ function renderResult() {
     <div class="result-card">
       ${coverBlock}
       <div class="info">
-        <div class="code">${v.code}</div>
+        <div class="info-head">
+          <div class="code">${v.code}</div>
+          <button class="card-collapse" type="button" data-collapse="card">
+            <span class="x">×</span><span class="lbl">收起</span><span class="arr">▾</span>
+          </button>
+        </div>
         <div class="badges">${badges.join('')}</div>
         <div class="title">${v.title || '（无标题）'}</div>
         <div class="meta">
@@ -1366,7 +2117,7 @@ function renderHistory() {
   $('historyGrid').innerHTML = state.history.map(v => `
     <div class="hist-card" onclick="showFromHistory('${v.code}')">
       <div class="img-wrap">
-        <img src="${p(v.cover)}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+        <img src="${currentSourceOf(v) === 'jable' ? p(v.cover) : (v.cover || '')}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer" ${currentSourceOf(v) === 'jable' ? '' : 'data-no-proxy="1"'}
           onerror="this.parentElement.style.background='var(--border)';this.style.display='none'">
       </div>
       <div class="hist-code">${v.code}</div>
@@ -1378,7 +2129,10 @@ function renderHistory() {
 // hover 触发后挂载 hls.js(避免一次挂 218 个实例)
 function mountHls(video, src) {
   if (!src || !video) return;
-  if (video.dataset.hlsMounted === '1') return;
+  if (video.dataset.hlsMounted === '1') {
+    video.play().catch(() => {});
+    return;
+  }
   video.dataset.hlsMounted = '1';
   video.muted = true;
   // MP4 / WebM / 其他原生支持的视频格式:直接给 src
@@ -1386,8 +2140,8 @@ function mountHls(video, src) {
   if (!isHls) {
     video.src = src;
     video.addEventListener('error', function() {
-      // missav 部分视频 fourhoi 上 404,自动隐藏
-      video.parentElement.style.display = 'none';
+      // mp4 404 之类:仅隐藏视频元素本身,保留封面
+      video.style.display = 'none';
       video.classList.add('hls-failed');
     });
     video.play().catch(function(){});
@@ -1396,6 +2150,7 @@ function mountHls(video, src) {
   // M3U8: Safari 原生支持
   if (video.canPlayType('application/vnd.apple.mpegurl')) {
     video.src = src;
+    video.play().catch(() => {});
     return;
   }
   // 其他浏览器用 hls.js
@@ -1405,7 +2160,7 @@ function mountHls(video, src) {
     hls.attachMedia(video);
     hls.on(Hls.Events.ERROR, function(_, data) {
       if (data.fatal) {
-        video.parentElement.style.display = 'none';
+        video.style.display = 'none';
         video.classList.add('hls-failed');
       }
     });
@@ -1417,7 +2172,7 @@ function mountHls(video, src) {
 }
 
 document.addEventListener('mouseover', function(e) {
-  const card = e.target.closest('.browse-card,.hist-card');
+  const card = e.target.closest('.browse-card,.hist-card,.trend-card');
   if (card) {
     const v = card.querySelector('video[data-hls-src]');
     if (v) { mountHls(v, v.dataset.hlsSrc); return; }
@@ -1426,7 +2181,7 @@ document.addEventListener('mouseover', function(e) {
   if (v) mountHls(v, v.dataset.hlsSrc);
 });
 document.addEventListener('mouseenter', function(e) {
-  const card = e.target.closest && e.target.closest('.browse-card,.hist-card');
+  const card = e.target.closest && e.target.closest('.browse-card,.hist-card,.trend-card');
   if (card) {
     const v = card.querySelector('video[data-hls-src]');
     if (v) { mountHls(v, v.dataset.hlsSrc); return; }
@@ -1434,6 +2189,43 @@ document.addEventListener('mouseenter', function(e) {
   const v = e.target.closest && e.target.closest('video[data-hls-src]');
   if (v) mountHls(v, v.dataset.hlsSrc);
 }, true);
+
+// 热门卡片:离开时暂停预览
+document.addEventListener('mouseout', function(e) {
+  const card = e.target.closest('.trend-card');
+  if (!card) return;
+  if (e.relatedTarget && card.contains(e.relatedTarget)) return;
+  const v = card.querySelector('video');
+  if (v) { try { v.pause(); } catch (e) {} }
+});
+
+// 热门卡片点击:jable 在结果区显示(需要本地有数据),missav 打开外链
+document.addEventListener('click', function(e) {
+  const card = e.target.closest('.trend-card');
+  if (!card) return;
+  if (e.target.closest('.card-collapse')) return; // 收起按钮不触发
+  const code = card.dataset.code;
+  if (!code) return;
+  if (trendIsJable() && DATA && DATA.videos) {
+    const v = DATA.videos.find(x => (x.code || '').toLowerCase() === code);
+    if (v) {
+      e.preventDefault();
+      e.stopPropagation();
+      state.current = v;
+      state.history = [v, ...state.history.filter(h => h.code !== v.code)].slice(0, 12);
+      saveHistory();
+      renderResult();
+      renderHistory();
+      scheduleSyncSave();
+      // 滚到结果区
+      $('resultArea').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+  }
+  // missav 或 jable 本地没找到:开新标签
+  const url = card.dataset.url;
+  if (url) window.open(url, '_blank', 'noopener');
+});
 
 function showFromHistory(code) {
   const v = state.history.find(h => h.code === code) || DATA.videos.find(x => x.code === code);
@@ -1466,7 +2258,7 @@ function renderFavorites() {
       return `
       <div class="fav-card" onclick="openFavorite('${src}','${v.code}')">
         <div class="img-wrap">
-          <img src="${p(v.cover)}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+          <img src="${src === 'jable' ? p(v.cover) : (v.cover || '')}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer" ${src === 'jable' ? '' : 'data-no-proxy="1"'}
                onerror="this.style.display='none'">
         </div>
         <div class="info">
@@ -1518,6 +2310,7 @@ function toggleFavorite() {
     badge.remove();
   }
   updateCount();
+  scheduleSyncSave();
 }
 function removeFavorite(src, code) {
   if (src === 'jable') state.favoritesJable = state.favoritesJable.filter(v => v.code !== code);
@@ -1526,6 +2319,7 @@ function removeFavorite(src, code) {
   renderFavorites();
   updateCount();
   if (state.current && currentSourceOf(state.current) === src && state.current.code === code) renderResult();
+  scheduleSyncSave();
 }
 function clearFavorites(src) {
   if (src === 'jable') state.favoritesJable = [];
@@ -1534,6 +2328,7 @@ function clearFavorites(src) {
   renderFavorites();
   updateCount();
   renderResult();
+  scheduleSyncSave();
 }
 function openFavorite(src, code) {
   const list = src === 'jable' ? state.favoritesJable : state.favoritesMissav;
@@ -1547,6 +2342,7 @@ function openFavorite(src, code) {
     state.current = fav;
     if ((fav.source || src) !== src) { console.warn('openFavorite: source mismatch', fav, src); return; }
     renderResult();
+    scheduleSyncSave();
   }
   if (src === 'jable') {
     if (DATA && DATA.source === 'jable') { applyFavorite(); return; }
@@ -1591,6 +2387,7 @@ function clearHistory() {
   state.history = [];
   localStorage.removeItem('missav_picker_history');
   renderHistory();
+  scheduleSyncSave();
 }
 
 function selectAllActresses() {
@@ -1601,12 +2398,14 @@ function selectAllActresses() {
     });
   }
   updateCount();
+  scheduleSyncSave();
 }
 
 function deselectAllActresses() {
   state.actresses.clear();
   document.querySelectorAll('.actress-chip.active').forEach(c => c.classList.remove('active'));
   updateCount();
+  scheduleSyncSave();
 }
 
 function selectAllTags() {
@@ -1615,12 +2414,14 @@ function selectAllTags() {
     c.classList.add('active');
   });
   updateCount();
+  scheduleSyncSave();
 }
 
 function deselectAllTags() {
   state.tags.clear();
   document.querySelectorAll('#tagChips .chip').forEach(c => c.classList.remove('active'));
   updateCount();
+  scheduleSyncSave();
 }
 
 // ---- 事件绑定 ----
@@ -1642,6 +2443,9 @@ $('sourceChips').addEventListener('click', function(e) {
   $('selectedBar').innerHTML = '';
   $('rollBtn').disabled = true;
   $('rollBtn').textContent = '⏳ 加载中...';
+  // 切换片源时,刷新热门区
+  renderTrending();
+  loadTrending();
   if (src === 'jable') {
     DATA = null; IDX = null;
     $('tagChips').innerHTML = '';
@@ -1657,6 +2461,7 @@ $('sourceChips').addEventListener('click', function(e) {
       $('rollBtn').disabled = false; $('rollBtn').textContent = '🎲 随机抽一部';
       $('stats').textContent = '📊 ' + DATA.videos.length + ' 部作品 · ' + DATA.actresses.length + ' 位女优 · Jable.TV';
       renderTagChips(); renderActressGrid(); renderFavorites(); updateCount();
+      scheduleSyncSave();
     });
   } else {
     DATA = null; IDX = null;
@@ -1675,6 +2480,7 @@ $('typeChips').addEventListener('click', (e) => {
   state.type = chip.dataset.type;
   renderTagChips();
   updateCount();
+  scheduleSyncSave();
 });
 
 $('tagChips').addEventListener('click', (e) => {
@@ -1683,6 +2489,7 @@ $('tagChips').addEventListener('click', (e) => {
   if (state.tags.has(tag)) { state.tags.delete(tag); chip.classList.remove('active'); }
   else { state.tags.add(tag); chip.classList.add('active'); }
   updateCount();
+  scheduleSyncSave();
 });
 
 $('excludeChips').addEventListener('click', (e) => {
@@ -1691,6 +2498,7 @@ $('excludeChips').addEventListener('click', (e) => {
   if (state.excludeTags.has(tag)) { state.excludeTags.delete(tag); chip.classList.remove('active'); }
   else { state.excludeTags.add(tag); chip.classList.add('active'); }
   updateCount();
+  scheduleSyncSave();
 });
 
 for (const gid of ['savedGrid','rookieGrid','otherGrid']) {
@@ -1705,6 +2513,7 @@ for (const gid of ['savedGrid','rookieGrid','otherGrid']) {
       chip.classList.add('active');
     }
     updateCount();
+    scheduleSyncSave();
   });
 }
 
@@ -1722,12 +2531,14 @@ function openBrowse() {
   renderBrowse();
   $('browseArea').style.display = 'block';
   $('browseArea').scrollIntoView({behavior:'smooth'});
+  scheduleSyncSave();
 }
 
 function browseGo(page) {
   browsePage = page;
   renderBrowse();
   $('browseArea').scrollIntoView({behavior:'smooth'});
+  scheduleSyncSave();
 }
 
 function renderBrowse() {
@@ -1740,10 +2551,10 @@ function renderBrowse() {
   $('browseGrid').innerHTML = show.map(v => `
     <div class="browse-card" onclick="window.open('${v.url}','_blank')">
       <div class="bc-cover">
-        <img src="${p(v.cover)}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+        <img src="${currentSourceOf(v) === 'jable' ? p(v.cover) : (v.cover || '')}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer" ${currentSourceOf(v) === 'jable' ? '' : 'data-no-proxy="1"'}
           onerror="this.parentElement.style.background='var(--border)';this.style.display='none'">
         <div class="bc-preview">
-          <video data-hls-src="${p(v.preview || '')}" muted loop playsinline disableRemotePlayback referrerpolicy="no-referrer" preload="none"
+          <video data-hls-src="${previewUrl(v)}" muted loop playsinline disableRemotePlayback referrerpolicy="no-referrer" preload="none"
             poster="${p(v.cover)}"></video>
         </div>
       </div>
@@ -1786,6 +2597,8 @@ function init(stage) {
     renderActressGrid();
     loadFavorites();
     loadHistory();
+    // 热门板块(随当前片源)
+    loadTrending();
     // 异步加载完整数据
     $('rollBtn').disabled = true;
     $('rollBtn').textContent = '⏳ 加载作品数据...';
@@ -1812,18 +2625,149 @@ function init(stage) {
 // 让 getCandidates 能同时工作于 DATA 未加载时(返回空)
 const origGetCandidates = getCandidates;
 getCandidates = function() {
-  if (!DATA) return [];
+if (!DATA) return [];
   return origGetCandidates();
 };
+
+// ---- 每日 / 每周热门 ----
+let trendPeriod = 'daily';
+let trendCache = { missav: { daily: null, weekly: null }, jable: { daily: null, weekly: null } };
+let trendLoading = false;
+
+function trendSource() {
+  // 跟随当前片源;选 missav/jable 与 state.source 一致
+  return state && state.source === 'jable' ? 'jable' : 'missav';
+}
+function trendLabel() { return trendSource() === 'jable' ? 'Jable.TV' : 'MissAV'; }
+function trendIsJable() { return trendSource() === 'jable'; }
+
+function renderTrending() {
+  const src = trendSource();
+  const data = trendCache[src] && trendCache[src][trendPeriod];
+  const grid = $('trendingGrid');
+  $('trendingSource').textContent = trendLabel();
+  $('trendingEmoji').textContent = trendIsJable() ? '🪐' : '🔥';
+  $('trendingHeading').textContent = (trendPeriod === 'daily' ? '今日热门' : '本周热门');
+  if (!data) {
+    grid.innerHTML = '<div class="trending-empty">正在拉取…</div>';
+    return;
+  }
+  if (!data.items || data.items.length === 0) {
+    const err = data.error ? `（${data.error}）` : '';
+    grid.innerHTML = `<div class="trending-empty">暂时拉不到 ${trendLabel()} 热门 ${err}<br><span style="opacity:.7">先看下方筛选区，或稍后点 ↻ 刷新</span></div>`;
+    return;
+  }
+  grid.innerHTML = data.items.slice(0, 20).map((it, i) => {
+    const cover = it.cover || '';
+    const code = (it.code || '').toLowerCase();
+    const isJ = trendIsJable();
+    // missav 预览走本地代理(免 fourhoi 403); jable 走本地 /play 代理
+    const preview = isJ
+      ? (code ? `/play/${code}/playlist.m3u8` : '')
+      : (code ? `/trend_preview/missav/${code}.mp4` : '');
+    const dataKind = isJ ? 'hls' : (code ? 'mp4' : '');
+    const safeTitle = (it.title || it.code || '').replace(/"/g, '&quot;');
+    const safeUrl = it.url || '';
+    return `
+      <div class="trend-card ${isJ ? 'is-jable' : ''}" data-code="${code}" data-url="${safeUrl.replace(/"/g, '&quot;')}" title="${safeTitle}">
+        <div class="cover">
+          <span class="rank">${i + 1}</span>
+          <img src="${cover}" alt="${it.code || ''}" loading="lazy" referrerpolicy="no-referrer" data-no-proxy="1"
+               onerror="this.parentElement.style.background='var(--border)';this.style.display='none'">
+          <div class="preview">
+            <video data-hls-src="${preview}" data-kind="${dataKind}" muted loop playsinline disableRemotePlayback referrerpolicy="no-referrer" preload="none" poster="${cover}"></video>
+          </div>
+        </div>
+        <div class="info">
+          <div class="code">${it.code || ''}</div>
+          <div class="title">${(it.title || '（无标题）').slice(0, 60)}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function loadTrending(force) {
+  if (trendLoading) return;
+  trendLoading = true;
+  const src = trendSource();
+  const period = trendPeriod;
+  const url = `/trending?source=${encodeURIComponent(src)}&period=${encodeURIComponent(period)}${force ? '&_=' + Date.now() : ''}`;
+  try {
+    const r = await fetch(url);
+    const data = await r.json();
+    trendCache[src] = trendCache[src] || { daily: null, weekly: null };
+    trendCache[src][period] = data;
+  } catch (e) {
+    trendCache[src] = trendCache[src] || { daily: null, weekly: null };
+    trendCache[src][period] = { source: src, period, items: [], error: '网络错误' };
+  } finally {
+    trendLoading = false;
+    renderTrending();
+  }
+}
+
+document.querySelectorAll('.period-chip[data-period]').forEach(b => {
+  b.addEventListener('click', () => {
+    if (b.classList.contains('active')) return;
+    document.querySelectorAll('.period-chip[data-period]').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    trendPeriod = b.dataset.period;
+    renderTrending();
+    const cached = trendCache[trendSource()] && trendCache[trendSource()][trendPeriod];
+    if (!cached) loadTrending();
+  });
+});
+document.getElementById('trendingRefresh').addEventListener('click', () => loadTrending(true));
+
+// 收起 / 展开
+(function() {
+  var KEY = 'missav_picker_trend_collapsed';
+  var section = document.getElementById('trending');
+  var btn = document.getElementById('trendingToggle');
+  function apply(collapsed) {
+    section.classList.toggle('collapsed', collapsed);
+    btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    btn.title = collapsed ? '展开' : '收起';
+    btn.querySelector('.lbl').textContent = collapsed ? '展开' : '收起';
+    try { localStorage.setItem(KEY, collapsed ? '1' : '0'); } catch (e) {}
+  }
+  try {
+    if (localStorage.getItem(KEY) === '1') apply(true);
+  } catch (e) {}
+  btn.addEventListener('click', function() {
+    apply(!section.classList.contains('collapsed'));
+  });
+})();
+
+// 单卡收起(热门 + 结果卡 + 筛选区) — 委托 + 阻止默认链接跳转(capture 阶段,先于内层 onclick)
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('.card-collapse');
+  if (!btn) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const card = btn.closest('.result-card,.filters,.history');
+  if (!card) return;
+  card.classList.toggle('is-collapsed');
+  const collapsed = card.classList.contains('is-collapsed');
+  const lbl = btn.querySelector('.lbl');
+  if (lbl) lbl.textContent = collapsed ? '展开' : '收起';
+}, true);
 
 if (location.protocol === 'file:') {
   DATA = JSON.parse(document.getElementById('DATA').textContent);
   init('full');
+  // file:// 模式不做局域网同步
 } else {
   IDX = null;
   fetch(location.pathname.replace(/[^/]*$/, '') + 'picker_index.json?_=' + Date.now())
     .then(r => r.json())
-    .then(d => { IDX = d; init('index'); })
+    .then(async d => {
+      IDX = d;
+      init('index');
+      // 首次拉取共享状态,之后轮询保持 PC/手机同步
+      await pullSyncState();
+      setInterval(pullSyncState, 2500);
+    })
     .catch(e => $('stats').textContent = '加载失败,请刷新');
 }
 </script>
