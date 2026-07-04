@@ -495,7 +495,6 @@
     .result-card .meta { font-size: 13px; }
     .result-card .actions { gap: 8px; }
     .result-card .actions .btn { padding: 10px 14px; font-size: 13px; }
-    .shortlist-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     header h1 { font-size: 22px; }
     .roll-btn { padding: 14px; font-size: 18px; }
     .browse-grid { grid-template-columns: 1fr; }
@@ -813,8 +812,8 @@ const state = {
   excludeTags: new Set(),
   actresses: new Set(),
   current: null,
-  history: [],
   shortlist: [],
+  history: [],
   favoritesMissav: [],
   favoritesJable: [],
 };
@@ -1194,26 +1193,6 @@ function updateCount() {
 }
 
 // ---- 随机抽 ----
-function rollOne() {
-  const cands = getCandidates();
-  if (cands.length === 0) return;
-  // 排除历史上已随机过的
-  let pool = cands.filter(v => !state.history.some(h => h.code === v.code));
-  if (pool.length === 0) {
-    // 全部抽过了,清空历史重新来
-    state.history = [];
-    pool = cands;
-  }
-  const v = pool[Math.floor(Math.random() * pool.length)];
-  state.current = v;
-  // 历史(去重,前置)
-  state.history = [v, ...state.history.filter(h => h.code !== v.code)].slice(0, 12);
-  saveHistory();
-  renderResult();
-  renderHistory();
-  scheduleSyncSave();
-}
-
 function sampleUnique(list, count) {
   const pool = list.slice();
   const picked = [];
@@ -1279,6 +1258,26 @@ function renderShortlist() {
         </div>
       </div>`;
   }).join('');
+}
+
+function rollOne() {
+  const cands = getCandidates();
+  if (cands.length === 0) return;
+  // 排除历史上已随机过的
+  let pool = cands.filter(v => !state.history.some(h => h.code === v.code));
+  if (pool.length === 0) {
+    // 全部抽过了,清空历史重新来
+    state.history = [];
+    pool = cands;
+  }
+  const v = pool[Math.floor(Math.random() * pool.length)];
+  state.current = v;
+  // 历史(去重,前置)
+  state.history = [v, ...state.history.filter(h => h.code !== v.code)].slice(0, 12);
+  saveHistory();
+  renderResult();
+  renderHistory();
+  scheduleSyncSave();
 }
 
 // ---- 渲染结果 ----
