@@ -398,6 +398,11 @@
     font-size: 11px; color: var(--accent); background: transparent; border: 0; cursor: pointer;
     padding: 0; white-space: nowrap;
   }
+  .fav-card .ext-link {
+    font-size: 11px; color: var(--text-mute); text-decoration: none;
+    padding: 0 6px 0 0; white-space: nowrap;
+  }
+  .fav-card .ext-link:hover { color: var(--primary); }
   .history-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -1078,7 +1083,6 @@ function renderResult() {
           <strong>发布日期</strong>：${v.date || '—'}
         </div>
         <div class="actions">
-          <a class="btn btn-primary" href="${v.url}" target="_blank" rel="noopener">▶️ 去 ${isJable?'Jable':'MissAV'} 观看</a>
           <button class="btn btn-ghost" onclick="rollOne()">🎲 再抽一部</button>
           <button class="btn btn-ghost" onclick="copyCode('${v.code}')">📋 复制番号</button>
           <button class="btn btn-ghost" onclick="toggleFavorite()">${isFavorite(v) ? '⭐ 取消收藏' : '☆ 收藏'}</button>
@@ -1401,7 +1405,13 @@ function renderFavorites() {
   pairs.forEach(([src, area, grid, list]) => {
     if (!list.length) { area.style.display = 'none'; grid.innerHTML = ''; return; }
     area.style.display = 'block';
-    grid.innerHTML = list.map(v => `
+    const isJableFav = (src === 'jable');
+    grid.innerHTML = list.map(v => {
+      const externalUrl = v.url || '';
+      const extBtn = externalUrl
+        ? `<a class="ext-link" href="${externalUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🔗 打开 ${isJableFav ? 'Jable' : 'MissAV'}</a>`
+        : '';
+      return `
       <div class="fav-card" onclick="openFavorite('${src}','${v.code}')">
         <div class="img-wrap">
           <img src="${p(v.cover)}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
@@ -1411,10 +1421,12 @@ function renderFavorites() {
           <div class="code">${v.code}</div>
           <div class="title">${v.title || '（无标题）'}</div>
           <div class="meta">
+            ${extBtn}
             <button class="remove" onclick="event.stopPropagation(); removeFavorite('${src}','${v.code}')">移除</button>
           </div>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   });
 }
 
@@ -1443,7 +1455,16 @@ function toggleFavorite() {
   else state.favoritesMissav = list.filter((v,i,a) => a.findIndex(x => x.code === v.code) === i);
   saveFavorites(src);
   renderFavorites();
-  renderResult();
+  // 只更新收藏按钮和徽章,不重建结果卡(避免 Jable 播放器被销毁)
+  const favBtn = document.querySelector('.result-card .actions .btn:last-child');
+  if (favBtn) favBtn.textContent = isFavorite(state.current) ? '⭐ 取消收藏' : '☆ 收藏';
+  const badge = document.querySelector('.result-card .badge.saved');
+  if (isFavorite(state.current) && !badge) {
+    const badgesEl = document.querySelector('.result-card .badges');
+    if (badgesEl) badgesEl.insertAdjacentHTML('beforeend', '<span class="badge saved">⭐ 已收藏</span>');
+  } else if (!isFavorite(state.current) && badge) {
+    badge.remove();
+  }
   updateCount();
 }
 function removeFavorite(src, code) {
@@ -1472,6 +1493,7 @@ function openFavorite(src, code) {
     if (chip) chip.classList.add('active');
     state.source = src;
     state.current = fav;
+    if ((fav.source || src) !== src) { console.warn('openFavorite: source mismatch', fav, src); return; }
     renderResult();
   }
   if (src === 'jable') {
