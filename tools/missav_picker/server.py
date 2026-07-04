@@ -53,11 +53,12 @@ def _get_creq():
 
 
 def _prefetch_ts(
-    code: str, m3u8_path: Path, meta_path: Path, hls_url: str, limit: int = 60
+    code: str, m3u8_path: Path, meta_path: Path, hls_url: str, limit: int = 20
 ):
     """后台并发预热 ts 分片:解析 m3u8,下载前 limit 个未缓存的分片到磁盘。
-    只预热开头 60 片(约 4 分钟),避免全片下载占满带宽被代理限速。
+    只预热开头 20 片(约 80 秒),延迟 3 秒启动让封面/数据先加载完。
     seek 到未预热区时 hls.js 会触发对应 ts 请求,server 再缓存。"""
+    time.sleep(3)  # 让封面图、m3u8、数据等先加载完,避免抢占带宽
     cache_root = m3u8_path.parent
     try:
         text = m3u8_path.read_text(encoding="utf-8", errors="ignore")
@@ -109,9 +110,9 @@ def _prefetch_ts(
         except Exception:
             pass
 
-    # 并发 4 路预热(控制带宽,避免代理限速)
+    # 并发 2 路预热(控制带宽,避免占满导致封面/数据请求失败)
     try:
-        with ThreadPoolExecutor(max_workers=4) as ex:
+        with ThreadPoolExecutor(max_workers=2) as ex:
             list(ex.map(_dl, todo))
     except Exception:
         pass
