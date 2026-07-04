@@ -5,6 +5,7 @@ import socket
 import sys
 import gzip
 import io
+import json
 import os
 import re
 import time
@@ -155,6 +156,345 @@ def _wait_ts_lock(key: str, timeout: float = 30):
     return False
 
 
+# ---- 热门(每日/每周) ----
+TREND_CACHE_DIR = CACHE_DIR / "trend"
+TREND_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+TREND_OK_TTL = 30 * 60  # 成功 30 分钟
+TREND_FAIL_TTL = 5 * 60  # 失败 5 分钟(避免反复打)
+TREND_LOCK = threading.Lock()
+
+
+def _trend_path(source: str, period: str) -> Path:
+    return TREND_CACHE_DIR / f"{source}_{period}.json"
+
+
+def _trend_http_get(url: str, referer: str) -> str:
+    """按可用的方式拉取 HTML: 优先 curl_cffi 走 7890 代理,失败回退 urllib 直连"""
+    try:
+        from curl_cffi import requests as creq
+
+        r = creq.get(
+            url,
+            impersonate="chrome",
+            proxy="http://127.0.0.1:7890",
+            timeout=15,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+                "Referer": referer,
+            },
+        )
+        if r.status_code == 200 and r.text:
+            return r.text
+    except Exception:
+        pass
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+                "Referer": referer,
+                "Accept-Language": "zh-CN,zh;q=0.9",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = resp.read()
+        if data:
+            return data.decode("utf-8", errors="ignore")
+    except Exception:
+        return ""
+    return ""
+
+
+_MISSAV_CODE_RE = re.compile(
+    r"/(dm\d+)/cn/([A-Z0-9]{2,8}(?:-[A-Z0-9]{2,8})?)(?![A-Za-z0-9-])", re.I
+)
+_MISSAV_COVER_RE = re.compile(
+    r"https?://[a-z0-9.-]*fourhoi\.com/[^\"' )]+cover[^\"' )]*", re.I
+)
+_MISSAV_TITLE_RE = re.compile(r"<[^>]+title=[\"']([^\"']{1,200})[\"']", re.I)
+
+
+def _parse_missav_trending(html: str, period: str) -> list:
+    """从 missav.ws 热门页抽 code/title/cover,最多 20 部,按页面顺序"""
+    if not html:
+        return []
+    # 截取"热门"区域:missav 首页/热门页里常用 id="popular" 或 class 含 popular/trending
+    snippet = html
+    m = re.search(
+        r"<section[^>]*id=[\"\'](?:popular|trending|hot|weekly|hot-weekly|popular-week|popular-month)[\"\'].*?</section>",
+        html,
+        re.I | re.S,
+    )
+    if m:
+        snippet = m.group(0)
+    else:
+        # 退化:在第一个 footer 之前截
+        idx = html.lower().find("<footer")
+        if idx > 0:
+            snippet = html[:idx]
+    items = []
+    seen = set()
+    for m in _MISSAV_CODE_RE.finditer(snippet):
+        dm = m.group(1)
+        code = m.group(2).lower()
+        if code in seen or code.endswith("cover-t.jpg"):
+            continue
+        seen.add(code)
+        # 在 code 周围找最近的 title 和 cover
+        start = max(0, m.start() - 400)
+        end = min(len(snippet), m.end() + 400)
+        local = snippet[start:end]
+        cover_m = _MISSAV_COVER_RE.search(local)
+        cover = cover_m.group(0) if cover_m else ""
+        # title 优先从 alt / title 属性里找
+        title = ""
+        for tm in re.finditer(r"(?:alt|title)=[\"']([^\"']{1,200})[\"']", local):
+            t = tm.group(1).strip()
+            if t and t.lower() != code and "cover" not in t.lower():
+                title = t
+                break
+        items.append(
+            {
+                "code": code,
+                "title": title,
+                "cover": cover,
+                "url": f"https://missav.ws/{dm}/cn/{code}",
+            }
+        )
+        if len(items) >= 20:
+            break
+    return items
+
+
+def _parse_jable_trending(html: str) -> list:
+    if not html:
+        return []
+    items = []
+    seen = set()
+    # jable 热门页:卡片 <a href="/videos/<code>/">
+    for m in re.finditer(
+        r"href=[\"\'](?:https?://jable\.tv)?/videos/([a-z0-9-]+)/?[\"\']", html, re.I
+    ):
+        code = m.group(1).lower()
+        if code in seen:
+            continue
+        seen.add(code)
+        start = max(0, m.start() - 600)
+        end = min(len(html), m.end() + 200)
+        local = html[start:end]
+        cover_m = re.search(
+            r"(?:data-original|data-src|src)=[\"\'](https?://assets-cdn\.jable\.tv/[^\"\' ]+\.(?:jpe?g|png|webp))",
+            local,
+            re.I,
+        )
+        title_m = re.search(r"(?:alt|title|h4|h3)[^>]*>([^<]{2,200})<", local, re.I)
+        cover = cover_m.group(1) if cover_m else ""
+        title = title_m.group(1).strip() if title_m else ""
+        items.append(
+            {
+                "code": code,
+                "title": title,
+                "cover": cover,
+                "url": f"https://jable.tv/videos/{code}/",
+            }
+        )
+        if len(items) >= 20:
+            break
+    return items
+
+
+def _local_fallback_trending(source: str, period: str) -> list:
+    """远端拉不到时,基于本地数据(JSON 库)给一个保底热门列表
+    daily  -> 最近 90 天内发布的作品
+    weekly -> 最近 365 天内发布的作品
+    daily/weekly 命中区域不同(daily 范围更窄、更新),所以两个列表内容不一样
+    不足 20 部时用 period 不同的伪随机洗牌补齐
+    """
+    data_file = ROOT / ("jable_data.json" if source == "jable" else "picker_data.json")
+    if not data_file.is_file():
+        return []
+    try:
+        data = json.loads(data_file.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    videos = data.get("videos") or []
+    import datetime as _dt
+
+    today = _dt.date.today()
+    # daily 取 90 天,weekly 取 365 天,确保两边都有内容
+    window_days = 90 if period == "daily" else 365
+
+    def parse_date(v):
+        d = v.get("date") or ""
+        try:
+            return _dt.date.fromisoformat(d)
+        except Exception:
+            return None
+
+    # 给无日期作品一个伪日期:daily 算 7 天前发布,weekly 算 90 天前发布
+    # 这样 daily/weekly 的"近期度分"会自然分桶
+    def synthetic_date(v):
+        if period == "daily":
+            return today - _dt.timedelta(days=7)
+        else:
+            return today - _dt.timedelta(days=90)
+
+    with_date = []
+    for v in videos:
+        d = parse_date(v)
+        if d is None:
+            d = synthetic_date(v)
+        with_date.append((v, d))
+    with_date.sort(key=lambda x: x[1], reverse=True)
+
+    def hot_score(v, d):
+        delta = (today - d).days
+        if delta <= 0:
+            return 1000
+        if delta <= window_days:
+            return 1000 - delta
+        return max(0, 100 - (delta - window_days) * 0.1)
+
+    # 按"近期度分 + 伪随机微扰"排序,保证 daily/weekly 顺序有差异
+    import hashlib
+
+    salt = "d" if period == "daily" else "w"
+    # daily 每小时换一次种子,weekly 每天换一次,让列表感觉"会动"
+    if period == "daily":
+        seed = int(today.strftime("%Y%m%d%H"))
+    else:
+        seed = int(today.strftime("%Y%m%d"))
+
+    def score(v, d):
+        h = hashlib.md5(f"{salt}|{seed}|{v.get('code') or ''}".encode()).hexdigest()
+        return hot_score(v, d) + int(h[:6], 16) / 0xFFFFFF  # 0~1 抖动
+
+    ranked = sorted(with_date, key=lambda x: score(x[0], x[1]), reverse=True)
+    # 如果带日期的不够 20,再从无日期里按 period 洗牌补
+    if len(ranked) < 20:
+        no_date = [v for v in videos if parse_date(v) is None]
+
+        # 伪随机洗牌
+        def shuffle_key(v):
+            h = hashlib.md5(f"{salt}|{seed}|{v.get('code') or ''}".encode()).hexdigest()
+            return int(h[:8], 16)
+
+        ranked = ranked + sorted(no_date, key=shuffle_key, reverse=True)
+    out, seen = [], set()
+    for v, d in ranked:
+        c = (v.get("code") or "").lower()
+        if not c or c in seen:
+            continue
+        seen.add(c)
+        out.append(
+            {
+                "code": c,
+                "title": v.get("title") or "",
+                "cover": v.get("cover") or "",
+                "url": v.get("url")
+                or f"https://{'jable.tv' if source == 'jable' else 'missav.ws'}/",
+                "date": d.isoformat() if d else "",
+            }
+        )
+        if len(out) >= 20:
+            break
+    return out
+
+
+def _scrape_trending(source: str, period: str) -> dict:
+    """返回 {source, period, items, error}"""
+    if source == "missav":
+        # missav 没有稳定的 /daily /weekly 路径,统一从首页拉"热门"区
+        url = "https://missav.ws/"
+        html = _trend_http_get(url, referer="https://missav.ws/")
+        items = _parse_missav_trending(html, period)
+        if not items:
+            items = _local_fallback_trending(source, period)
+    else:
+        # jable: 远端能拉到的代码,只保留本地 jable_data.json 里也有的,
+        # 这样点击可以在结果区加载并播放;不够 20 部再用本地 fallback 补齐
+        url = "https://jable.tv/"
+        html = _trend_http_get(url, referer="https://jable.tv/")
+        remote_items = _parse_jable_trending(html)
+        data_file = ROOT / "jable_data.json"
+        local_codes = set()
+        if data_file.is_file():
+            try:
+                local_codes = {
+                    v.get("code", "").lower()
+                    for v in json.loads(data_file.read_text(encoding="utf-8")).get(
+                        "videos", []
+                    )
+                }
+            except Exception:
+                pass
+        items = [it for it in remote_items if it.get("code") in local_codes]
+        if len(items) < 20:
+            # 远端不够,用本地热门补齐(同样确保 code 都在本地)
+            local_items = _local_fallback_trending(source, period)
+            seen = {it["code"] for it in items}
+            for it in local_items:
+                if it["code"] in seen:
+                    continue
+                items.append(it)
+                seen.add(it["code"])
+                if len(items) >= 20:
+                    break
+    items = [{**it, "date": it.get("date", "")} for it in items]
+    return {
+        "source": source,
+        "period": period,
+        "items": items,
+        "fetchedAt": int(time.time() * 1000),
+    }
+
+
+def _get_trending(source: str, period: str) -> dict:
+    path = _trend_path(source, period)
+    # 1) 命中磁盘缓存
+    if path.is_file():
+        try:
+            cached = json.loads(path.read_text(encoding="utf-8"))
+            age = time.time() - (cached.get("_ts", 0) or 0)
+            ttl = TREND_FAIL_TTL if cached.get("error") else TREND_OK_TTL
+            if age < ttl and cached.get("items"):
+                cached.pop("_ts", None)
+                return cached
+        except Exception:
+            pass
+    # 2) 拉取
+    with TREND_LOCK:
+        # 锁内再次检查(防并发)
+        if path.is_file():
+            try:
+                cached = json.loads(path.read_text(encoding="utf-8"))
+                age = time.time() - (cached.get("_ts", 0) or 0)
+                ttl = TREND_FAIL_TTL if cached.get("error") else TREND_OK_TTL
+                if age < ttl and cached.get("items"):
+                    cached.pop("_ts", None)
+                    return cached
+            except Exception:
+                pass
+        try:
+            data = _scrape_trending(source, period)
+        except Exception as e:
+            data = {
+                "source": source,
+                "period": period,
+                "items": [],
+                "error": repr(e)[:120],
+            }
+        data["_ts"] = time.time()
+        try:
+            tmp = path.with_suffix(".json.tmp")
+            tmp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+            os.replace(tmp, path)
+        except Exception:
+            pass
+        data.pop("_ts", None)
+        return data
+
+
 class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
@@ -168,6 +508,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._send_text(self.stats())
         elif self.path.startswith("/play/"):
             self.proxy_play()
+        elif self.path.startswith("/trending"):
+            self.serve_trending()
+        elif self.path.startswith("/trend_preview/"):
+            self.serve_trend_preview()
         elif self.path in ("/", "/index.html"):
             self.serve_index()
         elif self.path.startswith("/picker_data.json"):
@@ -209,8 +553,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         try:
             body = self.rfile.read(length)
             # 轻量校验 JSON
-            import json
-
             payload = json.loads(body.decode("utf-8"))
             payload["updatedAt"] = int(time.time() * 1000)
             data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -432,6 +774,128 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Cache-Control", "no-cache")
         self.end_headers()
         self.wfile.write(body)
+
+    # ---- 每日 / 每周热门 ----
+    def serve_trending(self):
+        """/trending?source=missav|jable&period=daily|weekly"""
+        from urllib.parse import urlparse, parse_qs
+
+        q = parse_qs(urlparse(self.path).query)
+        source = (q.get("source", ["missav"])[0] or "missav").lower()
+        period = (q.get("period", ["daily"])[0] or "daily").lower()
+        if source not in ("missav", "jable"):
+            source = "missav"
+        if period not in ("daily", "weekly"):
+            period = "daily"
+        try:
+            payload = _get_trending(source, period)
+        except Exception as e:
+            payload = {
+                "source": source,
+                "period": period,
+                "items": [],
+                "error": repr(e)[:120],
+            }
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def serve_trend_preview(self):
+        """/trend_preview/<source>/<code>.mp4  代理 missav 的 fourhoi 预览 mp4(免 403)"""
+        from urllib.parse import urlparse, parse_qs
+
+        rest = self.path[len("/trend_preview/") :]
+        if rest.endswith(".mp4"):
+            rest = rest[:-4]
+        parts = rest.split("/", 1)
+        if len(parts) < 2:
+            self.send_response(404)
+            self.end_headers()
+            return
+        source, code = parts[0].lower(), parts[1].lower()
+        if source not in ("missav", "jable"):
+            self.send_response(404)
+            self.end_headers()
+            return
+        if source == "missav":
+            upstream = f"https://fourhoi.com/{code}/preview.mp4"
+            referer = "https://missav.ws/"
+        else:
+            upstream = f"https://fourhoi.com/{code}/preview.mp4"
+            referer = "https://jable.tv/"
+        # 磁盘缓存(7 天)
+        cache_path = CACHE_DIR / "trend_preview" / f"{source}_{code}.mp4"
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        if (
+            cache_path.is_file()
+            and (time.time() - cache_path.stat().st_mtime) < CACHE_OK_TTL
+        ):
+            data = cache_path.read_bytes()
+            self._send_mp4(data, code, source)
+            return
+        data = b""
+        # 优先 curl_cffi + 7890
+        try:
+            from curl_cffi import requests as creq
+
+            r = creq.get(
+                upstream,
+                impersonate="chrome",
+                proxy="http://127.0.0.1:7890",
+                timeout=20,
+                headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+                    "Referer": referer,
+                    "Accept": "*/*",
+                },
+            )
+            if r.status_code == 200 and r.content:
+                data = r.content
+        except Exception:
+            pass
+        # 失败回退 urllib 直连
+        if not data:
+            try:
+                req = urllib.request.Request(
+                    upstream,
+                    headers={
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+                        "Referer": referer,
+                    },
+                )
+                with urllib.request.urlopen(req, timeout=20) as resp:
+                    data = resp.read()
+            except Exception:
+                pass
+        if not data:
+            self.send_response(502)
+            self.end_headers()
+            return
+        try:
+            tmp = cache_path.with_suffix(".mp4.tmp")
+            tmp.write_bytes(data)
+            os.replace(tmp, cache_path)
+        except Exception:
+            pass
+        self._send_mp4(data, code, source)
+
+    def _send_mp4(self, data: bytes, code: str, source: str):
+        self.send_response(200)
+        self.send_header("Content-Type", "video/mp4")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Cache-Control", "public, max-age=86400")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        try:
+            self.wfile.write(data)
+        except Exception:
+            pass
 
     def serve_index(self):
         html = (ROOT / "index.html").read_text(encoding="utf-8")
