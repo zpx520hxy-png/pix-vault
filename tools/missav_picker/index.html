@@ -1083,6 +1083,7 @@ function renderResult() {
           <strong>发布日期</strong>：${v.date || '—'}
         </div>
         <div class="actions">
+          <a class="btn btn-primary" href="${v.url}" target="_blank" rel="noopener">▶️ 去 ${isJable?'Jable':'MissAV'} 观看</a>
           <button class="btn btn-ghost" onclick="rollOne()">🎲 再抽一部</button>
           <button class="btn btn-ghost" onclick="copyCode('${v.code}')">📋 复制番号</button>
           <button class="btn btn-ghost" onclick="toggleFavorite()">${isFavorite(v) ? '⭐ 取消收藏' : '☆ 收藏'}</button>
