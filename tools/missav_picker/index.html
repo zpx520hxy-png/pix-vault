@@ -357,6 +357,40 @@
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   }
 
+  .shortlist {
+    display: none;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 18px;
+  }
+  .shortlist-head {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .shortlist-head h2 {
+    flex: 1; font-size: 15px; color: var(--text-mute);
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+  .shortlist-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 10px;
+  }
+  .short-card {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; overflow: hidden; cursor: pointer;
+    transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+  }
+  .short-card:hover { transform: translateY(-2px); border-color: var(--primary); box-shadow: 0 8px 22px rgba(233,30,99,0.16); }
+  .short-card .img-wrap { width: 100%; aspect-ratio: 16/11; background: linear-gradient(135deg, #2a1a2e, #1c1420); overflow: hidden; }
+  .short-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .short-card .info { padding: 9px 10px; display: flex; flex-direction: column; gap: 5px; }
+  .short-card .code { font-size: 12px; color: var(--primary); font-weight: 700; letter-spacing: 0.5px; }
+  .short-card .title { font-size: 11px; color: var(--text-mute); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .short-card .meta { font-size: 10px; color: var(--text-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
   /* 历史 */
   .history h2 {
     font-size: 16px; color: var(--text-mute); margin-bottom: 12px;
@@ -461,6 +495,7 @@
     .result-card .meta { font-size: 13px; }
     .result-card .actions { gap: 8px; }
     .result-card .actions .btn { padding: 10px 14px; font-size: 13px; }
+    .shortlist-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     header h1 { font-size: 22px; }
     .roll-btn { padding: 14px; font-size: 18px; }
     .browse-grid { grid-template-columns: 1fr; }
@@ -724,7 +759,17 @@
   <div class="selected-bar" id="selectedBar" style="margin-bottom:12px;"></div>
   <button class="roll-btn" id="rollBtn">🎲 随机抽一部</button>
   <div style="text-align:center;margin-bottom:20px;">
+    <button class="btn btn-ghost" onclick="rollShortlist()" id="shortlistBtn" style="font-size:12px;padding:6px 14px;">🎰 抽 6 部候选</button>
     <button class="btn btn-ghost" onclick="openBrowse()" id="browseBtn" style="font-size:12px;padding:6px 14px;">🖼 浏览筛选结果</button>
+  </div>
+
+  <div class="shortlist" id="shortlistArea">
+    <div class="shortlist-head">
+      <h2 id="shortlistTitle">🎰 本轮候选</h2>
+      <button class="btn btn-ghost" onclick="rollShortlist()" style="font-size:11px;padding:4px 12px;">🔄 重抽</button>
+      <button class="btn btn-ghost" onclick="clearShortlist()" style="font-size:11px;padding:4px 12px;">✖ 收起</button>
+    </div>
+    <div class="shortlist-grid" id="shortlistGrid"></div>
   </div>
 
   <div id="browseArea" style="display:none">
@@ -756,7 +801,7 @@ const $ = (id) => document.getElementById(id);
 let DATA = null;
 function p(u){if(!u)return u;return u&&IMG_PROXY?IMG_PROXY+u.replace('https://',''):u;}
 new MutationObserver(function(ms){for(var i=0;i<ms.length;i++)for(var j=0;j<ms[i].addedNodes.length;j++){var n=ms[i].addedNodes[j];if(n.nodeType!==1)continue;if(n.tagName==='IMG'||n.tagName==='VIDEO'||n.tagName==='SOURCE')rw(n);if(n.querySelectorAll)n.querySelectorAll('img,video,source').forEach(rw)}}).observe(document.body,{childList:true,subtree:true});
-function rw(el){['src','poster'].forEach(function(a){var v=el.getAttribute(a);if(v&&v.indexOf('/img/')===-1&&(v.indexOf('fourhoi.com')!==-1||v.indexOf('jable.tv')!==-1||v.indexOf('assets-cdn.jable')!==-1))el.setAttribute(a,IMG_PROXY+v.replace('https://',''))})}
+function rw(el){if(el.getAttribute && el.getAttribute('data-no-proxy')==='1')return;['src','poster'].forEach(function(a){var v=el.getAttribute(a);if(v&&v.indexOf('/img/')===-1&&(v.indexOf('fourhoi.com')!==-1||v.indexOf('jable.tv')!==-1||v.indexOf('assets-cdn.jable')!==-1))el.setAttribute(a,IMG_PROXY+v.replace('https://',''))})}
 
 // 自动代理所有动态插入的 fourhoi 图片
 
@@ -769,12 +814,21 @@ const state = {
   actresses: new Set(),
   current: null,
   history: [],
+  shortlist: [],
   favoritesMissav: [],
   favoritesJable: [],
 };
 
 function currentSourceOf(v) {
   return (v && (v.source || (DATA && DATA.source) || state.source)) || 'missav';
+}
+function coverUrl(v) {
+  // MissAV 封面直连，避免所有封面都绕本地 /img/ 代理导致加载慢。
+  // Jable 仍走代理，因为很多线路需要代理访问其 CDN。
+  return currentSourceOf(v) === 'jable' ? p(v.cover) : (v.cover || '');
+}
+function previewUrl(v) {
+  return p(v.preview || '');
 }
 function favListForSource(src) {
   return src === 'jable' ? state.favoritesJable : state.favoritesMissav;
@@ -806,6 +860,131 @@ function normFavorite(v, src) {
     is_saved: !!v.is_saved,
     source: src || currentSourceOf(v)
   };
+}
+
+let SYNC_LAST_UPDATED = 0;
+let SYNC_SUPPRESS_SAVE = false;
+let syncSaveTimer = null;
+
+function slimVideoRef(v) {
+  if (!v) return null;
+  return { code: v.code, source: currentSourceOf(v) };
+}
+
+function exportSyncState() {
+  return {
+    version: 1,
+    source: state.source,
+    type: state.type,
+    tags: [...state.tags],
+    excludeTags: [...state.excludeTags],
+    actresses: [...state.actresses],
+    current: slimVideoRef(state.current),
+    shortlist: state.shortlist.map(slimVideoRef).filter(Boolean),
+    history: state.history.map(slimVideoRef).filter(Boolean),
+    favoritesMissav: state.favoritesMissav,
+    favoritesJable: state.favoritesJable,
+    browsePage,
+    browseOpen: $('browseArea').style.display !== 'none'
+  };
+}
+
+function findVideoByRef(ref) {
+  if (!ref || !ref.code) return null;
+  const pool = ref.source === 'jable' ? state.favoritesJable.concat((DATA && DATA.videos) || []) : state.favoritesMissav.concat((DATA && DATA.videos) || []);
+  return pool.find(v => v.code === ref.code) || null;
+}
+
+async function loadSourceData(src) {
+  if (src === 'jable') {
+    if (DATA && DATA.source === 'jable') return;
+    const d = await (await fetch('jable_data.json?_=' + Date.now())).json();
+    DATA = d;
+    var uniq = {};
+    DATA.videos.forEach(function(v){(v.actresses||[]).forEach(function(a){uniq[a]=1});});
+    DATA.actresses = Object.keys(uniq);
+    $('stats').textContent = '📊 ' + DATA.videos.length + ' 部作品 · ' + DATA.actresses.length + ' 位女优 · Jable.TV';
+  } else {
+    if (DATA && (!DATA.source || DATA.source === 'missav')) return;
+    const d = await (await fetch('picker_data.json?_=' + Date.now())).json();
+    DATA = d;
+    $('stats').textContent = `📊 ${DATA.videos.length} 部作品 · ${(DATA.actresses||[]).length} 位女优 · 按空格快速抽`;
+  }
+  renderTagChips();
+  renderActressGrid();
+  renderFavorites();
+  updateCount();
+}
+
+async function applySyncState(payload) {
+  if (!payload || !payload.version) return;
+  SYNC_SUPPRESS_SAVE = true;
+  try {
+    const src = payload.source || 'missav';
+    await loadSourceData(src);
+    document.querySelectorAll('#sourceChips .chip').forEach(c => c.classList.remove('active'));
+    const chip = document.querySelector(`#sourceChips .chip[data-source="${src}"]`);
+    if (chip) chip.classList.add('active');
+    state.source = src;
+    state.type = payload.type || 'all';
+    state.tags = new Set(payload.tags || []);
+    state.excludeTags = new Set(payload.excludeTags || []);
+    state.actresses = new Set(payload.actresses || []);
+    state.favoritesMissav = Array.isArray(payload.favoritesMissav) ? payload.favoritesMissav : [];
+    state.favoritesJable = Array.isArray(payload.favoritesJable) ? payload.favoritesJable : [];
+    state.shortlist = (payload.shortlist || []).map(findVideoByRef).filter(Boolean);
+    state.history = (payload.history || []).map(findVideoByRef).filter(Boolean);
+    browsePage = payload.browsePage || 0;
+
+    document.querySelectorAll('#typeChips .chip').forEach(c => c.classList.remove('active'));
+    const typeChip = document.querySelector(`#typeChips .chip[data-type="${state.type}"]`);
+    if (typeChip) typeChip.classList.add('active');
+
+    renderFavorites();
+    renderTagChips();
+    renderActressGrid();
+    updateCount();
+
+    state.current = findVideoByRef(payload.current);
+    if (state.current) renderResult(); else $('resultArea').innerHTML = `<div class="empty"><div class="emoji">🎰</div><div>设置筛选条件，点上面的按钮开始随机</div></div>`;
+    renderShortlist();
+    renderHistory();
+    if (payload.browseOpen) {
+      renderBrowse();
+      $('browseArea').style.display = 'block';
+    } else {
+      $('browseArea').style.display = 'none';
+    }
+    SYNC_LAST_UPDATED = payload.updatedAt || 0;
+  } finally {
+    SYNC_SUPPRESS_SAVE = false;
+  }
+}
+
+function scheduleSyncSave() {
+  if (SYNC_SUPPRESS_SAVE) return;
+  clearTimeout(syncSaveTimer);
+  syncSaveTimer = setTimeout(async () => {
+    try {
+      const payload = exportSyncState();
+      const r = await fetch('/sync_state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (r.ok) SYNC_LAST_UPDATED = Date.now();
+    } catch(e) {}
+  }, 350);
+}
+
+async function pullSyncState() {
+  try {
+    const r = await fetch('/sync_state.json?_=' + Date.now());
+    const payload = await r.json();
+    if ((payload.updatedAt || 0) > (SYNC_LAST_UPDATED || 0)) {
+      await applySyncState(payload);
+    }
+  } catch(e) {}
 }
 
 // ---- 渲染筛选 UI ----
@@ -1010,6 +1189,7 @@ function updateCount() {
   const n = getCandidates().length;
   $('candidateCount').textContent = n;
   $('rollBtn').disabled = n === 0;
+  $('shortlistBtn').disabled = n === 0;
   renderSelBar();
 }
 
@@ -1031,6 +1211,74 @@ function rollOne() {
   saveHistory();
   renderResult();
   renderHistory();
+  scheduleSyncSave();
+}
+
+function sampleUnique(list, count) {
+  const pool = list.slice();
+  const picked = [];
+  while (pool.length && picked.length < count) {
+    const idx = Math.floor(Math.random() * pool.length);
+    picked.push(pool.splice(idx, 1)[0]);
+  }
+  return picked;
+}
+
+function rollShortlist() {
+  const cands = getCandidates();
+  if (cands.length === 0) return;
+  const fresh = cands.filter(v => !state.history.some(h => h.code === v.code));
+  const pool = fresh.length >= 6 ? fresh : cands;
+  state.shortlist = sampleUnique(pool, Math.min(6, pool.length));
+  renderShortlist();
+  $('shortlistArea').style.display = 'block';
+  $('shortlistArea').scrollIntoView({behavior:'smooth', block:'center'});
+  scheduleSyncSave();
+}
+
+function pickShortlist(code) {
+  const v = state.shortlist.find(x => x.code === code);
+  if (!v) return;
+  state.current = v;
+  state.history = [v, ...state.history.filter(h => h.code !== v.code)].slice(0, 12);
+  saveHistory();
+  renderResult();
+  renderHistory();
+  scheduleSyncSave();
+}
+
+function clearShortlist() {
+  state.shortlist = [];
+  renderShortlist();
+  scheduleSyncSave();
+}
+
+function renderShortlist() {
+  const area = $('shortlistArea');
+  const grid = $('shortlistGrid');
+  if (!state.shortlist.length) {
+    area.style.display = 'none';
+    grid.innerHTML = '';
+    return;
+  }
+  area.style.display = 'block';
+  $('shortlistTitle').textContent = `🎰 本轮候选 · ${state.shortlist.length} 部（点卡片选中）`;
+  grid.innerHTML = state.shortlist.map(v => {
+    const src = currentSourceOf(v);
+    const actress = (v.actresses || []).slice(0, 2).join('、') || '未知女优';
+    return `
+      <div class="short-card" onclick="pickShortlist('${v.code}')" title="点选 ${v.code}">
+        <div class="img-wrap">
+          <img src="${src === 'jable' ? p(v.cover) : (v.cover || '')}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer" ${src === 'jable' ? '' : 'data-no-proxy="1"'}
+            onerror="this.parentElement.style.background='var(--border)';this.style.display='none'">
+        </div>
+        <div class="info">
+          <div class="code">${v.code}</div>
+          <div class="title">${v.title || '（无标题）'}</div>
+          <div class="meta">${actress}${v.date ? ' · ' + v.date : ''}</div>
+        </div>
+      </div>`;
+  }).join('');
 }
 
 // ---- 渲染结果 ----
@@ -1054,7 +1302,7 @@ function renderResult() {
     ? `<div class="media-col">
          <div class="jplayer" id="jp" data-state="cover">
          <div class="jp-cover" id="jpCover">
-           <img src="${p(v.cover)}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+           <img src="${coverUrl(v)}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer" ${isJable ? '' : 'data-no-proxy="1"'}
              onerror="this.style.display='none'">
            <div class="jp-play-icon">▶</div>
          </div>
@@ -1100,8 +1348,8 @@ function renderResult() {
            poster="${p(v.cover)}"
            onerror="this.style.display='none'"></video>
          <div class="cover">
-           <img src="${p(v.cover)}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
-              onerror="this.parentElement.innerHTML='<div class=placeholder>封面加载失败</div>'">
+            <img src="${coverUrl(v)}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-no-proxy="1"
+               onerror="this.parentElement.innerHTML='<div class=placeholder>封面加载失败</div>'">
          </div>
         </div></div>`;
 
@@ -1366,7 +1614,7 @@ function renderHistory() {
   $('historyGrid').innerHTML = state.history.map(v => `
     <div class="hist-card" onclick="showFromHistory('${v.code}')">
       <div class="img-wrap">
-        <img src="${p(v.cover)}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+        <img src="${currentSourceOf(v) === 'jable' ? p(v.cover) : (v.cover || '')}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer" ${currentSourceOf(v) === 'jable' ? '' : 'data-no-proxy="1"'}
           onerror="this.parentElement.style.background='var(--border)';this.style.display='none'">
       </div>
       <div class="hist-code">${v.code}</div>
@@ -1466,7 +1714,7 @@ function renderFavorites() {
       return `
       <div class="fav-card" onclick="openFavorite('${src}','${v.code}')">
         <div class="img-wrap">
-          <img src="${p(v.cover)}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+          <img src="${src === 'jable' ? p(v.cover) : (v.cover || '')}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer" ${src === 'jable' ? '' : 'data-no-proxy="1"'}
                onerror="this.style.display='none'">
         </div>
         <div class="info">
@@ -1518,6 +1766,7 @@ function toggleFavorite() {
     badge.remove();
   }
   updateCount();
+  scheduleSyncSave();
 }
 function removeFavorite(src, code) {
   if (src === 'jable') state.favoritesJable = state.favoritesJable.filter(v => v.code !== code);
@@ -1526,6 +1775,7 @@ function removeFavorite(src, code) {
   renderFavorites();
   updateCount();
   if (state.current && currentSourceOf(state.current) === src && state.current.code === code) renderResult();
+  scheduleSyncSave();
 }
 function clearFavorites(src) {
   if (src === 'jable') state.favoritesJable = [];
@@ -1534,6 +1784,7 @@ function clearFavorites(src) {
   renderFavorites();
   updateCount();
   renderResult();
+  scheduleSyncSave();
 }
 function openFavorite(src, code) {
   const list = src === 'jable' ? state.favoritesJable : state.favoritesMissav;
@@ -1547,6 +1798,7 @@ function openFavorite(src, code) {
     state.current = fav;
     if ((fav.source || src) !== src) { console.warn('openFavorite: source mismatch', fav, src); return; }
     renderResult();
+    scheduleSyncSave();
   }
   if (src === 'jable') {
     if (DATA && DATA.source === 'jable') { applyFavorite(); return; }
@@ -1591,6 +1843,7 @@ function clearHistory() {
   state.history = [];
   localStorage.removeItem('missav_picker_history');
   renderHistory();
+  scheduleSyncSave();
 }
 
 function selectAllActresses() {
@@ -1601,12 +1854,14 @@ function selectAllActresses() {
     });
   }
   updateCount();
+  scheduleSyncSave();
 }
 
 function deselectAllActresses() {
   state.actresses.clear();
   document.querySelectorAll('.actress-chip.active').forEach(c => c.classList.remove('active'));
   updateCount();
+  scheduleSyncSave();
 }
 
 function selectAllTags() {
@@ -1615,12 +1870,14 @@ function selectAllTags() {
     c.classList.add('active');
   });
   updateCount();
+  scheduleSyncSave();
 }
 
 function deselectAllTags() {
   state.tags.clear();
   document.querySelectorAll('#tagChips .chip').forEach(c => c.classList.remove('active'));
   updateCount();
+  scheduleSyncSave();
 }
 
 // ---- 事件绑定 ----
@@ -1657,6 +1914,7 @@ $('sourceChips').addEventListener('click', function(e) {
       $('rollBtn').disabled = false; $('rollBtn').textContent = '🎲 随机抽一部';
       $('stats').textContent = '📊 ' + DATA.videos.length + ' 部作品 · ' + DATA.actresses.length + ' 位女优 · Jable.TV';
       renderTagChips(); renderActressGrid(); renderFavorites(); updateCount();
+      scheduleSyncSave();
     });
   } else {
     DATA = null; IDX = null;
@@ -1675,6 +1933,7 @@ $('typeChips').addEventListener('click', (e) => {
   state.type = chip.dataset.type;
   renderTagChips();
   updateCount();
+  scheduleSyncSave();
 });
 
 $('tagChips').addEventListener('click', (e) => {
@@ -1683,6 +1942,7 @@ $('tagChips').addEventListener('click', (e) => {
   if (state.tags.has(tag)) { state.tags.delete(tag); chip.classList.remove('active'); }
   else { state.tags.add(tag); chip.classList.add('active'); }
   updateCount();
+  scheduleSyncSave();
 });
 
 $('excludeChips').addEventListener('click', (e) => {
@@ -1691,6 +1951,7 @@ $('excludeChips').addEventListener('click', (e) => {
   if (state.excludeTags.has(tag)) { state.excludeTags.delete(tag); chip.classList.remove('active'); }
   else { state.excludeTags.add(tag); chip.classList.add('active'); }
   updateCount();
+  scheduleSyncSave();
 });
 
 for (const gid of ['savedGrid','rookieGrid','otherGrid']) {
@@ -1705,6 +1966,7 @@ for (const gid of ['savedGrid','rookieGrid','otherGrid']) {
       chip.classList.add('active');
     }
     updateCount();
+    scheduleSyncSave();
   });
 }
 
@@ -1722,12 +1984,14 @@ function openBrowse() {
   renderBrowse();
   $('browseArea').style.display = 'block';
   $('browseArea').scrollIntoView({behavior:'smooth'});
+  scheduleSyncSave();
 }
 
 function browseGo(page) {
   browsePage = page;
   renderBrowse();
   $('browseArea').scrollIntoView({behavior:'smooth'});
+  scheduleSyncSave();
 }
 
 function renderBrowse() {
@@ -1740,10 +2004,10 @@ function renderBrowse() {
   $('browseGrid').innerHTML = show.map(v => `
     <div class="browse-card" onclick="window.open('${v.url}','_blank')">
       <div class="bc-cover">
-        <img src="${p(v.cover)}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+        <img src="${currentSourceOf(v) === 'jable' ? p(v.cover) : (v.cover || '')}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer" ${currentSourceOf(v) === 'jable' ? '' : 'data-no-proxy="1"'}
           onerror="this.parentElement.style.background='var(--border)';this.style.display='none'">
         <div class="bc-preview">
-          <video data-hls-src="${p(v.preview || '')}" muted loop playsinline disableRemotePlayback referrerpolicy="no-referrer" preload="none"
+          <video data-hls-src="${previewUrl(v)}" muted loop playsinline disableRemotePlayback referrerpolicy="no-referrer" preload="none"
             poster="${p(v.cover)}"></video>
         </div>
       </div>
@@ -1819,11 +2083,18 @@ getCandidates = function() {
 if (location.protocol === 'file:') {
   DATA = JSON.parse(document.getElementById('DATA').textContent);
   init('full');
+  // file:// 模式不做局域网同步
 } else {
   IDX = null;
   fetch(location.pathname.replace(/[^/]*$/, '') + 'picker_index.json?_=' + Date.now())
     .then(r => r.json())
-    .then(d => { IDX = d; init('index'); })
+    .then(async d => {
+      IDX = d;
+      init('index');
+      // 首次拉取共享状态,之后轮询保持 PC/手机同步
+      await pullSyncState();
+      setInterval(pullSyncState, 2500);
+    })
     .catch(e => $('stats').textContent = '加载失败,请刷新');
 }
 </script>

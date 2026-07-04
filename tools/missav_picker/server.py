@@ -15,9 +15,10 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-PORT = 8699
+PORT = int(os.environ.get("MISSAV_PICKER_PORT", "8699"))
 ROOT = Path(__file__).parent
 CACHE_DIR = ROOT / ".img_cache"
+SYNC_STATE_FILE = ROOT / ".shared_state.json"
 CACHE_MAX_BYTES = 500 * 1024 * 1024  # 500MB 上限
 CACHE_FAIL_TTL = 300  # 失败结果缓存 5 分钟,避免反复请求被墙域名
 CACHE_OK_TTL = 7 * 24 * 3600  # 成功结果 7 天 HTTP 缓存
@@ -161,6 +162,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         if self.path.startswith("/img/"):
             self.proxy_img()
+        elif self.path.startswith("/sync_state.json"):
+            self.serve_sync_state()
         elif self.path == "/stats":
             self._send_text(self.stats())
         elif self.path.startswith("/play/"):
@@ -175,6 +178,53 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._send_gzip(data, "application/json", "no-cache")
         else:
             super().do_GET()
+
+    def do_POST(self):
+        if self.path.startswith("/sync_state"):
+            self.save_sync_state()
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def serve_sync_state(self):
+        if not SYNC_STATE_FILE.is_file():
+            self._send_gzip(
+                b'{"version":1,"updatedAt":0}',
+                "application/json; charset=utf-8",
+                "no-cache",
+            )
+            return
+        data = SYNC_STATE_FILE.read_bytes()
+        self._send_gzip(data, "application/json; charset=utf-8", "no-cache")
+
+    def save_sync_state(self):
+        try:
+            length = int(self.headers.get("Content-Length", "0") or "0")
+        except ValueError:
+            length = 0
+        if length <= 0:
+            self.send_response(400)
+            self.end_headers()
+            return
+        try:
+            body = self.rfile.read(length)
+            # 轻量校验 JSON
+            import json
+
+            payload = json.loads(body.decode("utf-8"))
+            payload["updatedAt"] = int(time.time() * 1000)
+            data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+            tmp = SYNC_STATE_FILE.with_suffix(".json.tmp")
+            tmp.write_bytes(data)
+            os.replace(tmp, SYNC_STATE_FILE)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(b'{"ok":true}')
+        except Exception:
+            self.send_response(500)
+            self.end_headers()
 
     def proxy_play(self):
         """代理 jable 视频 m3u8 + ts 分片
