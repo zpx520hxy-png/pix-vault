@@ -11,6 +11,8 @@ import time
 import hashlib
 import urllib.request
 import urllib.error
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 PORT = 8699
@@ -33,6 +35,98 @@ _MISS = 0
 _FAIL = 0
 _PLAY = 0
 _PLAY_FAIL = 0
+
+# curl_cffi session 复用(减少 TLS 握手开销)
+_CREQ_SESSION = None
+_CREQ_LOCK = threading.Lock()
+
+
+def _get_creq():
+    """复用 curl_cffi Session,避免每个 ts 请求重新 TLS 握手。"""
+    global _CREQ_SESSION
+    with _CREQ_LOCK:
+        if _CREQ_SESSION is None:
+            from curl_cffi import requests as creq
+
+            _CREQ_SESSION = creq.Session(impersonate="chrome")
+        return _CREQ_SESSION
+
+
+def _prefetch_ts(
+    code: str, m3u8_path: Path, meta_path: Path, hls_url: str, limit: int = 60
+):
+    """后台并发预热 ts 分片:解析 m3u8,下载前 limit 个未缓存的分片到磁盘。
+    只预热开头 60 片(约 4 分钟),避免全片下载占满带宽被代理限速。
+    seek 到未预热区时 hls.js 会触发对应 ts 请求,server 再缓存。"""
+    cache_root = m3u8_path.parent
+    try:
+        text = m3u8_path.read_text(encoding="utf-8", errors="ignore")
+    except Exception:
+        return
+    segs = []
+    for line in text.split("\n"):
+        s = line.strip()
+        if s and not s.startswith("#") and s.endswith(".ts"):
+            name = s.rsplit("/", 1)[-1]
+            segs.append(name)
+    if not segs:
+        return
+    # 只取前 limit 个未缓存的
+    todo = []
+    for name in segs:
+        if not (cache_root / name).is_file():
+            todo.append(name)
+            if len(todo) >= limit:
+                break
+    if not todo:
+        return
+    base_url = hls_url.rsplit("/", 1)[0]
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+        "Referer": "https://jable.tv/",
+        "Origin": "https://jable.tv",
+    }
+
+    def _dl(name):
+        ts_cache = cache_root / name
+        if ts_cache.is_file():
+            return
+        ts_url = base_url + "/" + name
+        try:
+            from curl_cffi import requests as creq
+
+            r = creq.get(
+                ts_url,
+                impersonate="chrome",
+                proxy="http://127.0.0.1:7890",
+                timeout=20,
+                headers=headers,
+            )
+            if r.status_code == 200:
+                tmp = ts_cache.with_suffix(".ts.tmp")
+                tmp.write_bytes(r.content)
+                os.replace(tmp, ts_cache)
+        except Exception:
+            pass
+
+    # 并发 4 路预热(控制带宽,避免代理限速)
+    try:
+        with ThreadPoolExecutor(max_workers=4) as ex:
+            list(ex.map(_dl, todo))
+    except Exception:
+        pass
+
+    # 并发 6 路预热(每线程独立请求,curl_cffi 线程安全)
+    try:
+        with ThreadPoolExecutor(max_workers=6) as ex:
+            list(ex.map(_dl, segs))
+    except Exception:
+        pass
+
+
+# 已预热的 code 集合(避免重复预热)
+_PREFETCHED = set()
+_PREFETCH_LOCK = threading.Lock()
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -107,6 +201,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 cache_root.mkdir(parents=True, exist_ok=True)
                 m3u8_path.write_bytes(data)
                 meta_path.write_text(hls_url, encoding="utf-8")
+                # 后台并发预热 ts 分片(hls.js 请求时命中本地缓存)
+                with _PREFETCH_LOCK:
+                    already = code in _PREFETCHED
+                    _PREFETCHED.add(code)
+                if not already:
+                    threading.Thread(
+                        target=_prefetch_ts,
+                        args=(code, m3u8_path, meta_path, hls_url),
+                        daemon=True,
+                    ).start()
                 self._send_m3u8_bytes(data, code, hls_url)
                 return
             except Exception as e:
