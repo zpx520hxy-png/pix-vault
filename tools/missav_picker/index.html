@@ -470,6 +470,41 @@
     transition: background 0.15s; line-height: 1;
   }
   .jplayer .jp-btn:hover { background: rgba(255,255,255,0.15); }
+  .jplayer .jp-btn.active { color: var(--primary); }
+  /* 封面占位(点击后才播放) */
+  .jplayer .jp-cover {
+    position: absolute; inset: 0; z-index: 10;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; background: #000;
+  }
+  .jplayer .jp-cover img { width: 100%; height: 100%; object-fit: contain; }
+  .jplayer .jp-cover .jp-play-icon {
+    position: absolute; width: 72px; height: 72px; border-radius: 50%;
+    background: rgba(233,30,99,0.85); display: flex; align-items: center; justify-content: center;
+    font-size: 32px; color: #fff; transition: transform 0.15s, background 0.15s;
+    box-shadow: 0 0 0 6px rgba(233,30,99,0.2);
+  }
+  .jplayer .jp-cover:hover .jp-play-icon { transform: scale(1.1); background: var(--primary); }
+  .jplayer[data-state="play"] .jp-cover { display: none; }
+  .jplayer[data-state="cover"] video,
+  .jplayer[data-state="cover"] .jp-bar,
+  .jplayer[data-state="cover"] .jp-progress,
+  .jplayer[data-state="cover"] .jp-loading { display: none !important; }
+  /* 音量 */
+  .jplayer .jp-volume { position: relative; display: flex; align-items: center; }
+  .jplayer .jp-vol-slider {
+    width: 0; overflow: hidden; transition: width 0.2s;
+    display: flex; align-items: center;
+  }
+  .jplayer .jp-volume:hover .jp-vol-slider { width: 70px; }
+  .jplayer .jp-vol-slider input[type=range] {
+    width: 60px; height: 4px; -webkit-appearance: none; appearance: none;
+    background: rgba(255,255,255,0.3); border-radius: 2px; outline: none; cursor: pointer;
+  }
+  .jplayer .jp-vol-slider input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 12px; height: 12px; border-radius: 50%; background: var(--primary); cursor: pointer;
+  }
   .jplayer .jp-time {
     color: #fff; font-size: 12px; font-variant-numeric: tabular-nums;
     padding: 0 4px; user-select: none; white-space: nowrap;
@@ -874,8 +909,13 @@ function renderResult() {
 
   const isJable = (DATA && DATA.source === 'jable') || v.source === 'jable';
   const coverBlock = isJable
-    ? `<div class="jplayer" id="jp">
-         <video id="jpVideo" muted loop playsinline preload="auto" poster="${p(v.cover)}"></video>
+    ? `<div class="jplayer" id="jp" data-state="cover">
+         <div class="jp-cover" id="jpCover">
+           <img src="${p(v.cover)}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+             onerror="this.style.display='none'">
+           <div class="jp-play-icon">▶</div>
+         </div>
+         <video id="jpVideo" playsinline preload="auto" poster="${p(v.cover)}"></video>
          <div class="jp-loading" id="jpLoading">⏳ 加载中...</div>
          <div class="jp-progress" id="jpProgress">
            <div class="jp-buffered" id="jpBuffered"></div>
@@ -883,6 +923,10 @@ function renderResult() {
          </div>
          <div class="jp-bar">
            <button class="jp-btn" id="jpPlay" title="播放/暂停">▶️</button>
+           <div class="jp-volume">
+             <button class="jp-btn" id="jpMute" title="静音/取消">🔊</button>
+             <div class="jp-vol-slider"><input type="range" id="jpVol" min="0" max="1" step="0.05" value="1"></div>
+           </div>
            <span class="jp-time" id="jpCur">0:00</span>
            <span class="jp-time" style="opacity:0.6">/</span>
            <span class="jp-time" id="jpDur">0:00</span>
@@ -927,7 +971,13 @@ function renderResult() {
         </div>
       </div>
     </div>`;
-  if (isJable) initJplayer(v);
+  if (isJable) {
+    const cover = $('jpCover');
+    if (cover) cover.onclick = () => {
+      $('jp').setAttribute('data-state', 'play');
+      initJplayer(v);
+    };
+  }
 }
 
 // ── jable 播放器 ──
@@ -950,9 +1000,10 @@ function initJplayer(v) {
   const speedBtn = $('jpSpeedBtn'), speedMenu = $('jpSpeedMenu');
   const qualBtn = $('jpQualBtn'), qualMenu = $('jpQualMenu');
   const webfsBtn = $('jpWebfs'), fsBtn = $('jpFs');
+  const muteBtn = $('jpMute'), volSlider = $('jpVol');
 
   loading.classList.remove('hide');
-  video.muted = true; // 自动播放需静音
+  video.volume = 1; video.muted = false; // 点击触发,可有声播放
 
   // 倍速菜单
   const speeds = [0.5, 0.75, 1, 1.25, 1.5, 2];
@@ -1047,6 +1098,26 @@ function initJplayer(v) {
   };
   video.addEventListener('play', () => { playBtn.textContent = '⏸'; jp.classList.remove('jp-paused'); });
   video.addEventListener('pause', () => { playBtn.textContent = '▶️'; jp.classList.add('jp-paused'); });
+
+  // 音量
+  function updateMuteIcon() {
+    if (video.muted || video.volume === 0) muteBtn.textContent = '🔇';
+    else if (video.volume < 0.5) muteBtn.textContent = '🔉';
+    else muteBtn.textContent = '🔊';
+  }
+  muteBtn.onclick = () => {
+    video.muted = !video.muted;
+    if (!video.muted && video.volume === 0) { video.volume = 0.5; volSlider.value = 0.5; }
+    volSlider.value = video.muted ? 0 : video.volume;
+    updateMuteIcon();
+  };
+  volSlider.oninput = () => {
+    const val = parseFloat(volSlider.value);
+    video.volume = val;
+    video.muted = val === 0;
+    updateMuteIcon();
+  };
+  updateMuteIcon();
   video.addEventListener('loadedmetadata', () => { durEl.textContent = fmtTime(video.duration); });
   video.addEventListener('timeupdate', () => {
     curEl.textContent = fmtTime(video.currentTime);
