@@ -52,13 +52,10 @@ def _get_creq():
         return _CREQ_SESSION
 
 
-def _prefetch_ts(
-    code: str, m3u8_path: Path, meta_path: Path, hls_url: str, limit: int = 20
-):
-    """后台并发预热 ts 分片:解析 m3u8,下载前 limit 个未缓存的分片到磁盘。
-    只预热开头 20 片(约 80 秒),延迟 3 秒启动让封面/数据先加载完。
-    seek 到未预热区时 hls.js 会触发对应 ts 请求,server 再缓存。"""
-    time.sleep(3)  # 让封面图、m3u8、数据等先加载完,避免抢占带宽
+def _prefetch_ts(code: str, m3u8_path: Path, meta_path: Path, hls_url: str):
+    """后台并发预热 ts 分片:延迟 15 秒等 hls.js 充分缓冲开头后,
+    1 路低速预热第 21~80 片(不抢开头,不占满带宽)。"""
+    time.sleep(15)  # 等 hls.js 开播并缓冲开头
     cache_root = m3u8_path.parent
     try:
         text = m3u8_path.read_text(encoding="utf-8", errors="ignore")
@@ -70,15 +67,13 @@ def _prefetch_ts(
         if s and not s.startswith("#") and s.endswith(".ts"):
             name = s.rsplit("/", 1)[-1]
             segs.append(name)
-    if not segs:
+    if len(segs) < 25:
         return
-    # 只取前 limit 个未缓存的
+    # 跳过开头 20 片(hls.js 在下),预热第 21~80 片
     todo = []
-    for name in segs:
+    for name in segs[20:80]:
         if not (cache_root / name).is_file():
             todo.append(name)
-            if len(todo) >= limit:
-                break
     if not todo:
         return
     base_url = hls_url.rsplit("/", 1)[0]
@@ -87,13 +82,18 @@ def _prefetch_ts(
         "Referer": "https://jable.tv/",
         "Origin": "https://jable.tv",
     }
+    # 下载锁:标记正在下载的分片,避免和 hls.js 请求重复下载
 
     def _dl(name):
         ts_cache = cache_root / name
         if ts_cache.is_file():
             return
-        ts_url = base_url + "/" + name
+        if not _acquire_ts_lock(code + "/" + name):
+            return  # 已有线程在下载
         try:
+            if ts_cache.is_file():
+                return
+            ts_url = base_url + "/" + name
             from curl_cffi import requests as creq
 
             r = creq.get(
@@ -109,18 +109,13 @@ def _prefetch_ts(
                 os.replace(tmp, ts_cache)
         except Exception:
             pass
+        finally:
+            _release_ts_lock(code + "/" + name)
 
-    # 并发 2 路预热(控制带宽,避免占满导致封面/数据请求失败)
+    # 1 路低速预热(不抢 hls.js 带宽)
     try:
-        with ThreadPoolExecutor(max_workers=2) as ex:
-            list(ex.map(_dl, todo))
-    except Exception:
-        pass
-
-    # 并发 6 路预热(每线程独立请求,curl_cffi 线程安全)
-    try:
-        with ThreadPoolExecutor(max_workers=6) as ex:
-            list(ex.map(_dl, segs))
+        for name in todo:
+            _dl(name)
     except Exception:
         pass
 
@@ -128,6 +123,35 @@ def _prefetch_ts(
 # 已预热的 code 集合(避免重复预热)
 _PREFETCHED = set()
 _PREFETCH_LOCK = threading.Lock()
+
+# 全局 ts 下载锁:某分片正在下载时,其他请求等待而非重复下载
+_TS_DL_LOCKS = {}
+_TS_DL_MASTER = threading.Lock()
+
+
+def _acquire_ts_lock(key: str):
+    """获取某 ts 分片的下载锁,返回 True=需下载,False=已有线程在下(等待即可)。"""
+    with _TS_DL_MASTER:
+        if key in _TS_DL_LOCKS:
+            return False  # 已有线程在下载
+        _TS_DL_LOCKS[key] = threading.Event()
+        return True
+
+
+def _release_ts_lock(key: str):
+    with _TS_DL_MASTER:
+        ev = _TS_DL_LOCKS.pop(key, None)
+    if ev:
+        ev.set()  # 通知等待者
+
+
+def _wait_ts_lock(key: str, timeout: float = 30):
+    """等待某分片下载完成,返回 True=已下载完(可读缓存)。"""
+    with _TS_DL_MASTER:
+        ev = _TS_DL_LOCKS.get(key)
+    if ev:
+        return ev.wait(timeout)
+    return False
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -202,8 +226,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 cache_root.mkdir(parents=True, exist_ok=True)
                 m3u8_path.write_bytes(data)
                 meta_path.write_text(hls_url, encoding="utf-8")
-                # 预热已禁用(与 hls.js 按需请求抢代理带宽导致卡顿)
-                # hls.js 请求 ts 时 server 自动缓存,seek 回看秒回
+                # 后台延迟预热:8 秒后预热第 21~80 片(不抢 hls.js 开头)
+                with _PREFETCH_LOCK:
+                    already = code in _PREFETCHED
+                    _PREFETCHED.add(code)
+                if not already:
+                    threading.Thread(
+                        target=_prefetch_ts,
+                        args=(code, m3u8_path, meta_path, hls_url),
+                        daemon=True,
+                    ).start()
                 self._send_m3u8_bytes(data, code, hls_url)
                 return
             except Exception as e:
@@ -222,33 +254,46 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if ts_cache.is_file():
                 data = ts_cache.read_bytes()
             else:
-                try:
-                    from curl_cffi import requests as creq
-
-                    r = creq.get(
-                        ts_url,
-                        impersonate="chrome",
-                        proxy="http://127.0.0.1:7890",
-                        timeout=15,
-                        headers={
-                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-                            "Referer": "https://jable.tv/",
-                            "Origin": "https://jable.tv",
-                        },
-                    )
-                    if r.status_code != 200:
+                lock_key = code + "/" + sub
+                if not _acquire_ts_lock(lock_key):
+                    # 已有线程(预热)在下载该分片,等待完成后读缓存
+                    _wait_ts_lock(lock_key, 30)
+                    if ts_cache.is_file():
+                        data = ts_cache.read_bytes()
+                    else:
                         self._send_404()
                         return
-                    data = r.content
+                else:
                     try:
-                        tmp = ts_cache.with_suffix(".ts.tmp")
-                        tmp.write_bytes(data)
-                        os.replace(tmp, ts_cache)
+                        from curl_cffi import requests as creq
+
+                        r = creq.get(
+                            ts_url,
+                            impersonate="chrome",
+                            proxy="http://127.0.0.1:7890",
+                            timeout=15,
+                            headers={
+                                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+                                "Referer": "https://jable.tv/",
+                                "Origin": "https://jable.tv",
+                            },
+                        )
+                        if r.status_code != 200:
+                            _release_ts_lock(lock_key)
+                            self._send_404()
+                            return
+                        data = r.content
+                        try:
+                            tmp = ts_cache.with_suffix(".ts.tmp")
+                            tmp.write_bytes(data)
+                            os.replace(tmp, ts_cache)
+                        except Exception:
+                            pass
                     except Exception:
-                        pass
-                except Exception:
-                    self._send_404()
-                    return
+                        _release_ts_lock(lock_key)
+                        self._send_404()
+                        return
+                    _release_ts_lock(lock_key)
             self.send_response(200)
             self.send_header("Content-Type", "video/mp2t")
             self.send_header("Content-Length", str(len(data)))
