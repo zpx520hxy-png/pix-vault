@@ -1195,8 +1195,13 @@ function initJplayer(v) {
       backBufferLength: 30,
       enableWorker: true,
       lowLatencyMode: false,
-      // 高倍速时让 ABR 不过早降画质
       abrEwmaDefaultEstimate: 1000000,
+      // 分片 404 时不无限重试,跳过坏分片继续播放
+      fragLoadingMaxRetry: 2,
+      fragLoadingRetryDelay: 500,
+      fragLoadingMaxRetryTimeout: 2000,
+      manifestLoadingMaxRetry: 2,
+      levelLoadingMaxRetry: 2,
     });
     _jpHls = hls;
     hls.loadSource(src);
@@ -1213,9 +1218,21 @@ function initJplayer(v) {
       if (!hlsReady) { hlsReady = true; buildQualityMenu(data.levels); hls.currentLevel = -1; loading.classList.add('hide'); }
     });
     hls.on(Hls.Events.ERROR, function(_, data) {
+      // 分片 404:跳过坏分片,不卡死
+      if (data.details === Hls.ErrorDetails.FRAG_LOAD_ERROR || data.details === Hls.ErrorDetails.FRAG_PARSING_ERROR) {
+        // 非致命,让 hls.js 自动跳过
+        return;
+      }
       if (data.fatal) {
-        loading.textContent = '⚠️ 加载失败';
-        loading.classList.remove('hide');
+        // 网络/媒体错误:尝试恢复
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+          hls.startLoad();
+        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+          hls.recoverMediaError();
+        } else {
+          loading.textContent = '⚠️ 加载失败';
+          loading.classList.remove('hide');
+        }
       }
     });
   } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
