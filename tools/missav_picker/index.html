@@ -256,7 +256,8 @@
   /* 当前结果卡 */
   .result-card {
     display: grid;
-    grid-template-columns: 420px 1fr;
+    grid-template-columns: 480px minmax(0, 1fr);
+    align-items: start;
     gap: 28px;
     background: var(--bg-card);
     border: 1px solid var(--border);
@@ -267,6 +268,12 @@
   }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(8px);} to { opacity: 1; transform: translateY(0);} }
   .result-card .cover-wrap { position: relative; border-radius: 12px; overflow: hidden; }
+  .result-card .media-col {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+  }
   .result-card .cover-wrap video {
     position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; object-fit: cover;
     display: none;
@@ -300,7 +307,7 @@
   .result-card .title { font-size: 17px; line-height: 1.6; color: var(--text); }
   .result-card .meta { color: var(--text-mute); font-size: 14px; line-height: 1.8; }
   .result-card .meta strong { color: var(--text); font-weight: 600; }
-  .result-card .actions { display: flex; gap: 12px; margin-top: auto; padding-top: 16px; flex-wrap: wrap; }
+  .result-card .actions { display: flex; gap: 12px; padding-top: 16px; flex-wrap: wrap; align-items: center; }
   .btn {
     padding: 12px 22px; border-radius: 10px; font-size: 15px;
     text-decoration: none; cursor: pointer; border: 0;
@@ -448,14 +455,35 @@
 
   @media (max-width: 768px) {
     body { padding: 12px; }
-    .result-card { grid-template-columns: 1fr; gap: 14px; padding: 14px; }
-    .result-card .code { font-size: 24px; }
+    .result-card { grid-template-columns: 1fr; gap: 14px; padding: 14px; border-radius: 14px; }
+    .result-card .code { font-size: 24px; letter-spacing: 1px; }
+    .result-card .title { font-size: 15px; }
+    .result-card .meta { font-size: 13px; }
+    .result-card .actions { gap: 8px; }
+    .result-card .actions .btn { padding: 10px 14px; font-size: 13px; }
     header h1 { font-size: 22px; }
     .roll-btn { padding: 14px; font-size: 18px; }
     .browse-grid { grid-template-columns: 1fr; }
     .actress-grid { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px 4px; }
     .actress-chip .blob { width: 44px; height: 44px; }
     .actress-chip .name { font-size: 9px; }
+    /* jplayer 控制条手机端紧凑 */
+    .jplayer { --bar-h: 38px; border-radius: 10px; }
+    .jplayer .jp-bar { gap: 4px; padding: 0 6px; }
+    .jplayer .jp-btn { font-size: 14px; padding: 4px 5px; }
+    .jplayer .jp-time { font-size: 11px; }
+    .jplayer .jp-vol-slider { display: none; }
+    .jplayer .jp-progress { left: 6px; right: 6px; bottom: calc(var(--bar-h) - 2px); }
+    /* seekbar 手机端 */
+    .jp-seekbar { display: flex; gap: 4px; padding: 8px 4px; flex-wrap: wrap; }
+    .jp-seek-btn { font-size: 11px; padding: 5px 7px; border-radius: 5px; }
+    .jp-seek-cur { font-size: 12px; min-width: 52px; padding: 0 4px; }
+  }
+  @media (min-width: 769px) and (max-width: 1100px) {
+    .result-card { grid-template-columns: 380px minmax(0, 1fr); gap: 20px; padding: 20px; }
+    .result-card .code { font-size: 28px; }
+    .browse-grid { grid-template-columns: repeat(2, 1fr); }
+    .jp-seekbar { display: flex; flex-wrap: wrap; }
   }
 
   /* hover 触发 jable m3u8 预览 */
@@ -579,8 +607,12 @@
   .jplayer .jp-btn.active { color: var(--primary); }
   /* 跳转按钮组(视频下方) */
   .jp-seekbar {
-    display: flex; align-items: center; justify-content: center; gap: 6px;
-    padding: 10px 8px; flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(3, auto) minmax(64px, auto) repeat(3, auto);
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 8px;
   }
   .jp-seek-btn {
     background: var(--bg-card); border: 1px solid var(--border); color: var(--text);
@@ -1019,7 +1051,8 @@ function renderResult() {
 
   const isJable = currentSourceOf(v) === 'jable';
   const coverBlock = isJable
-    ? `<div class="jplayer" id="jp" data-state="cover">
+    ? `<div class="media-col">
+         <div class="jplayer" id="jp" data-state="cover">
          <div class="jp-cover" id="jpCover">
            <img src="${p(v.cover)}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
              onerror="this.style.display='none'">
@@ -1049,27 +1082,28 @@ function renderResult() {
              <button class="jp-btn" id="jpQualBtn" title="画质">自动</button>
              <div class="jp-menu" id="jpQualMenu"></div>
            </div>
-            <button class="jp-btn" id="jpFs" title="全屏">⛶</button>
-          </div>
-        </div>
-        <div class="jp-seekbar">
-          <button class="jp-seek-btn" data-sec="-600" title="后退10分钟">⏪10m</button>
+             <button class="jp-btn" id="jpFs" title="全屏">⛶</button>
+           </div>
+         </div>
+         <div class="jp-seekbar">
+           <button class="jp-seek-btn" data-sec="-600" title="后退10分钟">⏪10m</button>
           <button class="jp-seek-btn" data-sec="-60" title="后退1分钟">⏪1m</button>
           <button class="jp-seek-btn" data-sec="-5" title="后退5秒">⏪5s</button>
-          <span class="jp-seek-cur" id="jpSeekCur">0:00</span>
-          <button class="jp-seek-btn" data-sec="5" title="快进5秒">5s⏩</button>
-          <button class="jp-seek-btn" data-sec="60" title="快进1分钟">1m⏩</button>
-          <button class="jp-seek-btn" data-sec="600" title="快进10分钟">10m⏩</button>
-        </div>`
-    : `<div class="cover-wrap" onclick="(function(w){w.classList.contains('preview-on')?w.classList.remove('preview-on'):(w.classList.add('preview-on'),w.querySelector('video').play().catch(function(){}))})(this)">
+           <span class="jp-seek-cur" id="jpSeekCur">0:00</span>
+           <button class="jp-seek-btn" data-sec="5" title="快进5秒">5s⏩</button>
+           <button class="jp-seek-btn" data-sec="60" title="快进1分钟">1m⏩</button>
+           <button class="jp-seek-btn" data-sec="600" title="快进10分钟">10m⏩</button>
+         </div>
+       </div>`
+    : `<div class="media-col"><div class="cover-wrap" onclick="(function(w){w.classList.contains('preview-on')?w.classList.remove('preview-on'):(w.classList.add('preview-on'),w.querySelector('video').play().catch(function(){}))})(this)">
          <video src="${v.preview || ''}" muted loop playsinline disableRemotePlayback preload="auto"
            poster="${p(v.cover)}"
            onerror="this.style.display='none'"></video>
          <div class="cover">
            <img src="${p(v.cover)}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
-             onerror="this.parentElement.innerHTML='<div class=placeholder>封面加载失败</div>'">
+              onerror="this.parentElement.innerHTML='<div class=placeholder>封面加载失败</div>'">
          </div>
-       </div>`;
+        </div></div>`;
 
   $('resultArea').innerHTML = `
     <div class="result-card">
