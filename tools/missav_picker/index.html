@@ -447,8 +447,9 @@
   .jplayer .jp-progress {
     position: absolute; left: 12px; right: 12px; bottom: calc(var(--bar-h) - 2px);
     height: 4px; background: rgba(255,255,255,0.25); border-radius: 2px;
-    cursor: pointer; z-index: 7;
+    cursor: pointer; z-index: 7; opacity: 0; transition: opacity 0.25s;
   }
+  .jplayer:hover .jp-progress, .jplayer.jp-paused .jp-progress { opacity: 1; }
   .jplayer .jp-progress:hover { height: 6px; }
   .jplayer .jp-buffered {
     position: absolute; left: 0; top: 0; height: 100%;
