@@ -409,7 +409,17 @@
     .actress-chip .blob { width: 44px; height: 44px; }
     .actress-chip .name { font-size: 9px; }
   }
+
+  /* hover 触发 jable m3u8 预览 */
+  .browse-card:hover .bc-preview { display: block; opacity: 1; }
+  .hist-card:hover .hist-preview { opacity: 1; }
+  .hist-card { position: relative; }
+  .hist-card .hist-preview { position: absolute; inset: 0; opacity: 0; transition: opacity 0.25s; pointer-events: none; }
+  .hist-card .hist-preview video { width: 100%; height: 100%; object-fit: cover; }
+  /* 隐藏 m3u8 加载失败的 video 元素 */
+  video.hls-failed { display: none !important; }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
 </head>
 <body>
 <div class="container">
@@ -550,6 +560,7 @@ const EXCLUDE_PRESET = ['BEST', '强奸', '调教', '春药'];
 
 // 按类型过滤的视频池(不包含标签/女优过滤,因为标签本身就是筛选条件)
 function getTypePool() {
+  if (!DATA || !DATA.videos) return [];
   return DATA.videos.filter(v => {
     if (state.type === 'solo' && v.is_multi) return false;
     if (state.type === 'multi' && !v.is_multi) return false;
@@ -611,7 +622,7 @@ function renderTagChips() {
 function chipHTML(a) {
   const sel = state.actresses.has(a) ? ' active' : '';
   const D = DATA || IDX;
-  const avatar = D.actress_avatars[a];
+  const avatar = (D.actress_avatars || {})[a];
   const dispName = (D.actress_display || {})[a] || a;
   const imgHtml = avatar
     ? `<img src="${avatar}" alt="${a}" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
@@ -713,7 +724,7 @@ function renderSelBar() {
   }
   state.tags.forEach(t => parts.push('<span class="sel-chip tag" data-click="dropTag" data-tag="'+t.replace(/"/g,'&quot;')+'">'+t+' ×</span>'));
   state.actresses.forEach(a => {
-    const av = D.actress_avatars[a];
+    const av = (D.actress_avatars || {})[a];
     const disp = (D.actress_display||{})[a] || a;
     const img = av ? '<img src="'+av+'" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'">' : '';
     parts.push('<span class="sel-item" data-click="dropActress" data-actress="'+a.replace(/"/g,'&quot;')+'" title="'+disp.replace(/"/g,'&quot;')+'"><span class="sel-blob">'+img+'</span><span class="sel-name">'+disp+'</span></span>');
@@ -805,7 +816,7 @@ function renderResult() {
           <strong>发布日期</strong>：${v.date || '—'}
         </div>
         <div class="actions">
-          <a class="btn btn-primary" href="${v.url}" target="_blank" rel="noopener">▶️ 去 MissAV 观看</a>
+          <a class="btn btn-primary" href="${v.url}" target="_blank" rel="noopener">▶️ 去 ${(DATA&&DATA.source==='jable')?'Jable':'MissAV'} 观看</a>
           <button class="btn btn-ghost" onclick="rollOne()">🎲 再抽一部</button>
           <button class="btn btn-ghost" onclick="copyCode('${v.code}')">📋 复制番号</button>
         </div>
@@ -827,6 +838,66 @@ function renderHistory() {
     </div>
   `).join('');
 }
+
+// hover 触发后挂载 hls.js(避免一次挂 218 个实例)
+function mountHls(video, src) {
+  if (!src || !video) return;
+  if (video.dataset.hlsMounted === '1') return;
+  video.dataset.hlsMounted = '1';
+  video.muted = true;
+  // MP4 / WebM / 其他原生支持的视频格式:直接给 src
+  var isHls = /\.m3u8(\?|#|$)/i.test(src) || src.indexOf('application/vnd.apple.mpegurl') > -1;
+  if (!isHls) {
+    video.src = src;
+    video.addEventListener('error', function() {
+      // missav 部分视频 fourhoi 上 404,自动隐藏
+      video.parentElement.style.display = 'none';
+      video.classList.add('hls-failed');
+    });
+    video.play().catch(function(){});
+    return;
+  }
+  // M3U8: Safari 原生支持
+  if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    video.src = src;
+    return;
+  }
+  // 其他浏览器用 hls.js
+  if (window.Hls && Hls.isSupported()) {
+    var hls = new Hls();
+    hls.loadSource(src);
+    hls.attachMedia(video);
+    hls.on(Hls.Events.ERROR, function(_, data) {
+      if (data.fatal) {
+        video.parentElement.style.display = 'none';
+        video.classList.add('hls-failed');
+      }
+    });
+    video.play().catch(function(){});
+  } else {
+    video.src = src;
+    video.play().catch(function(){});
+  }
+}
+
+document.addEventListener('mouseover', function(e) {
+  const card = e.target.closest('.browse-card,.hist-card');
+  if (card) {
+    const v = card.querySelector('video[data-hls-src]');
+    if (v) { mountHls(v, v.dataset.hlsSrc); return; }
+  }
+  const v = e.target.closest('video[data-hls-src]');
+  if (v) mountHls(v, v.dataset.hlsSrc);
+});
+document.addEventListener('mouseenter', function(e) {
+  const card = e.target.closest && e.target.closest('.browse-card,.hist-card');
+  if (card) {
+    const v = card.querySelector('video[data-hls-src]');
+    if (v) { mountHls(v, v.dataset.hlsSrc); return; }
+  }
+  const v = e.target.closest && e.target.closest('video[data-hls-src]');
+  if (v) mountHls(v, v.dataset.hlsSrc);
+}, true);
 
 function showFromHistory(code) {
   const v = state.history.find(h => h.code === code) || DATA.videos.find(x => x.code === code);
@@ -908,13 +979,28 @@ $('sourceChips').addEventListener('click', function(e) {
   document.querySelectorAll('#typeChips .chip').forEach(function(c) { c.classList.remove('active'); });
   document.querySelector('#typeChips .chip[data-type="all"]').classList.add('active');
   $('selectedBar').innerHTML = '';
+  $('rollBtn').disabled = true;
+  $('rollBtn').textContent = '⏳ 加载中...';
   if (src === 'jable') {
+    DATA = null; IDX = null;
+    $('tagChips').innerHTML = '';
+    $('excludeChips').innerHTML = '';
+    ['savedGrid','rookieGrid','otherGrid'].forEach(function(id) { $(id).innerHTML = ''; });
     fetch('jable_data.json?_=' + Date.now()).then(function(r) { return r.json(); }).then(function(d) {
-      DATA = d; $('rollBtn').disabled = false; $('rollBtn').textContent = '🎲 随机抽一部';
+      DATA = d;
+      // jable_data.json schema 是 {source, videos:[...]},顶层没有 actresses
+      // 从 videos 提取 unique 女优
+      var uniq = {};
+      DATA.videos.forEach(function(v){(v.actresses||[]).forEach(function(a){uniq[a]=1});});
+      DATA.actresses = Object.keys(uniq);
+      $('rollBtn').disabled = false; $('rollBtn').textContent = '🎲 随机抽一部';
       $('stats').textContent = '📊 ' + DATA.videos.length + ' 部作品 · ' + DATA.actresses.length + ' 位女优 · Jable.TV';
       renderTagChips(); renderActressGrid(); updateCount();
     });
   } else {
+    DATA = null; IDX = null;
+    $('tagChips').innerHTML = '';
+    ['savedGrid','rookieGrid','otherGrid'].forEach(function(id) { $(id).innerHTML = ''; });
     fetch('picker_index.json?_=' + Date.now()).then(function(r) { return r.json(); }).then(function(d) {
       IDX = d; init('index');
     });
@@ -996,9 +1082,8 @@ function renderBrowse() {
         <img src="${p(v.cover)}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
           onerror="this.parentElement.style.background='var(--border)';this.style.display='none'">
         <div class="bc-preview">
-          <video src="${v.preview || ''}" muted autoplay loop playsinline disableRemotePlayback preload="auto"
-            poster="${p(v.cover)}"
-            onerror="this.parentElement.style.display='none'"></video>
+          <video data-hls-src="${p(v.preview || '')}" muted loop playsinline disableRemotePlayback referrerpolicy="no-referrer" preload="none"
+            poster="${p(v.cover)}"></video>
         </div>
       </div>
       <div class="bc-info">
