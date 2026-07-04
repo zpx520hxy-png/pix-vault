@@ -418,6 +418,82 @@
   .hist-card .hist-preview video { width: 100%; height: 100%; object-fit: cover; }
   /* 隐藏 m3u8 加载失败的 video 元素 */
   video.hls-failed { display: none !important; }
+
+  /* ── jable 播放器 ── */
+  .jplayer {
+    position: relative; width: 100%; aspect-ratio: 16/9;
+    background: #000; border-radius: 12px; overflow: hidden;
+    --bar-h: 44px;
+  }
+  .jplayer video {
+    width: 100%; height: 100%; object-fit: contain; display: block;
+    background: #000;
+  }
+  .jplayer.webfs { position: fixed; inset: 0; z-index: 9999; border-radius: 0; aspect-ratio: auto; height: 100vh; }
+  .jplayer:fullscreen, .jplayer:-webkit-full-screen { aspect-ratio: auto; }
+  .jplayer .jp-loading {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: var(--text-mute); font-size: 14px; background: rgba(0,0,0,0.5);
+    z-index: 5; transition: opacity 0.3s;
+  }
+  .jplayer .jp-loading.hide { opacity: 0; pointer-events: none; }
+  .jplayer .jp-bar {
+    position: absolute; left: 0; right: 0; bottom: 0; height: var(--bar-h);
+    background: linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0));
+    display: flex; align-items: center; gap: 8px; padding: 0 12px;
+    z-index: 6; opacity: 0; transition: opacity 0.25s;
+  }
+  .jplayer:hover .jp-bar, .jplayer.jp-paused .jp-bar { opacity: 1; }
+  .jplayer .jp-progress {
+    position: absolute; left: 12px; right: 12px; bottom: calc(var(--bar-h) - 2px);
+    height: 4px; background: rgba(255,255,255,0.25); border-radius: 2px;
+    cursor: pointer; z-index: 7;
+  }
+  .jplayer .jp-progress:hover { height: 6px; }
+  .jplayer .jp-buffered {
+    position: absolute; left: 0; top: 0; height: 100%;
+    background: rgba(255,255,255,0.35); border-radius: 2px;
+  }
+  .jplayer .jp-played {
+    position: absolute; left: 0; top: 0; height: 100%;
+    background: var(--primary); border-radius: 2px;
+  }
+  .jplayer .jp-played::after {
+    content: ''; position: absolute; right: -6px; top: 50%; transform: translateY(-50%);
+    width: 12px; height: 12px; border-radius: 50%; background: var(--primary);
+    box-shadow: 0 0 0 3px rgba(233,30,99,0.3);
+  }
+  .jplayer .jp-btn {
+    background: transparent; border: 0; color: #fff; cursor: pointer;
+    font-size: 16px; padding: 6px 8px; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s; line-height: 1;
+  }
+  .jplayer .jp-btn:hover { background: rgba(255,255,255,0.15); }
+  .jplayer .jp-time {
+    color: #fff; font-size: 12px; font-variant-numeric: tabular-nums;
+    padding: 0 4px; user-select: none; white-space: nowrap;
+  }
+  .jplayer .jp-spacer { flex: 1; }
+  .jplayer .jp-speed, .jplayer .jp-quality {
+    position: relative;
+  }
+  .jplayer .jp-menu {
+    position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+    background: rgba(20,16,24,0.97); border: 1px solid var(--border);
+    border-radius: 8px; padding: 4px; display: none;
+    flex-direction: column; min-width: 80px; margin-bottom: 6px;
+    z-index: 8;
+  }
+  .jplayer .jp-speed:hover .jp-menu, .jplayer .jp-quality:hover .jp-menu { display: flex; }
+  .jplayer .jp-menu-item {
+    background: transparent; border: 0; color: var(--text); cursor: pointer;
+    padding: 6px 12px; font-size: 12px; border-radius: 4px; text-align: center;
+    white-space: nowrap;
+  }
+  .jplayer .jp-menu-item:hover { background: rgba(233,30,99,0.2); }
+  .jplayer .jp-menu-item.active { color: var(--primary); font-weight: 600; }
+  .jplayer .jp-btn.active { color: var(--primary); }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
 </head>
@@ -796,17 +872,46 @@ function renderResult() {
     ? v.actresses.map(a => `<strong>${a}</strong>`).join('、')
     : '<span style="color:var(--text-mute)">未知</span>';
 
+  const isJable = (DATA && DATA.source === 'jable') || v.source === 'jable';
+  const coverBlock = isJable
+    ? `<div class="jplayer" id="jp">
+         <video id="jpVideo" muted loop playsinline preload="auto" poster="${p(v.cover)}"></video>
+         <div class="jp-loading" id="jpLoading">⏳ 加载中...</div>
+         <div class="jp-progress" id="jpProgress">
+           <div class="jp-buffered" id="jpBuffered"></div>
+           <div class="jp-played" id="jpPlayed"></div>
+         </div>
+         <div class="jp-bar">
+           <button class="jp-btn" id="jpPlay" title="播放/暂停">▶️</button>
+           <span class="jp-time" id="jpCur">0:00</span>
+           <span class="jp-time" style="opacity:0.6">/</span>
+           <span class="jp-time" id="jpDur">0:00</span>
+           <span class="jp-spacer"></span>
+           <div class="jp-speed">
+             <button class="jp-btn" id="jpSpeedBtn" title="倍速">1x</button>
+             <div class="jp-menu" id="jpSpeedMenu"></div>
+           </div>
+           <div class="jp-quality">
+             <button class="jp-btn" id="jpQualBtn" title="画质">自动</button>
+             <div class="jp-menu" id="jpQualMenu"></div>
+           </div>
+           <button class="jp-btn" id="jpWebfs" title="网页全屏">⛶</button>
+           <button class="jp-btn" id="jpFs" title="完全全屏">⛶⛶</button>
+         </div>
+       </div>`
+    : `<div class="cover-wrap" onclick="(function(w){w.classList.contains('preview-on')?w.classList.remove('preview-on'):(w.classList.add('preview-on'),w.querySelector('video').play().catch(function(){}))})(this)">
+         <video src="${v.preview || ''}" muted loop playsinline disableRemotePlayback preload="auto"
+           poster="${p(v.cover)}"
+           onerror="this.style.display='none'"></video>
+         <div class="cover">
+           <img src="${p(v.cover)}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+             onerror="this.parentElement.innerHTML='<div class=placeholder>封面加载失败</div>'">
+         </div>
+       </div>`;
+
   $('resultArea').innerHTML = `
     <div class="result-card">
-      <div class="cover-wrap" onclick="(function(w){w.classList.contains('preview-on')?w.classList.remove('preview-on'):(w.classList.add('preview-on'),w.querySelector('video').play().catch(function(){}))})(this)">
-        <video src="${v.preview || ''}" muted loop playsinline disableRemotePlayback preload="auto"
-          poster="${p(v.cover)}"
-          onerror="this.style.display='none'"></video>
-        <div class="cover">
-          <img src="${p(v.cover)}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
-            onerror="this.parentElement.innerHTML='<div class=placeholder>封面加载失败</div>'">
-        </div>
-      </div>
+      ${coverBlock}
       <div class="info">
         <div class="code">${v.code}</div>
         <div class="badges">${badges.join('')}</div>
@@ -816,12 +921,184 @@ function renderResult() {
           <strong>发布日期</strong>：${v.date || '—'}
         </div>
         <div class="actions">
-          <a class="btn btn-primary" href="${v.url}" target="_blank" rel="noopener">▶️ 去 ${(DATA&&DATA.source==='jable')?'Jable':'MissAV'} 观看</a>
+          <a class="btn btn-primary" href="${v.url}" target="_blank" rel="noopener">▶️ 去 ${isJable?'Jable':'MissAV'} 观看</a>
           <button class="btn btn-ghost" onclick="rollOne()">🎲 再抽一部</button>
           <button class="btn btn-ghost" onclick="copyCode('${v.code}')">📋 复制番号</button>
         </div>
       </div>
     </div>`;
+  if (isJable) initJplayer(v);
+}
+
+// ── jable 播放器 ──
+let _jpHls = null, _jpVideo = null;
+function fmtTime(s) {
+  if (!s || !isFinite(s)) return '0:00';
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = Math.floor(s % 60);
+  return (h > 0 ? h + ':' + String(m).padStart(2,'0') : m) + ':' + String(sec).padStart(2,'0');
+}
+function initJplayer(v) {
+  // 清理旧实例
+  if (_jpHls) { try { _jpHls.destroy(); } catch(e){} _jpHls = null; }
+  const video = $('jpVideo');
+  const jp = $('jp');
+  _jpVideo = video;
+  const loading = $('jpLoading');
+  const playBtn = $('jpPlay');
+  const curEl = $('jpCur'), durEl = $('jpDur');
+  const progress = $('jpProgress'), played = $('jpPlayed'), buffered = $('jpBuffered');
+  const speedBtn = $('jpSpeedBtn'), speedMenu = $('jpSpeedMenu');
+  const qualBtn = $('jpQualBtn'), qualMenu = $('jpQualMenu');
+  const webfsBtn = $('jpWebfs'), fsBtn = $('jpFs');
+
+  loading.classList.remove('hide');
+  video.muted = true; // 自动播放需静音
+
+  // 倍速菜单
+  const speeds = [0.5, 0.75, 1, 1.25, 1.5, 2];
+  speedMenu.innerHTML = speeds.map(s => `<button class="jp-menu-item${s===1?' active':''}" data-s="${s}">${s}x</button>`).join('');
+  speedMenu.querySelectorAll('.jp-menu-item').forEach(b => {
+    b.onclick = (e) => {
+      e.stopPropagation();
+      const s = parseFloat(b.dataset.s);
+      video.playbackRate = s;
+      speedBtn.textContent = s + 'x';
+      speedMenu.querySelectorAll('.jp-menu-item').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+    };
+  });
+
+  function buildQualityMenu(levels) {
+    if (!levels || levels.length === 0) {
+      qualBtn.textContent = '原画';
+      qualMenu.innerHTML = '<button class="jp-menu-item active">原画</button>';
+      return;
+    }
+    // 按 bitrate 降序排(最高清在前)
+    const sorted = levels.slice().sort((a,b) => (b.bitrate||b.height||0) - (a.bitrate||a.height||0));
+    const items = ['<button class="jp-menu-item" data-lvl="-1">自动(最高)</button>'];
+    sorted.forEach((lv, i) => {
+      const label = lv.height ? lv.height + 'p' : ('L' + (lv.bitrate?Math.round(lv.bitrate/1000)+'k':i));
+      items.push(`<button class="jp-menu-item" data-lvl="${lv.index ?? i}">${label}</button>`);
+    });
+    qualMenu.innerHTML = items.join('');
+    qualBtn.textContent = '自动';
+    qualMenu.querySelectorAll('.jp-menu-item').forEach(b => {
+      b.onclick = (e) => {
+        e.stopPropagation();
+        const lvl = parseInt(b.dataset.lvl);
+        if (_jpHls) { _jpHls.currentLevel = lvl; }
+        qualMenu.querySelectorAll('.jp-menu-item').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        qualBtn.textContent = b.textContent;
+      };
+    });
+    // 默认选最高清(-1 = auto, 但配置里强制 capLevelToPlayerSize=false 已让自动选最高)
+  }
+
+  const src = v.preview;
+  const isHls = /\.m3u8(\?|#|$)/i.test(src);
+  let hlsReady = false;
+
+  if (isHls && window.Hls && Hls.isSupported()) {
+    const hls = new Hls({
+      capLevelToPlayerSize: false,  // 不根据播放器尺寸降画质 → 始终最高清
+      startLevel: -1,               // 自动选最高起步
+      maxBufferLength: 30,
+      maxMaxBufferLength: 60,
+      enableWorker: true,
+    });
+    _jpHls = hls;
+    hls.loadSource(src);
+    hls.attachMedia(video);
+    hls.on(Hls.Events.MANIFEST_PARSED, function(_, data) {
+      hlsReady = true;
+      buildQualityMenu(data.levels);
+      // 强制最高画质
+      hls.currentLevel = -1;
+      loading.classList.add('hide');
+      video.play().catch(function(){});
+    });
+    hls.on(Hls.Events.LEVELS_UPDATED, function(_, data) {
+      if (!hlsReady) { hlsReady = true; buildQualityMenu(data.levels); hls.currentLevel = -1; loading.classList.add('hide'); }
+    });
+    hls.on(Hls.Events.ERROR, function(_, data) {
+      if (data.fatal) {
+        loading.textContent = '⚠️ 加载失败';
+        loading.classList.remove('hide');
+      }
+    });
+  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    // Safari 原生 HLS
+    video.src = src;
+    video.addEventListener('loadedmetadata', () => { loading.classList.add('hide'); buildQualityMenu(null); }, {once:true});
+    video.play().catch(function(){});
+  } else {
+    // 兜底:直接给 src(某些 Chrome 130+ 原生支持)
+    video.src = src;
+    video.addEventListener('loadedmetadata', () => { loading.classList.add('hide'); buildQualityMenu(null); }, {once:true});
+    video.addEventListener('error', () => { loading.textContent = '⚠️ 不支持 HLS'; loading.classList.remove('hide'); });
+    video.play().catch(function(){});
+  }
+
+  // 播放/暂停
+  playBtn.onclick = () => {
+    if (video.paused) video.play(); else video.pause();
+  };
+  video.addEventListener('play', () => { playBtn.textContent = '⏸'; jp.classList.remove('jp-paused'); });
+  video.addEventListener('pause', () => { playBtn.textContent = '▶️'; jp.classList.add('jp-paused'); });
+  video.addEventListener('loadedmetadata', () => { durEl.textContent = fmtTime(video.duration); });
+  video.addEventListener('timeupdate', () => {
+    curEl.textContent = fmtTime(video.currentTime);
+    if (video.duration) played.style.width = (video.currentTime / video.duration * 100) + '%';
+  });
+  video.addEventListener('progress', () => {
+    if (video.buffered.length > 0 && video.duration) {
+      buffered.style.width = (video.buffered.end(video.buffered.length-1) / video.duration * 100) + '%';
+    }
+  });
+  video.addEventListener('waiting', () => loading.classList.remove('hide'));
+  video.addEventListener('playing', () => loading.classList.add('hide'));
+
+  // 进度条点击跳转
+  function seekAt(e) {
+    const rect = progress.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    if (video.duration) video.currentTime = ratio * video.duration;
+  }
+  progress.onclick = seekAt;
+  let dragging = false;
+  progress.onmousedown = (e) => { dragging = true; seekAt(e); };
+  document.addEventListener('mousemove', (e) => { if (dragging) seekAt(e); });
+  document.addEventListener('mouseup', () => { dragging = false; });
+
+  // 网页全屏(CSS 固定)
+  webfsBtn.onclick = () => {
+    jp.classList.toggle('webfs');
+    webfsBtn.textContent = jp.classList.contains('webfs') ? '🗙' : '⛶';
+    if (jp.classList.contains('webfs')) {
+      // 退出完全全屏(如果开着)
+      if (document.fullscreenElement) document.exitFullscreen();
+      fsBtn.textContent = '⛶⛶';
+    }
+  };
+  // 完全全屏(Fullscreen API)
+  fsBtn.onclick = () => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+      fsBtn.textContent = '⛶⛶';
+    } else {
+      jp.requestFullscreen().catch(()=>{});
+      // 退出网页全屏
+      jp.classList.remove('webfs'); webfsBtn.textContent = '⛶';
+    }
+  };
+  document.addEventListener('fullscreenchange', () => {
+    fsBtn.textContent = document.fullscreenElement ? '🗙' : '⛶⛶';
+  });
+
+  // 销毁旧监听:重建时清理(简单做法 — 给 video 加标记)
+  video._jpBound = true;
 }
 
 function renderHistory() {
