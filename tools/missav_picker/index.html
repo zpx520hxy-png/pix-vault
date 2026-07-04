@@ -1364,7 +1364,11 @@ $('sourceChips').addEventListener('click', function(e) {
   var src = chip.dataset.source;
   if (src === state.source) return;
   state.source = src;
+  state.current = null;
   state.tags.clear(); state.actresses.clear(); state.type = 'all';
+  if (_jpHls) { try { _jpHls.destroy(); } catch(e){} _jpHls = null; }
+  if (_jpVideo) { try { _jpVideo.pause(); _jpVideo.removeAttribute('src'); _jpVideo.load(); } catch(e){} _jpVideo = null; }
+  $('resultArea').innerHTML = '';
   document.querySelectorAll('#typeChips .chip').forEach(function(c) { c.classList.remove('active'); });
   document.querySelector('#typeChips .chip[data-type="all"]').classList.add('active');
   $('selectedBar').innerHTML = '';

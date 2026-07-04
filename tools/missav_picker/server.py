@@ -446,29 +446,42 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return
         _MISS += 1
         try:
-            req = urllib.request.Request(
-                url,
-                headers={
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                    "Accept": "image/*,video/*",
-                },
-            )
-            with urllib.request.urlopen(req, timeout=12) as resp:
-                data = resp.read()
-                ct = resp.headers.get("Content-Type", "image/jpeg")
-                try:
-                    cache_path.parent.mkdir(parents=True, exist_ok=True)
-                    cache_path.write_bytes(data)
-                except OSError:
-                    pass
-                self.send_response(200)
-                self.send_header("Content-Type", ct)
-                self.send_header("Content-Length", str(len(data)))
-                self.send_header("Cache-Control", f"public, max-age={CACHE_OK_TTL}")
-                self.send_header("Access-Control-Allow-Origin", "*")
-                self.end_headers()
-                self.wfile.write(data)
-                self._maybe_evict()
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "Accept": "image/*,video/*",
+            }
+            if "jable.tv" in domain:
+                from curl_cffi import requests as creq
+
+                r = creq.get(
+                    url,
+                    impersonate="chrome",
+                    proxy="http://127.0.0.1:7890",
+                    timeout=15,
+                    headers={**headers, "Referer": "https://jable.tv/"},
+                )
+                if r.status_code != 200:
+                    raise OSError(f"image status {r.status_code}")
+                data = r.content
+                ct = r.headers.get("Content-Type", "image/jpeg")
+            else:
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(req, timeout=12) as resp:
+                    data = resp.read()
+                    ct = resp.headers.get("Content-Type", "image/jpeg")
+            try:
+                cache_path.parent.mkdir(parents=True, exist_ok=True)
+                cache_path.write_bytes(data)
+            except OSError:
+                pass
+            self.send_response(200)
+            self.send_header("Content-Type", ct)
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Cache-Control", f"public, max-age={CACHE_OK_TTL}")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(data)
+            self._maybe_evict()
         except (urllib.error.URLError, TimeoutError, OSError):
             _FAIL += 1
             try:
@@ -476,7 +489,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 neg_path.touch()
             except OSError:
                 pass
-            self._send_placeholder()
+            try:
+                self._send_placeholder()
+            except (BrokenPipeError, ConnectionAbortedError):
+                pass
 
     def _send_file(self, path: Path):
         data = path.read_bytes()
