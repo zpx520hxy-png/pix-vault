@@ -202,16 +202,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 cache_root.mkdir(parents=True, exist_ok=True)
                 m3u8_path.write_bytes(data)
                 meta_path.write_text(hls_url, encoding="utf-8")
-                # 后台并发预热 ts 分片(hls.js 请求时命中本地缓存)
-                with _PREFETCH_LOCK:
-                    already = code in _PREFETCHED
-                    _PREFETCHED.add(code)
-                if not already:
-                    threading.Thread(
-                        target=_prefetch_ts,
-                        args=(code, m3u8_path, meta_path, hls_url),
-                        daemon=True,
-                    ).start()
+                # 预热已禁用(与 hls.js 按需请求抢代理带宽导致卡顿)
+                # hls.js 请求 ts 时 server 自动缓存,seek 回看秒回
                 self._send_m3u8_bytes(data, code, hls_url)
                 return
             except Exception as e:
