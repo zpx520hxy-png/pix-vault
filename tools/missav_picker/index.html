@@ -520,7 +520,7 @@
     flex-direction: column; min-width: 80px; margin-bottom: 6px;
     z-index: 8;
   }
-  .jplayer .jp-speed:hover .jp-menu, .jplayer .jp-quality:hover .jp-menu { display: flex; }
+  .jplayer .jp-speed.open .jp-menu, .jplayer .jp-quality.open .jp-menu { display: flex; }
   .jplayer .jp-menu-item {
     background: transparent; border: 0; color: var(--text); cursor: pointer;
     padding: 6px 12px; font-size: 12px; border-radius: 4px; text-align: center;
@@ -1005,7 +1005,15 @@ function initJplayer(v) {
   loading.classList.remove('hide');
   video.volume = 1; video.muted = false; // 点击触发,可有声播放
 
-  // 倍速菜单
+  // 倍速菜单 — click 切换(避免 hover 间隙导致菜单消失)
+  const speedWrap = speedBtn.parentElement;   // .jp-speed
+  const qualWrap = qualBtn.parentElement;      // .jp-quality
+  function closeMenus() { speedWrap.classList.remove('open'); qualWrap.classList.remove('open'); }
+  speedBtn.onclick = (e) => { e.stopPropagation(); qualWrap.classList.remove('open'); speedWrap.classList.toggle('open'); };
+  qualBtn.onclick = (e) => { e.stopPropagation(); speedWrap.classList.remove('open'); qualWrap.classList.toggle('open'); };
+  // 点外部关闭
+  jp.addEventListener('click', (e) => { if (!e.target.closest('.jp-speed,.jp-quality')) closeMenus(); });
+
   const speeds = [0.5, 0.75, 1, 1.25, 1.5, 2];
   speedMenu.innerHTML = speeds.map(s => `<button class="jp-menu-item${s===1?' active':''}" data-s="${s}">${s}x</button>`).join('');
   speedMenu.querySelectorAll('.jp-menu-item').forEach(b => {
@@ -1016,6 +1024,7 @@ function initJplayer(v) {
       speedBtn.textContent = s + 'x';
       speedMenu.querySelectorAll('.jp-menu-item').forEach(x => x.classList.remove('active'));
       b.classList.add('active');
+      speedWrap.classList.remove('open');
     };
   });
 
@@ -1023,6 +1032,7 @@ function initJplayer(v) {
     if (!levels || levels.length === 0) {
       qualBtn.textContent = '原画';
       qualMenu.innerHTML = '<button class="jp-menu-item active">原画</button>';
+      qualMenu.querySelector('.jp-menu-item').onclick = (e) => { e.stopPropagation(); qualWrap.classList.remove('open'); };
       return;
     }
     // 按 bitrate 降序排(最高清在前)
@@ -1042,6 +1052,7 @@ function initJplayer(v) {
         qualMenu.querySelectorAll('.jp-menu-item').forEach(x => x.classList.remove('active'));
         b.classList.add('active');
         qualBtn.textContent = b.textContent;
+        qualWrap.classList.remove('open');
       };
     });
     // 默认选最高清(-1 = auto, 但配置里强制 capLevelToPlayerSize=false 已让自动选最高)
