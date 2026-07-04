@@ -182,7 +182,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
           /play/<code>/playlist.m3u8  -> 抓 jable 视频页,提取 hlsUrl,返回 m3u8 内容
           /play/<code>/<segment>.ts   -> 从 hlsUrl 所在域名代理 .ts 分片(免跨域)
         """
-        global _PLAY
+        global _PLAY, _PLAY_FAIL
         # path: /play/<code>/playlist.m3u8  或  /play/<code>/<seg>.ts
         rest = self.path[len("/play/") :]
         parts = rest.split("/", 1)
