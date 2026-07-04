@@ -1020,6 +1020,11 @@ function initJplayer(v) {
       e.stopPropagation();
       const s = parseFloat(b.dataset.s);
       video.playbackRate = s;
+      // 高倍速联动:动态加大 hls.js 缓冲,提前预载分片
+      if (_jpHls) {
+        _jpHls.config.maxBufferLength = Math.max(120, s * 120);
+        _jpHls.config.maxMaxBufferLength = Math.max(600, s * 600);
+      }
       speedBtn.textContent = s + 'x';
       speedMenu.querySelectorAll('.jp-menu-item').forEach(x => x.classList.remove('active'));
       b.classList.add('active');
