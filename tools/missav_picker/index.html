@@ -529,6 +529,21 @@
   .jplayer .jp-menu-item:hover { background: rgba(233,30,99,0.2); }
   .jplayer .jp-menu-item.active { color: var(--primary); font-weight: 600; }
   .jplayer .jp-btn.active { color: var(--primary); }
+  /* 跳转按钮组(视频下方) */
+  .jp-seekbar {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 10px 8px; flex-wrap: wrap;
+  }
+  .jp-seek-btn {
+    background: var(--bg-card); border: 1px solid var(--border); color: var(--text);
+    cursor: pointer; font-size: 12px; padding: 6px 10px; border-radius: 6px;
+    transition: background 0.15s, border-color 0.15s; white-space: nowrap;
+  }
+  .jp-seek-btn:hover { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .jp-seek-cur {
+    font-size: 13px; font-variant-numeric: tabular-nums; color: var(--text);
+    padding: 0 8px; min-width: 64px; text-align: center;
+  }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
 </head>
@@ -939,9 +954,18 @@ function renderResult() {
              <button class="jp-btn" id="jpQualBtn" title="画质">自动</button>
              <div class="jp-menu" id="jpQualMenu"></div>
            </div>
-           <button class="jp-btn" id="jpFs" title="全屏">⛶</button>
-         </div>
-       </div>`
+            <button class="jp-btn" id="jpFs" title="全屏">⛶</button>
+          </div>
+        </div>
+        <div class="jp-seekbar">
+          <button class="jp-seek-btn" data-sec="-600" title="后退10分钟">⏪10m</button>
+          <button class="jp-seek-btn" data-sec="-60" title="后退1分钟">⏪1m</button>
+          <button class="jp-seek-btn" data-sec="-5" title="后退5秒">⏪5s</button>
+          <span class="jp-seek-cur" id="jpSeekCur">0:00</span>
+          <button class="jp-seek-btn" data-sec="5" title="快进5秒">5s⏩</button>
+          <button class="jp-seek-btn" data-sec="60" title="快进1分钟">1m⏩</button>
+          <button class="jp-seek-btn" data-sec="600" title="快进10分钟">10m⏩</button>
+        </div>`
     : `<div class="cover-wrap" onclick="(function(w){w.classList.contains('preview-on')?w.classList.remove('preview-on'):(w.classList.add('preview-on'),w.querySelector('video').play().catch(function(){}))})(this)">
          <video src="${v.preview || ''}" muted loop playsinline disableRemotePlayback preload="auto"
            poster="${p(v.cover)}"
@@ -1151,17 +1175,30 @@ function initJplayer(v) {
   video.addEventListener('waiting', () => loading.classList.remove('hide'));
   video.addEventListener('playing', () => loading.classList.add('hide'));
 
-  // 进度条点击跳转
+  // 进度条拖动跳转
+  let dragging = false;
   function seekAt(e) {
     const rect = progress.getBoundingClientRect();
     const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     if (video.duration) video.currentTime = ratio * video.duration;
   }
-  progress.onclick = seekAt;
-  let dragging = false;
-  progress.onmousedown = (e) => { dragging = true; seekAt(e); };
+  progress.onmousedown = (e) => { dragging = true; seekAt(e); e.preventDefault(); };
   document.addEventListener('mousemove', (e) => { if (dragging) seekAt(e); });
   document.addEventListener('mouseup', () => { dragging = false; });
+  progress.onclick = null; // mousedown 已处理,避免拖动末尾 click 跳回
+
+  // 跳转按钮组(seekbar 在 jplayer 外层)
+  const seekbar = document.querySelector('.jp-seekbar');
+  const seekCur = document.getElementById('jpSeekCur');
+  if (seekbar) {
+    seekbar.querySelectorAll('.jp-seek-btn').forEach(btn => {
+      btn.onclick = () => {
+        const sec = parseInt(btn.dataset.sec);
+        if (video.duration) video.currentTime = Math.max(0, Math.min(video.duration, video.currentTime + sec));
+      };
+    });
+  }
+  video.addEventListener('timeupdate', () => { if (seekCur) seekCur.textContent = fmtTime(video.currentTime); });
 
   // 全屏(Fullscreen API)
   fsBtn.onclick = () => {
