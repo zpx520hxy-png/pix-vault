@@ -429,7 +429,6 @@
     width: 100%; height: 100%; object-fit: contain; display: block;
     background: #000;
   }
-  .jplayer.webfs { position: fixed; inset: 0; z-index: 9999; border-radius: 0; aspect-ratio: auto; height: 100vh; }
   .jplayer:fullscreen, .jplayer:-webkit-full-screen { aspect-ratio: auto; }
   .jplayer .jp-loading {
     position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
@@ -940,8 +939,7 @@ function renderResult() {
              <button class="jp-btn" id="jpQualBtn" title="画质">自动</button>
              <div class="jp-menu" id="jpQualMenu"></div>
            </div>
-           <button class="jp-btn" id="jpWebfs" title="网页全屏">⛶</button>
-           <button class="jp-btn" id="jpFs" title="完全全屏">⛶⛶</button>
+           <button class="jp-btn" id="jpFs" title="全屏">⛶</button>
          </div>
        </div>`
     : `<div class="cover-wrap" onclick="(function(w){w.classList.contains('preview-on')?w.classList.remove('preview-on'):(w.classList.add('preview-on'),w.querySelector('video').play().catch(function(){}))})(this)">
@@ -1000,8 +998,8 @@ function initJplayer(v) {
   const progress = $('jpProgress'), played = $('jpPlayed'), buffered = $('jpBuffered');
   const speedBtn = $('jpSpeedBtn'), speedMenu = $('jpSpeedMenu');
   const qualBtn = $('jpQualBtn'), qualMenu = $('jpQualMenu');
-  const webfsBtn = $('jpWebfs'), fsBtn = $('jpFs');
   const muteBtn = $('jpMute'), volSlider = $('jpVol');
+  const fsBtn = $('jpFs');
 
   loading.classList.remove('hide');
   video.volume = 1; video.muted = false; // 点击触发,可有声播放
@@ -1015,7 +1013,7 @@ function initJplayer(v) {
   // 点外部关闭
   jp.addEventListener('click', (e) => { if (!e.target.closest('.jp-speed,.jp-quality')) closeMenus(); });
 
-  const speeds = [0.5, 0.75, 1, 1.25, 1.5, 2];
+  const speeds = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4, 5];
   speedMenu.innerHTML = speeds.map(s => `<button class="jp-menu-item${s===1?' active':''}" data-s="${s}">${s}x</button>`).join('');
   speedMenu.querySelectorAll('.jp-menu-item').forEach(b => {
     b.onclick = (e) => {
@@ -1155,29 +1153,13 @@ function initJplayer(v) {
   document.addEventListener('mousemove', (e) => { if (dragging) seekAt(e); });
   document.addEventListener('mouseup', () => { dragging = false; });
 
-  // 网页全屏(CSS 固定)
-  webfsBtn.onclick = () => {
-    jp.classList.toggle('webfs');
-    webfsBtn.textContent = jp.classList.contains('webfs') ? '🗙' : '⛶';
-    if (jp.classList.contains('webfs')) {
-      // 退出完全全屏(如果开着)
-      if (document.fullscreenElement) document.exitFullscreen();
-      fsBtn.textContent = '⛶⛶';
-    }
-  };
-  // 完全全屏(Fullscreen API)
+  // 全屏(Fullscreen API)
   fsBtn.onclick = () => {
-    if (document.fullscreenElement) {
-      document.exitFullscreen();
-      fsBtn.textContent = '⛶⛶';
-    } else {
-      jp.requestFullscreen().catch(()=>{});
-      // 退出网页全屏
-      jp.classList.remove('webfs'); webfsBtn.textContent = '⛶';
-    }
+    if (document.fullscreenElement) document.exitFullscreen();
+    else jp.requestFullscreen().catch(()=>{});
   };
   document.addEventListener('fullscreenchange', () => {
-    fsBtn.textContent = document.fullscreenElement ? '🗙' : '⛶⛶';
+    fsBtn.textContent = document.fullscreenElement ? '🗙' : '⛶';
   });
 
   // 销毁旧监听:重建时清理(简单做法 — 给 video 加标记)
