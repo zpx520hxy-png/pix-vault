@@ -355,6 +355,49 @@
     font-size: 16px; color: var(--text-mute); margin-bottom: 12px;
     text-transform: uppercase; letter-spacing: 1px;
   }
+  .favorites {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 18px;
+  }
+  .favorites h2 {
+    font-size: 15px; color: var(--text-mute); margin-bottom: 12px;
+    text-transform: uppercase; letter-spacing: 1px;
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  }
+  .favorites h2 .left { display: inline-flex; align-items: center; gap: 8px; }
+  .favorites-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+  }
+  .fav-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.15s;
+  }
+  .fav-card:hover { border-color: var(--primary); transform: translateY(-1px); }
+  .fav-card .img-wrap {
+    width: 100%; aspect-ratio: 16/11; background: linear-gradient(135deg, #2a1a2e, #1c1420);
+    overflow: hidden;
+  }
+  .fav-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .fav-card .info { padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; }
+  .fav-card .code { font-size: 12px; color: var(--primary); font-weight: 700; }
+  .fav-card .title {
+    font-size: 11px; color: var(--text-mute); line-height: 1.35;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .fav-card .meta { display: flex; align-items: center; justify-content: flex-end; }
+  .fav-card .remove {
+    font-size: 11px; color: var(--accent); background: transparent; border: 0; cursor: pointer;
+    padding: 0; white-space: nowrap;
+  }
   .history-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -554,6 +597,16 @@
     <div class="stats" id="stats">加载中...</div>
   </header>
 
+  <div class="favorites" id="missavFavArea" style="display:none;">
+    <h2><span class="left">⭐ MissAV 收藏</span><button class="btn btn-ghost" onclick="clearFavorites('missav')" style="font-size:11px;padding:4px 10px;">🗑 清空</button></h2>
+    <div class="favorites-grid" id="missavFavGrid"></div>
+  </div>
+
+  <div class="favorites" id="jableFavArea" style="display:none;">
+    <h2><span class="left">⭐ Jable 收藏</span><button class="btn btn-ghost" onclick="clearFavorites('jable')" style="font-size:11px;padding:4px 10px;">🗑 清空</button></h2>
+    <div class="favorites-grid" id="jableFavGrid"></div>
+  </div>
+
   <div class="filters">
     <div class="filter-row">
       <div class="filter-block">
@@ -679,7 +732,44 @@ const state = {
   actresses: new Set(),
   current: null,
   history: [],
+  favoritesMissav: [],
+  favoritesJable: [],
 };
+
+function currentSourceOf(v) {
+  return (v && (v.source || (DATA && DATA.source) || state.source)) || 'missav';
+}
+function favListForSource(src) {
+  return src === 'jable' ? state.favoritesJable : state.favoritesMissav;
+}
+function favStorageKey(src) {
+  return src === 'jable' ? 'missav_picker_favorites_jable_v1' : 'missav_picker_favorites_missav_v1';
+}
+function favKey(v, src) {
+  const source = src || currentSourceOf(v);
+  return source + ':' + v.code;
+}
+function isFavorite(v) {
+  if (!v) return false;
+  if (v.is_saved && currentSourceOf(v) === 'missav') return true;
+  const src = currentSourceOf(v);
+  return favListForSource(src).some(f => f.code === v.code);
+}
+function normFavorite(v, src) {
+  return {
+    code: v.code,
+    title: v.title || '',
+    url: v.url,
+    cover: v.cover,
+    preview: v.preview || '',
+    date: v.date || '',
+    actresses: Array.isArray(v.actresses) ? v.actresses.slice() : [],
+    is_multi: !!v.is_multi,
+    tags: Array.isArray(v.tags) ? v.tags.slice() : [],
+    is_saved: !!v.is_saved,
+    source: src || currentSourceOf(v)
+  };
+}
 
 // ---- 渲染筛选 UI ----
 const EXCLUDE_PRESET = ['BEST', '强奸', '调教', '春药'];
@@ -690,7 +780,7 @@ function getTypePool() {
   return DATA.videos.filter(v => {
     if (state.type === 'solo' && v.is_multi) return false;
     if (state.type === 'multi' && !v.is_multi) return false;
-    if (state.type === 'saved' && !v.is_saved) return false;
+    if (state.type === 'saved' && !isFavorite(v)) return false;
     return true;
   });
 }
@@ -803,7 +893,7 @@ function getCandidates() {
     // 类型
     if (state.type === 'solo' && v.is_multi) return false;
     if (state.type === 'multi' && !v.is_multi) return false;
-    if (state.type === 'saved' && !v.is_saved) return false;
+    if (state.type === 'saved' && !isFavorite(v)) return false;
     // 包含标签(任一命中)
     if (state.tags.size > 0) {
       const hit = v.tags.some(t => state.tags.has(t));
@@ -914,7 +1004,7 @@ function renderResult() {
   badges.push(v.is_multi
     ? `<span class="badge multi">👥 多人 · ${v.actresses.length} 位</span>`
     : `<span class="badge solo">👤 单人</span>`);
-  if (v.is_saved) badges.push('<span class="badge saved">⭐ 已收藏</span>');
+  if (isFavorite(v)) badges.push('<span class="badge saved">⭐ 已收藏</span>');
   if (v.date) badges.push(`<span class="badge">📅 ${v.date}</span>`);
   v.tags.forEach(t => badges.push(`<span class="badge tag">${t}</span>`));
 
@@ -922,7 +1012,7 @@ function renderResult() {
     ? v.actresses.map(a => `<strong>${a}</strong>`).join('、')
     : '<span style="color:var(--text-mute)">未知</span>';
 
-  const isJable = (DATA && DATA.source === 'jable') || v.source === 'jable';
+  const isJable = currentSourceOf(v) === 'jable';
   const coverBlock = isJable
     ? `<div class="jplayer" id="jp" data-state="cover">
          <div class="jp-cover" id="jpCover">
@@ -991,6 +1081,7 @@ function renderResult() {
           <a class="btn btn-primary" href="${v.url}" target="_blank" rel="noopener">▶️ 去 ${isJable?'Jable':'MissAV'} 观看</a>
           <button class="btn btn-ghost" onclick="rollOne()">🎲 再抽一部</button>
           <button class="btn btn-ghost" onclick="copyCode('${v.code}')">📋 复制番号</button>
+          <button class="btn btn-ghost" onclick="toggleFavorite()">${isFavorite(v) ? '⭐ 取消收藏' : '☆ 收藏'}</button>
         </div>
       </div>
     </div>`;
@@ -1302,6 +1393,109 @@ function copyCode(code) {
   });
 }
 
+function renderFavorites() {
+  const pairs = [
+    ['missav', $('missavFavArea'), $('missavFavGrid'), state.favoritesMissav],
+    ['jable', $('jableFavArea'), $('jableFavGrid'), state.favoritesJable],
+  ];
+  pairs.forEach(([src, area, grid, list]) => {
+    if (!list.length) { area.style.display = 'none'; grid.innerHTML = ''; return; }
+    area.style.display = 'block';
+    grid.innerHTML = list.map(v => `
+      <div class="fav-card" onclick="openFavorite('${src}','${v.code}')">
+        <div class="img-wrap">
+          <img src="${p(v.cover)}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+               onerror="this.style.display='none'">
+        </div>
+        <div class="info">
+          <div class="code">${v.code}</div>
+          <div class="title">${v.title || '（无标题）'}</div>
+          <div class="meta">
+            <button class="remove" onclick="event.stopPropagation(); removeFavorite('${src}','${v.code}')">移除</button>
+          </div>
+        </div>
+      </div>`).join('');
+  });
+}
+
+function saveFavorites(src) {
+  try { localStorage.setItem(favStorageKey(src), JSON.stringify(favListForSource(src))); } catch(e) {}
+}
+function loadFavorites() {
+  try {
+    const a = JSON.parse(localStorage.getItem(favStorageKey('missav')) || '[]');
+    const b = JSON.parse(localStorage.getItem(favStorageKey('jable')) || '[]');
+    state.favoritesMissav = Array.isArray(a) ? a : [];
+    state.favoritesJable = Array.isArray(b) ? b : [];
+  } catch(e) {
+    state.favoritesMissav = []; state.favoritesJable = [];
+  }
+  renderFavorites();
+}
+function toggleFavorite() {
+  if (!state.current) return;
+  const src = currentSourceOf(state.current);
+  const list = favListForSource(src);
+  const idx = list.findIndex(v => v.code === state.current.code);
+  if (idx >= 0) list.splice(idx, 1);
+  else list.unshift(normFavorite(state.current, src));
+  if (src === 'jable') state.favoritesJable = list.filter((v,i,a) => a.findIndex(x => x.code === v.code) === i);
+  else state.favoritesMissav = list.filter((v,i,a) => a.findIndex(x => x.code === v.code) === i);
+  saveFavorites(src);
+  renderFavorites();
+  renderResult();
+  updateCount();
+}
+function removeFavorite(src, code) {
+  if (src === 'jable') state.favoritesJable = state.favoritesJable.filter(v => v.code !== code);
+  else state.favoritesMissav = state.favoritesMissav.filter(v => v.code !== code);
+  saveFavorites(src);
+  renderFavorites();
+  updateCount();
+  if (state.current && currentSourceOf(state.current) === src && state.current.code === code) renderResult();
+}
+function clearFavorites(src) {
+  if (src === 'jable') state.favoritesJable = [];
+  else state.favoritesMissav = [];
+  localStorage.removeItem(favStorageKey(src));
+  renderFavorites();
+  updateCount();
+  renderResult();
+}
+function openFavorite(src, code) {
+  const list = src === 'jable' ? state.favoritesJable : state.favoritesMissav;
+  const fav = list.find(v => v.code === code);
+  if (!fav) return;
+  function applyFavorite() {
+    document.querySelectorAll('#sourceChips .chip').forEach(c => c.classList.remove('active'));
+    const chip = document.querySelector(`#sourceChips .chip[data-source="${src}"]`);
+    if (chip) chip.classList.add('active');
+    state.source = src;
+    state.current = fav;
+    renderResult();
+  }
+  if (src === 'jable') {
+    if (DATA && DATA.source === 'jable') { applyFavorite(); return; }
+    fetch('jable_data.json?_=' + Date.now()).then(r => r.json()).then(d => {
+      DATA = d;
+      var uniq = {};
+      DATA.videos.forEach(function(v){(v.actresses||[]).forEach(function(a){uniq[a]=1});});
+      DATA.actresses = Object.keys(uniq);
+      $('stats').textContent = '📊 ' + DATA.videos.length + ' 部作品 · ' + DATA.actresses.length + ' 位女优 · Jable.TV';
+      renderTagChips(); renderActressGrid(); renderFavorites(); updateCount();
+      applyFavorite();
+    });
+  } else {
+    if (DATA && (!DATA.source || DATA.source === 'missav')) { applyFavorite(); return; }
+    fetch('picker_data.json?_=' + Date.now()).then(r => r.json()).then(d => {
+      DATA = d;
+      $('stats').textContent = '📊 ' + DATA.videos.length + ' 部作品 · ' + (DATA.actresses||[]).length + ' 位女优 · 按空格快速抽';
+      renderTagChips(); renderActressGrid(); renderFavorites(); updateCount();
+      applyFavorite();
+    });
+  }
+}
+
 // ---- 持久化 ----
 function saveHistory() {
   try {
@@ -1388,7 +1582,7 @@ $('sourceChips').addEventListener('click', function(e) {
       DATA.actresses = Object.keys(uniq);
       $('rollBtn').disabled = false; $('rollBtn').textContent = '🎲 随机抽一部';
       $('stats').textContent = '📊 ' + DATA.videos.length + ' 部作品 · ' + DATA.actresses.length + ' 位女优 · Jable.TV';
-      renderTagChips(); renderActressGrid(); updateCount();
+      renderTagChips(); renderActressGrid(); renderFavorites(); updateCount();
     });
   } else {
     DATA = null; IDX = null;
@@ -1516,6 +1710,7 @@ function init(stage) {
     $('stats').textContent = `📊 ${IDX.video_count} 部作品 · ${IDX.actresses.length} 位女优 · ${IDX.tags.length} 个标签 · 按空格快速抽`;
     renderTagChips();
     renderActressGrid();
+    loadFavorites();
     loadHistory();
     // 异步加载完整数据
     $('rollBtn').disabled = true;
@@ -1534,6 +1729,7 @@ function init(stage) {
     $('stats').textContent = `📊 ${DATA.videos.length} 部作品 · ${DATA.actresses.length} 位女优 · ${DATA.tags.length} 个标签 · 按空格快速抽`;
     renderTagChips();
     renderActressGrid();
+    loadFavorites();
     loadHistory();
     updateCount();
   }
