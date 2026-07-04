@@ -518,7 +518,7 @@
     background: rgba(20,16,24,0.97); border: 1px solid var(--border);
     border-radius: 8px; padding: 4px; display: none;
     flex-direction: column; min-width: 80px; margin-bottom: 6px;
-    z-index: 8;
+    z-index: 8; max-height: 220px; overflow-y: auto;
   }
   .jplayer .jp-speed.open .jp-menu, .jplayer .jp-quality.open .jp-menu { display: flex; }
   .jplayer .jp-menu-item {
@@ -1065,9 +1065,14 @@ function initJplayer(v) {
     const hls = new Hls({
       capLevelToPlayerSize: false,  // 不根据播放器尺寸降画质 → 始终最高清
       startLevel: -1,               // 自动选最高起步
-      maxBufferLength: 30,
-      maxMaxBufferLength: 60,
+      maxBufferLength: 120,         // 大缓冲,应对高倍速消耗
+      maxMaxBufferLength: 600,
+      maxBufferSize: 60 * 1000 * 1000, // 60MB,高倍速预载更多分片
+      backBufferLength: 30,
       enableWorker: true,
+      lowLatencyMode: false,
+      // 高倍速时让 ABR 不过早降画质
+      abrEwmaDefaultEstimate: 1000000,
     });
     _jpHls = hls;
     hls.loadSource(src);
