@@ -47,6 +47,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         if path.startswith("/img/"):
             self._handle_img(path[5:])
+        elif path == "/health":
+            self._handle_health()
         elif path.startswith("/sync_state.json"):
             self._handle_sync_state()
         elif path == "/stats":
@@ -115,6 +117,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def _handle_sync_state(self):
         data = read_sync_state()
         self._send_gzip(data, "application/json; charset=utf-8", "no-cache")
+
+    def _handle_health(self):
+        body = json.dumps({
+            "ok": True,
+            "service": "missav-picker-v2",
+            "time": int(time.time()),
+        }, ensure_ascii=False).encode("utf-8")
+        self._send_json(body)
 
     def _handle_stats(self):
         c = get_counters()

@@ -126,7 +126,7 @@ async function applySyncState(payload) {
   if (!payload || !payload.version) return;
   SYNC_SUPPRESS_SAVE = true;
   try {
-    const src = payload.source || 'missav';
+    const src = window._SOURCE_SYNC_DISABLED ? state.source : (payload.source || 'missav');
     await loadSourceData(src);
     document.querySelectorAll('#sourceChips .chip').forEach(c => c.classList.remove('active'));
     const chip = document.querySelector(`#sourceChips .chip[data-source="${src}"]`);
@@ -151,7 +151,7 @@ async function applySyncState(payload) {
     renderActressGrid();
     updateCount();
 
-    state.current = findVideoByRef(payload.current);
+    state.current = window._SOURCE_SYNC_DISABLED ? state.current : findVideoByRef(payload.current);
     if (state.current) renderResult(); else $('resultArea').innerHTML = `<div class="empty"><div class="emoji">🎰</div><div>设置筛选条件，点上面的按钮开始随机</div></div>`;
     renderShortlist();
     renderHistory();
