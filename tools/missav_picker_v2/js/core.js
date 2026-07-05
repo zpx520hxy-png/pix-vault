@@ -157,7 +157,18 @@ async function applySyncState(payload) {
     renderHistory();
     // source 可能在 pullSyncState 后从 missav 切到 jable,需要同步刷新热门区
     if (typeof renderTrending === 'function') renderTrending();
-    if (typeof loadTrending === 'function') loadTrending();
+    if (typeof loadTrending === 'function') {
+      loadTrending();
+      // 如果初始 missav 请求仍在飞,loadTrending() 会因为 trendLoading 直接 return,
+      // 延迟补打一枪,确保切到 jable 后一定能真正拉到 jable 热门。
+      setTimeout(() => {
+        try {
+          const srcNow = state.source;
+          const cached = trendCache[srcNow] && trendCache[srcNow][trendPeriod];
+          if (!cached) loadTrending(true);
+        } catch (e) {}
+      }, 1200);
+    }
     if (payload.browseOpen) {
       renderBrowse();
       $('browseArea').style.display = 'block';
