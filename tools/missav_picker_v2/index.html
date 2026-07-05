@@ -760,6 +760,19 @@
     font-size: 12.5px;
     backdrop-filter: blur(16px);
   }
+  header .cache-status {
+    position: relative; z-index: 1;
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 10px;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.08);
+    color: var(--text-mute);
+    font-size: 12px;
+    backdrop-filter: blur(8px);
+  }
+  header .cache-status b { color: var(--text); font-weight: 600; }
   .hero-copy {
     position: relative; z-index: 1;
     max-width: 640px;
@@ -1122,6 +1135,7 @@
     <h1>🎲 MissAV 随机选片器</h1>
     <p class="hero-copy">更顺滑的筛选、候选抽卡和沉浸式选片体验。</p>
     <div class="stats" id="stats">加载中...</div>
+    <div class="cache-status" id="cacheStatus"></div>
   </header>
 
   <section class="trending" id="trending">

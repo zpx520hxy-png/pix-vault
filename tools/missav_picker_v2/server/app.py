@@ -51,6 +51,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._handle_sync_state()
         elif path == "/stats":
             self._handle_stats()
+        elif path.startswith("/cache_plan"):
+            self._handle_cache_plan()
         elif path.startswith("/play/"):
             self._handle_play(path[6:])
         elif path.startswith("/jable_codes"):
@@ -125,6 +127,29 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             f" · /play {c['play']}/{c['play_fail']}"
         )
         self._send_text(body)
+
+    def _handle_cache_plan(self):
+        from .prewarm import read_plan, run_prewarm_once
+        action = parse_qs(urlparse(self.path).query).get("action", [""])[0]
+        if action == "run":
+            summary = run_prewarm_once()
+            body = json.dumps({"ok": True, "summary": summary}, ensure_ascii=False).encode("utf-8")
+            self._send_json(body)
+            return
+        plan = read_plan()
+        if not plan:
+            self._send_json(json.dumps({"ok": True, "plan": None}).encode("utf-8"))
+            return
+        n_img, sz_img = get_cache_size()
+        n_play, sz_play = get_cache_size("play")
+        plan["current_cache"] = {
+            "image_files": n_img,
+            "image_mb": round(sz_img / 1024 / 1024, 1),
+            "play_files": n_play,
+            "play_mb": round(sz_play / 1024 / 1024, 1),
+        }
+        body = json.dumps({"ok": True, "plan": plan}, ensure_ascii=False).encode("utf-8")
+        self._send_json(body)
 
     def _handle_play(self, rest):
         parts = rest.split("/", 1)
@@ -394,7 +419,15 @@ def run():
     print(f"  本机:  http://localhost:{PORT}")
     print(f"  手机:  http://{ip}:{PORT}")
     print(f"  状态:  http://localhost:{PORT}/stats")
+    print(f"  缓存计划: http://localhost:{PORT}/cache_plan")
     print(f"  按 Ctrl+C 停止\n")
+    # 启动后台预热线程
+    try:
+        from .prewarm import start_prewarm_daemon
+        start_prewarm_daemon(interval_seconds=3600)
+        print("  缓存预热: 收藏+抽过+热门前20(每小时一次)")
+    except Exception as e:
+        print(f"  缓存预热启动失败: {e!r}")
     with http.server.ThreadingHTTPServer(("0.0.0.0", PORT), Handler) as httpd:
         try:
             httpd.serve_forever()
