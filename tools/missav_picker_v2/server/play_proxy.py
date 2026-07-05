@@ -6,9 +6,90 @@ import threading
 import urllib.request
 import urllib.error
 from pathlib import Path
+from enum import Enum
 
 from .config import ROOT, CACHE_DIR, PLAY_CACHE_DIR, CACHE_OK_TTL, proxy_kwargs
 from .cache import read_browser_hls_map, inc_play, inc_play_fail, evict_play_cache
+
+
+class PlayStatus(str, Enum):
+    PENDING = "pending"
+    READY = "ready"
+    FAILED = "failed"
+    NOT_FOUND = "not_found"
+
+
+_RESOLVE_LOCKS = {}
+_RESOLVE_LOCK = threading.Lock()
+_RESOLVE_STATUS = {}
+_RESOLVE_TS = {}
+
+
+def _get_resolve_status(code):
+    return _RESOLVE_STATUS.get(code, {"status": PlayStatus.PENDING, "error": "", "ts": 0})
+
+
+def _set_resolve_status(code, status, error=""):
+    _RESOLVE_STATUS[code] = {"status": status, "error": error, "ts": time.time()}
+
+
+def _acquire_resolve_lock(code):
+    with _RESOLVE_LOCK:
+        if code in _RESOLVE_LOCKS:
+            return False
+        _RESOLVE_LOCKS[code] = threading.Event()
+        return True
+
+
+def _release_resolve_lock(code):
+    with _RESOLVE_LOCK:
+        ev = _RESOLVE_LOCKS.pop(code, None)
+    if ev:
+        ev.set()
+
+
+def _wait_resolve_lock(code, timeout=30):
+    with _RESOLVE_LOCK:
+        ev = _RESOLVE_LOCKS.get(code)
+    if ev:
+        return ev.wait(timeout)
+    return True
+
+
+def _async_resolve(code):
+    _set_resolve_status(code, PlayStatus.PENDING)
+    try:
+        hls_url, source = resolve_hls_url(code)
+        if not hls_url:
+            _set_resolve_status(code, PlayStatus.NOT_FOUND, "hlsUrl not found")
+            return
+        req = urllib.request.Request(
+            hls_url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "Referer": "https://jable.tv/",
+                "Origin": "https://jable.tv",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = resp.read()
+        cache_root = PLAY_CACHE_DIR / code
+        cache_root.mkdir(parents=True, exist_ok=True)
+        m3u8_path = cache_root / "playlist.m3u8"
+        meta_path = cache_root / "meta.json"
+        m3u8_path.write_bytes(data)
+        meta_path.write_text(hls_url, encoding="utf-8")
+        _set_resolve_status(code, PlayStatus.READY)
+        threading.Thread(
+            target=_prefetch_ts,
+            args=(code, m3u8_path, meta_path, hls_url),
+            daemon=True,
+        ).start()
+        evict_play_cache()
+    except Exception as e:
+        _set_resolve_status(code, PlayStatus.FAILED, repr(e)[:120])
+    finally:
+        _release_resolve_lock(code)
 
 _TS_DL_LOCKS = {}
 _TS_DL_MASTER = {}
@@ -201,6 +282,27 @@ def proxy_playlist(code):
     except Exception:
         inc_play_fail()
         return None, "fetch_error"
+
+
+def request_play(code):
+    """异步播放请求：如果缓存命中直接返回，否则启动后台解析并返回 pending 状态"""
+    cache_root = PLAY_CACHE_DIR / code
+    m3u8_path = cache_root / "playlist.m3u8"
+    if m3u8_path.is_file() and (time.time() - m3u8_path.stat().st_mtime) < CACHE_OK_TTL:
+        inc_play()
+        return {"status": PlayStatus.READY, "source": "cache"}
+    if not _acquire_resolve_lock(code):
+        return {"status": _get_resolve_status(code)["status"], "source": "already_resolving"}
+    threading.Thread(target=_async_resolve, args=(code,), daemon=True).start()
+    return {"status": PlayStatus.PENDING, "source": "started"}
+
+
+def get_play_status(code):
+    status = _get_resolve_status(code)
+    m3u8_path = PLAY_CACHE_DIR / code / "playlist.m3u8"
+    if m3u8_path.is_file() and (time.time() - m3u8_path.stat().st_mtime) < CACHE_OK_TTL:
+        return {"status": PlayStatus.READY, "source": "cache", "error": ""}
+    return {"status": status["status"], "source": "resolve", "error": status.get("error", "")}
 
 
 def proxy_ts_segment(code, name):

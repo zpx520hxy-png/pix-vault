@@ -13,8 +13,10 @@ from .config import (
     PLACEHOLDER_PNG,
     CACHE_OK_TTL,
     CACHE_FAIL_TTL,
+    CACHE_DIR,
     DATA_FILES,
     get_lan_ip,
+    proxy_kwargs,
 )
 from .cache import (
     get_counters,
@@ -24,7 +26,13 @@ from .cache import (
     evict_img_cache,
 )
 from .sync_state import read_sync_state, save_sync_state, get_jable_codes
-from .play_proxy import proxy_playlist, proxy_ts_segment, rewrite_m3u8_ts_paths
+from .play_proxy import (
+    proxy_playlist,
+    proxy_ts_segment,
+    rewrite_m3u8_ts_paths,
+    request_play,
+    get_play_status,
+)
 from .img_proxy import proxy_img, _detect_ct
 from .trending import get_trending
 
@@ -110,7 +118,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if not code:
             self._send_404()
             return
-        if len(parts) < 2 or parts[1] == "playlist.m3u8":
+        if len(parts) < 2:
+            self._send_404()
+            return
+        sub = parts[1]
+        if sub == "playlist.m3u8":
             data, source = proxy_playlist(code)
             if data is None:
                 self._send_404()
@@ -122,9 +134,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 "application/vnd.apple.mpegurl",
                 CACHE_OK_TTL,
             )
+        elif sub == "request":
+            result = request_play(code)
+            body = json.dumps(result, ensure_ascii=False).encode("utf-8")
+            self._send_json(body)
+        elif sub == "status":
+            result = get_play_status(code)
+            body = json.dumps(result, ensure_ascii=False).encode("utf-8")
+            self._send_json(body)
         else:
-            seg_name = parts[1]
-            data, source = proxy_ts_segment(code, seg_name)
+            data, source = proxy_ts_segment(code, sub)
             if data is None:
                 self._send_404()
                 return
@@ -188,8 +207,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._send_bytes(data, "video/mp4", CACHE_OK_TTL)
             return
         data = b""
-        from .config import proxy_kwargs
-
         try:
             from curl_cffi import requests as creq
 

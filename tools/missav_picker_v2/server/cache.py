@@ -3,6 +3,7 @@ import time
 import os
 import threading
 from pathlib import Path
+from collections import OrderedDict
 
 from .config import (
     CACHE_DIR,
@@ -17,6 +18,10 @@ _MISS = 0
 _FAIL = 0
 _PLAY = 0
 _PLAY_FAIL = 0
+
+_L1_MAX = 50
+_L1_CACHE = OrderedDict()
+_L1_LOCK = threading.Lock()
 
 
 def inc_hit():
@@ -52,6 +57,27 @@ def get_counters():
         "play": _PLAY,
         "play_fail": _PLAY_FAIL,
     }
+
+
+def l1_get(key):
+    with _L1_LOCK:
+        if key in _L1_CACHE:
+            _L1_CACHE.move_to_end(key)
+            return _L1_CACHE[key]
+    return None
+
+
+def l1_set(key, value):
+    with _L1_LOCK:
+        _L1_CACHE[key] = value
+        _L1_CACHE.move_to_end(key)
+        while len(_L1_CACHE) > _L1_MAX:
+            _L1_CACHE.popitem(last=False)
+
+
+def l1_invalidate(key):
+    with _L1_LOCK:
+        _L1_CACHE.pop(key, None)
 
 
 def read_browser_hls_map():
