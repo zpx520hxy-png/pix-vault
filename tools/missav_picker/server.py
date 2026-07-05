@@ -508,6 +508,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._send_text(self.stats())
         elif self.path.startswith("/play/"):
             self.proxy_play()
+        elif self.path.startswith("/jable_codes"):
+            self.serve_jable_codes()
+        elif self.path.startswith("/browser_hls_map_upsert"):
+            self.serve_browser_hls_map_upsert()
         elif self.path.startswith("/trending"):
             self.serve_trending()
         elif self.path.startswith("/trend_preview/"):
@@ -540,6 +544,52 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return
         data = SYNC_STATE_FILE.read_bytes()
         self._send_gzip(data, "application/json; charset=utf-8", "no-cache")
+
+    def serve_jable_codes(self):
+        try:
+            data = json.loads((ROOT / "jable_data.json").read_text(encoding="utf-8"))
+            codes = [
+                v.get("code", "").lower()
+                for v in data.get("videos", [])
+                if v.get("code")
+            ]
+        except Exception:
+            codes = []
+        body = json.dumps({"codes": codes}, ensure_ascii=False).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def serve_browser_hls_map_upsert(self):
+        from urllib.parse import urlparse, parse_qs
+
+        q = parse_qs(urlparse(self.path).query)
+        code = (q.get("code", [""])[0] or "").lower().strip()
+        hls_url = (q.get("hls", [""])[0] or "").strip()
+        if not code or not hls_url:
+            self.send_response(400)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            return
+        data = _read_browser_hls_map()
+        data[code] = hls_url
+        BROWSER_HLS_MAP_FILE.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        body = json.dumps({"ok": True, "code": code}, ensure_ascii=False).encode(
+            "utf-8"
+        )
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def save_sync_state(self):
         try:
