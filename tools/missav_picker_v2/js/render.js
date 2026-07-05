@@ -96,8 +96,19 @@ function renderResult() {
     </div>`;
   if (isJable) {
     const cover = $('jpCover');
-    if (cover) cover.onclick = () => {
-      $('jp').setAttribute('data-state', 'play');
+    if (cover) cover.onclick = async () => {
+      const jp = $('jp');
+      const loading = $('jpLoading');
+      jp.setAttribute('data-state', 'play');
+      loading.textContent = '⏳ 正在准备播放链路...';
+      loading.classList.remove('hide');
+      const result = await ensurePlayReady((v.code || '').toLowerCase());
+      if (!result.ok) {
+        loading.textContent = result.status === 'not_found'
+          ? '⚠️ 当前未找到可播放链路'
+          : '⚠️ 播放准备失败';
+        return;
+      }
       initJplayer(v);
     };
   }
@@ -105,6 +116,24 @@ function renderResult() {
 
 // ── jable 播放器 ──
 let _jpHls = null, _jpVideo = null;
+
+async function ensurePlayReady(code, timeoutMs = 30000) {
+  try {
+    await fetch(`/play/${code}/request`, { cache: 'no-store' });
+  } catch (e) {}
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const r = await fetch(`/play/${code}/status?_=${Date.now()}`, { cache: 'no-store' });
+      const d = await r.json();
+      if (d.status === 'ready') return { ok: true, status: d.status };
+      if (d.status === 'failed' || d.status === 'not_found') return { ok: false, status: d.status, error: d.error || '' };
+    } catch (e) {}
+    await new Promise(r => setTimeout(r, 1200));
+  }
+  return { ok: false, status: 'timeout', error: 'timeout' };
+}
+
 function fmtTime(s) {
   if (!s || !isFinite(s)) return '0:00';
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = Math.floor(s % 60);
