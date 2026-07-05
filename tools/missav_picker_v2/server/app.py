@@ -94,7 +94,21 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._send_placeholder()
             return
         data, ct = result
-        self._send_bytes(data, ct, CACHE_OK_TTL)
+        # 文件级 304 支持
+        cache_path = CACHE_DIR / remainder.replace("/", "_")
+        if cache_path.is_file():
+            mtime = cache_path.stat().st_mtime
+            last_mod = self._http_date(mtime)
+            if self.headers.get("If-Modified-Since") == last_mod:
+                self.send_response(304)
+                self.end_headers()
+                return
+            self._send_bytes(
+                data, ct, CACHE_OK_TTL,
+                extra_headers={"Last-Modified": last_mod},
+            )
+        else:
+            self._send_bytes(data, ct, CACHE_OK_TTL)
 
     def _handle_sync_state(self):
         data = read_sync_state()
@@ -292,17 +306,30 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     # ---- helpers ----
 
-    def _send_bytes(self, data, content_type, cache_control):
+    def _send_bytes(self, data, content_type, cache_control, extra_headers=None):
+        # cache_control 可以是数字(秒)或字符串(如 "no-cache", "max-age=3600")
+        if isinstance(cache_control, int):
+            cc_value = f"max-age={cache_control}"
+        else:
+            cc_value = cache_control
         self.send_response(200)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(data)))
-        self.send_header("Cache-Control", cache_control)
+        self.send_header("Cache-Control", cc_value)
         self.send_header("Access-Control-Allow-Origin", "*")
+        if extra_headers:
+            for k, v in extra_headers.items():
+                self.send_header(k, v)
         self.end_headers()
         try:
             self.wfile.write(data)
         except Exception:
             pass
+
+    @staticmethod
+    def _http_date(epoch_seconds):
+        from email.utils import formatdate
+        return formatdate(epoch_seconds, usegmt=True)
 
     def _send_json(self, data):
         self._send_bytes(data, "application/json; charset=utf-8", "no-cache")
@@ -333,7 +360,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             pass
 
     def _send_placeholder(self):
-        self._send_bytes(PLACEHOLDER_PNG, "image/png", CACHE_FAIL_TTL)
+        self.send_response(404)
+        self.send_header("Content-Type", "image/png")
+        self.send_header("Content-Length", str(len(PLACEHOLDER_PNG)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(PLACEHOLDER_PNG)
 
     def _send_404(self):
         self.send_response(404)
