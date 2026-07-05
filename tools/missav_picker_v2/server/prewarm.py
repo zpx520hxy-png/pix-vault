@@ -34,31 +34,30 @@ def _read_data(source):
 
 
 def collect_targets(top_n_trending=20):
-    """收集要预热的作品代码 (含 source)"""
+    """收集要预热的作品代码 (只针对 jable 播放缓存)"""
     state = _read_state()
     targets = {}  # code -> source
 
-    # 1. 收藏
-    for src in ("favoritesMissav", "favoritesJable"):
-        for v in state.get(src, []):
-            c = (v.get("code") or "").lower()
-            if c:
-                targets[c] = v.get("source") or ("missav" if "Missav" in src else "jable")
-
-    # 2. 抽过的
-    for v in state.get("history", []):
+    # 1. 只取 jable 收藏
+    for v in state.get("favoritesJable", []):
         c = (v.get("code") or "").lower()
         if c:
-            targets[c] = v.get("source") or state.get("source", "missav")
+            targets[c] = "jable"
 
-    # 3. 热门前 20 (按本地数据排序,因为远端拿不到)
-    for source in ("missav", "jable"):
-        vids = _read_data(source)
-        vids_sorted = sorted(vids, key=lambda v: v.get("date") or "", reverse=True)[:top_n_trending]
-        for v in vids_sorted:
-            c = (v.get("code") or "").lower()
-            if c and c not in targets:
-                targets[c] = source
+    # 2. 抽过的里只取 jable
+    for v in state.get("history", []):
+        c = (v.get("code") or "").lower()
+        src = (v.get("source") or state.get("source", "missav")).lower()
+        if c and src == "jable":
+            targets[c] = "jable"
+
+    # 3. 只取 jable 热门前 20 (按本地数据排序,因为远端拿不到)
+    vids = _read_data("jable")
+    vids_sorted = sorted(vids, key=lambda v: v.get("date") or "", reverse=True)[:top_n_trending]
+    for v in vids_sorted:
+        c = (v.get("code") or "").lower()
+        if c and c not in targets:
+            targets[c] = "jable"
 
     return [{"code": c, "source": s} for c, s in targets.items()]
 

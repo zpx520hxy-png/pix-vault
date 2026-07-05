@@ -32,10 +32,11 @@ async function refreshCacheStatus() {
     const ready = (p.status || {}).ready || 0;
     const pending = (p.status || {}).pending || 0;
     const failed = (p.status || {}).failed || 0;
+    const notFound = (p.status || {}).not_found || 0;
     const total = (p.targets || []).length;
     el.innerHTML =
       '<b>缓存预热</b> ' + ready + '/' + total + ' 已就绪 · ' +
-      pending + ' 解析中 · ' + failed + ' 失败 · ' +
+      pending + ' 解析中 · ' + failed + ' 失败 · ' + notFound + ' 不支持 · ' +
       cc.play_mb + 'MB 播放 · ' + cc.image_mb + 'MB 图片';
   } catch (e) {
     el.textContent = '缓存预热: 获取失败';
