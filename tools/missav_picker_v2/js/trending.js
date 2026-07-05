@@ -101,7 +101,6 @@ document.getElementById('trendingRefresh').addEventListener('click', () => loadT
 
 // 收起 / 展开
 (function() {
-  var KEY = 'missav_picker_trend_collapsed';
   var section = document.getElementById('trending');
   var btn = document.getElementById('trendingToggle');
   function apply(collapsed) {
@@ -109,11 +108,9 @@ document.getElementById('trendingRefresh').addEventListener('click', () => loadT
     btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
     btn.title = collapsed ? '展开' : '收起';
     btn.querySelector('.lbl').textContent = collapsed ? '展开' : '收起';
-    try { localStorage.setItem(KEY, collapsed ? '1' : '0'); } catch (e) {}
   }
-  try {
-    if (localStorage.getItem(KEY) === '1') apply(true);
-  } catch (e) {}
+  // 热门区默认始终展开,避免用户误以为“没加载出来”
+  apply(false);
   btn.addEventListener('click', function() {
     apply(!section.classList.contains('collapsed'));
   });

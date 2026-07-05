@@ -155,6 +155,9 @@ async function applySyncState(payload) {
     if (state.current) renderResult(); else $('resultArea').innerHTML = `<div class="empty"><div class="emoji">🎰</div><div>设置筛选条件，点上面的按钮开始随机</div></div>`;
     renderShortlist();
     renderHistory();
+    // source 可能在 pullSyncState 后从 missav 切到 jable,需要同步刷新热门区
+    if (typeof renderTrending === 'function') renderTrending();
+    if (typeof loadTrending === 'function') loadTrending();
     if (payload.browseOpen) {
       renderBrowse();
       $('browseArea').style.display = 'block';
