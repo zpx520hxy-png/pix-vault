@@ -2666,11 +2666,9 @@ function renderTrending() {
     const cover = it.cover || '';
     const code = (it.code || '').toLowerCase();
     const isJ = trendIsJable();
-    // missav 预览走本地代理(免 fourhoi 403); jable 走本地 /play 代理
-    const preview = isJ
-      ? (code ? `/play/${code}/playlist.m3u8` : '')
-      : (code ? `/trend_preview/missav/${code}.mp4` : '');
-    const dataKind = isJ ? 'hls' : (code ? 'mp4' : '');
+    // missav 预览走本地代理(免 fourhoi 403); jable 不再播放预览
+    const preview = !isJ && code ? `/trend_preview/missav/${code}.mp4` : '';
+    const dataKind = !isJ && code ? 'mp4' : '';
     const safeTitle = (it.title || it.code || '').replace(/"/g, '&quot;');
     const safeUrl = it.url || '';
     return `
@@ -2680,7 +2678,7 @@ function renderTrending() {
            <img src="${p(isJ ? 'fourhoi.com/' + code + '-uncensored-leak/cover-t.jpg' : cover)}" alt="${it.code || ''}" loading="lazy" referrerpolicy="no-referrer"
                 onerror="if(this.dataset.fallback){this.parentElement.innerHTML='<span class=rank>${i + 1}</span><div class=placeholder>🎞 ${it.code || ''}</div>';}else{this.dataset.fallback='1';this.src='${p(cover)}';}">
           <div class="preview">
-            <video data-hls-src="${preview}" data-kind="${dataKind}" muted loop playsinline disableRemotePlayback referrerpolicy="no-referrer" preload="none" poster="${cover}"></video>
+            ${!isJ ? `<video data-hls-src="${preview}" data-kind="${dataKind}" muted loop playsinline disableRemotePlayback referrerpolicy="no-referrer" preload="none" poster="${cover}"></video>` : ''}
           </div>
         </div>
         <div class="info">
