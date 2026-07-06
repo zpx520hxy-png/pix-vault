@@ -2,11 +2,44 @@
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Noto+Sans+SC:wght@0,400;0,500;0,700&family=Noto+Serif+SC:wght@0,400;0,500;0,600;0,700&display=swap');
 
 :root {
-  --bg:#080706; --surface:#12100d; --border:#2a231b; --border-accent:#3d3224;
-  --text:#d0c9bf; --text-dim:#6e6559; --text-muted:#4a433a;
-  --accent:#c8944f; --accent-glow:#e2b468; --accent-dim:#5a3f28;
-  --rose:#a05a5a; --danger:#8b3838; --danger-dim:#3d1818;
-  --green:#5a8f5a; --green-dim:#1a301a; --shadow-lg:0 8px 60px rgba(0,0,0,.7);
+  --bg:#080706; --surface:#12100d; --surface-2:#171410; --surface-3:#1d1916;
+  --border:#2a231b; --border-accent:#3d3224; --border-2:#3a3024;
+  --text:#d8d1c5; --text-dim:#7a7163; --text-muted:#564d40;
+  --accent:#c8944f; --accent-glow:#e8b468; --accent-dim:#5a3f28;
+  --accent-soft:rgba(200,148,79,.08); --accent-line:rgba(200,148,79,.22);
+  --rose:#b05a5a; --rose-soft:rgba(176,90,90,.1);
+  --danger:#a04040; --danger-dim:#481818;
+  --green:#5a8f5a; --info:#5a96dc;
+  --shadow-sm:0 2px 10px rgba(0,0,0,.4);
+  --shadow-md:0 6px 26px rgba(0,0,0,.55);
+  --shadow-lg:0 12px 70px rgba(0,0,0,.75);
+  --shadow-inner:inset 0 1px 0 rgba(255,255,255,.04);
+  --r-sm:4px; --r-md:6px; --r-lg:10px; --r-full:999px;
+  --fs-xs:11px; --fs-sm:12px; --fs-md:13px; --fs-base:15px;
+}
+[data-theme="emerald"]{
+  --bg:#050a08; --surface:#0c1510; --surface-2:#101d15;
+  --border:#1a2e23; --border-accent:#243a2c;
+  --text:#c8d8cc; --text-dim:#6f8a78;
+  --accent:#5fb888; --accent-glow:#7fd0a0; --accent-dim:#2f5a44;
+  --accent-soft:rgba(95,184,136,.08); --accent-line:rgba(95,184,136,.22);
+  --rose:#b07a8a;
+}
+[data-theme="rose"]{
+  --bg:#0a0608; --surface:#15100f; --surface-2:#1b1414;
+  --border:#2a1c20; --border-accent:#3a262c;
+  --text:#e0cdd0; --text-dim:#8a7077;
+  --accent:#d08aa0; --accent-glow:#e8a6bc; --accent-dim:#5a3f48;
+  --accent-soft:rgba(208,138,160,.08); --accent-line:rgba(208,138,160,.22);
+  --rose:#c87080;
+}
+[data-theme="mono"]{
+  --bg:#0a0a0a; --surface:#161616; --surface-2:#1c1c1c;
+  --border:#2a2a2a; --border-accent:#3a3a3a;
+  --text:#dcdcdc; --text-dim:#787878;
+  --accent:#b0b0b0; --accent-glow:#d0d0d0; --accent-dim:#484848;
+  --accent-soft:rgba(176,176,176,.08); --accent-line:rgba(176,176,176,.22);
+  --rose:#909090;
 }
 
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -30,8 +63,8 @@ body::before{
 /* Toolbar — single row, compact */
 #toolbar{background:var(--surface);border-bottom:1px solid var(--border);z-index:100;flex-shrink:0}
 #toolbar-row1{
-  display:flex;align-items:center;gap:3px;
-  padding:3px 5px;min-height:34px;background:var(--surface);
+  display:flex;align-items:center;gap:4px;
+  padding:4px 6px;min-height:36px;background:var(--surface);
   overflow-x:auto;overflow-y:hidden;
   -webkit-overflow-scrolling:touch;
 }
@@ -39,7 +72,12 @@ body::before{
   font-family:'Noto Serif SC','Cormorant Garamond',serif;
   font-weight:600;font-size:15px;letter-spacing:.3px;
   color:var(--accent);white-space:nowrap;font-style:italic;
-  flex-shrink:0;margin-right:1px;
+  flex-shrink:0;margin-right:2px;padding-right:6px;
+  border-right:1px solid var(--border);
+}
+#toolbar-row1 #fav-group{
+  display:flex;gap:3px;align-items:center;flex-shrink:0;
+  padding-right:6px;border-right:1px solid var(--border);
 }
 /* Hide row2 completely on mobile */
 #toolbar-row2{display:none}
@@ -68,7 +106,8 @@ body::before{
 .chip.tag-chip.t-正常{border-color:rgba(70,150,90,.35);color:#4a9a5a}
 .chip.tag-chip.t-正常.on{background:#4a9a5a;border-color:#4a9a5a;color:#fff}
 
-.fav-chip,.dislike-chip{font-size:10px;padding:1px 5px;border-radius:3px;cursor:pointer;transition:all .1s;white-space:nowrap;flex-shrink:0}
+.fav-chip,.dislike-chip{font-size:10px;padding:1px 5px;border-radius:3px;cursor:pointer;transition:all .1s;white-space:nowrap;flex-shrink:0;font-family:'Noto Sans SC',sans-serif;font-style:normal}
+.fav-chip .n,.dislike-chip .n{font-size:9px;opacity:.6;margin-left:1px}
 .fav-chip{border:1px solid var(--rose);color:var(--rose);background:transparent}
 .fav-chip:hover{background:rgba(160,90,90,.1)}
 .dislike-chip{border:1px solid var(--border);color:var(--text-dim);background:transparent}
@@ -88,11 +127,15 @@ body::before{
 #controls button:hover{background:rgba(255,255,255,.03);color:var(--text)}
 #controls button.active{background:var(--accent);color:#0a0806;border-color:var(--accent);font-weight:500}
 #controls button.slideshow-on{background:var(--rose);color:#fff;border-color:var(--rose)}
-#count-label{font-size:10px;color:var(--text-dim);min-width:40px;text-align:right}
+#count-label{font-size:10px;color:var(--text-dim);min-width:30px;text-align:right;padding:2px 5px!important;border-radius:var(--r-sm);background:rgba(0,0,0,.3);border:1px solid var(--border);box-shadow:var(--shadow-inner)}
+#count-label b{color:var(--accent);font-weight:600}
 #slide-interval{font-size:10px;padding:2px 3px;border-radius:3px;border:1px solid var(--border);background:var(--surface);color:var(--text-dim);cursor:pointer;appearance:none;-webkit-appearance:none}
 /* Hide desktop-only controls on mobile */
 #btn-slideshow,#slide-interval,#btn-q,#btn-mode,#btn-refresh,#btn-clear-dislikes,#btn-delete-disliked,#btn-mode-toggle,
-#btn-delete-disliked.show{display:none!important}
+#btn-delete-disliked.show,
+/* 新加的 UI 元素 — mobile 上隐藏，用底部 bar */
+#btn-color-group,#theme-picker,.bar-all-btn
+{display:none!important}
 
 #hamburger{display:flex;width:28px;height:28px;border:none;border-radius:4px;background:transparent;color:var(--text-dim);font-size:16px;cursor:pointer;align-items:center;justify-content:center;flex-shrink:0}
 #hamburger:hover{color:var(--text)}
@@ -118,22 +161,44 @@ body::before{
 .nav-arrow{display:none!important}
 
 /* Info Overlay */
-#info-overlay{position:absolute;bottom:0;left:0;right:0;padding:40px 10px 8px;background:linear-gradient(transparent,rgba(0,0,0,.88));pointer-events:none;transition:opacity .4s;z-index:5}
+#info-overlay{position:absolute;bottom:0;left:0;right:0;padding:48px 12px 12px;background:linear-gradient(transparent,rgba(0,0,0,.86) 55%,rgba(0,0,0,.92));pointer-events:none;transition:opacity .4s;z-index:5}
 #info-overlay.hidden{opacity:0}
-.img-name{font-family:'Noto Serif SC',serif;font-size:14px;font-weight:500;color:#e8dcc8;font-style:italic}
-.img-meta{font-size:9px;color:rgba(255,255,255,.35);margin-top:1px}
-.img-tags{display:flex;gap:3px;margin-top:4px;flex-wrap:wrap}
-.img-tags span{font-size:8px;padding:1px 5px;border-radius:2px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.35)}
-.fav-badge{font-size:9px;font-weight:400;margin-top:2px;color:var(--rose)}
+.img-name{font-family:'Noto Serif SC','Cormorant Garamond',serif;font-size:15px;font-weight:500;color:#e8dcc8;font-style:italic;letter-spacing:.3px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;-webkit-tap-highlight-color:transparent;cursor:pointer}
+.img-name.expanded{white-space:normal;overflow:visible;text-overflow:clip;background:rgba(0,0,0,.7);padding:4px 6px;border-radius:4px}
+.img-meta{font-size:10px;color:rgba(255,255,255,.4);margin-top:2px;display:flex;gap:6px;flex-wrap:wrap}
+.img-tags{display:flex;gap:3px;margin-top:5px;flex-wrap:wrap}
+.img-tags span{font-size:9px;padding:2px 6px;border-radius:var(--r-full);background:rgba(255,255,255,.06);color:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.05)}
+.fav-badge{font-size:9px;font-weight:400;margin-top:3px;color:var(--rose);display:flex;align-items:center;gap:5px}
+.fav-badge::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--rose);box-shadow:0 0 6px var(--rose)}
 
 /* Gallery Grid */
 #gallery-mode{display:none;padding:6px}
-#gallery-mode .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:4px}
-.grid-item{position:relative;overflow:hidden;border-radius:4px;background:var(--surface);cursor:pointer;aspect-ratio:3/4;border:1px solid transparent}
+#gallery-mode .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(115px,1fr));gap:4px;align-items:start}
+.grid-item{position:relative;overflow:hidden;border-radius:5px;background:var(--surface);cursor:pointer;aspect-ratio:3/4;border:1px solid transparent;transition:transform .12s,box-shadow .12s}
 .grid-item:active{transform:scale(.97)}
-.grid-item img{width:100%;height:100%;object-fit:cover;display:block}
+.grid-item img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .25s}
 .grid-item img.loaded{opacity:1}
-.grid-item .g-label{position:absolute;bottom:0;left:0;right:0;padding:16px 4px 3px;background:linear-gradient(transparent,rgba(0,0,0,.85));font-size:7px;color:var(--text-dim);pointer-events:none}
+.grid-item .g-label{position:absolute;bottom:0;left:0;right:0;padding:18px 5px 4px;background:linear-gradient(transparent,rgba(0,0,0,.88));font-size:8px;color:var(--text-dim);pointer-events:none;letter-spacing:.1px;opacity:0;transition:opacity .15s}
+.grid-item:active .g-label{opacity:1}
+.grid-item .g-label::before{content:'';display:inline-block;width:3px;height:3px;border-radius:50%;background:var(--accent);margin-right:4px;vertical-align:middle}
+
+/* 颜色分组在 mobile */
+.color-group-head{
+  grid-column:1/-1;
+  display:flex;align-items:center;gap:8px;
+  padding:10px 4px 4px;font-size:12px;
+  font-family:'Noto Sans SC',sans-serif;font-weight:500;
+  color:var(--text);
+  border-bottom:1px solid var(--border);
+  margin-bottom:2px;
+}
+.color-group-head .cg-dot{width:12px;height:12px}
+.color-group-head .cg-count{font-size:10px;padding:1px 6px}
+.color-group-grid{
+  grid-column:1/-1;
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));
+  gap:4px;margin-bottom:10px;
+}
 
 /* Mobile Bar — single row */
 #mobile-bar{
@@ -217,6 +282,21 @@ body::before{
 #favorite-toast{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:48px;pointer-events:none;z-index:400;opacity:0;transition:all .4s cubic-bezier(.18,.89,.32,1.27);color:var(--rose)}
 #favorite-toast.pop{opacity:1;transform:translate(-50%,-50%) scale(1.35)}
 #favorite-toast.pop-out{opacity:0;transform:translate(-50%,-50%) scale(.5);transition:all .5s ease-in}
+
+/* Swipe 提示箭头 — 触摸滑动时屏幕中央显示 ‹ 或 › */
+.swipe-hint{
+  position:fixed;top:50%;transform:translateY(-50%);
+  font-size:80px;color:var(--accent);
+  pointer-events:none;z-index:600;
+  text-shadow:0 4px 20px rgba(0,0,0,.6),0 0 30px var(--accent-line);
+  transition:opacity .15s ease;
+  font-family:'Cormorant Garamond',serif;font-weight:600;
+  -webkit-text-stroke:1px var(--accent-glow);
+}
+.swipe-hint.swipe-left{left:8px;animation:swipeLeftPop .25s ease}
+.swipe-hint.swipe-right{right:8px;animation:swipeRightPop .25s ease}
+@keyframes swipeLeftPop{from{transform:translateY(-50%) translateX(-20px);opacity:0}to{transform:translateY(-50%) translateX(0);opacity:.9}}
+@keyframes swipeRightPop{from{transform:translateY(-50%) translateX(20px);opacity:0}to{transform:translateY(-50%) translateX(0);opacity:.9}}
 
 ::-webkit-scrollbar{width:3px;height:3px}
 ::-webkit-scrollbar-track{background:transparent}

@@ -643,6 +643,7 @@ function showEmpty(title, desc) {
   $('#info-meta').textContent = desc;
   $('#info-tags').innerHTML = '';
   $('#info-fav').style.display = 'none';
+  const pi = $('#pos-indicator'); if (pi) pi.classList.add('empty');
 }
 
 function addToHistory(img) {
@@ -730,6 +731,9 @@ function updateInfo(img) {
   }
   $('#info-meta').textContent = meta;
 
+  // 右上角位置指示器
+  updatePosIndicator(img);
+
   // 标签
   const tagsEl = $('#info-tags');
   tagsEl.innerHTML = '';
@@ -755,6 +759,39 @@ function updateInfo(img) {
   $('#mb-fav').style.color = isFav ? 'var(--rose)' : '';
   $('#mb-dislike').innerHTML = isDisliked ? '👎<span class="mlbl">不喜欢</span>' : '✕<span class="mlbl">不喜欢</span>';
   $('#mb-dislike').style.color = isDisliked ? 'var(--danger)' : '';
+}
+
+// 右上角位置指示器: 顺序 = seqPool 位置, 随机 = history 位置
+function updatePosIndicator(img) {
+  const el = $('#pos-indicator');
+  if (!el) return;
+  let cur, total, mode;
+  if (S.seqMode || S.fromBrowse) {
+    // 顺序模式或从全部浏览进入：按 seqPool 中的实际位置显示
+    const idx = S.seqPool.findIndex(p => p.path === img.path);
+    if (idx >= 0) {
+      S.seqIdx = idx;  // 同步索引（应对从外部如 randomImage 跳转的情形）
+      cur = idx + 1;
+    } else {
+      cur = '?';  // 当前图不在 seqPool 中（罕见，比如刚切筛选）
+    }
+    total = S.seqPool.length;
+    mode = S.fromBrowse ? '全部' : '顺序';
+  } else {
+    // 随机模式：以 history 为"这一轮随机"的池
+    cur = S.histIdx + 1;
+    total = S.history.length;
+    mode = '随机';
+  }
+  if (!total) {
+    el.classList.add('empty');
+    return;
+  }
+  el.classList.remove('empty');
+  el.innerHTML = `<span class="pos-mode">${mode}</span>` +
+                 `<span class="pos-cur">${cur}</span>` +
+                 `<span class="pos-sep">/</span>` +
+                 `<span class="pos-total">${total}</span>`;
 }
 
 // ── 随机/顺序模式 & 幻灯片 ──
