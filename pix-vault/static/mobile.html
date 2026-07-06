@@ -4,34 +4,47 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PixVault</title>
-<link rel="stylesheet" href="/static/desktop.css?v=16">
+<link rel="stylesheet" href="/static/desktop.css?v=37">
 </head>
 <body>
 
 <header id="toolbar">
   <div id="toolbar-row1">
     <span class="brand">PixVault</span>
-    <span class="chip fav-chip" id="fav-chip">♥ 收藏夹</span>
-    <span class="chip dislike-chip" id="dislike-chip">💔 不喜欢0</span>
-    <button id="btn-clear-dislikes" title="清空不喜欢列表（不删文件）" style="display:none">✕ 清空</button>
-    <button id="btn-delete-disliked" title="删除所有不喜欢的图片">🗑 删除</button>
+    <div class="ctrl-group" id="fav-group">
+      <span class="chip fav-chip heart-hollow" id="fav-chip">♡ 收藏夹<span class="n">0</span></span>
+      <span class="chip dislike-chip" id="dislike-chip">💔 不喜欢<span class="n">0</span></span>
+      <button id="btn-clear-dislikes" title="清空不喜欢列表（不删文件）" style="display:none">✕ 清空</button>
+      <button id="btn-delete-disliked" title="删除所有不喜欢的图片">🗑 删除</button>
+    </div>
     <div id="controls">
-      <button id="hamburger" title="菜单">☰</button>
       <span id="count-label"></span>
       <button id="btn-refresh" title="重新扫描 (R)">↻</button>
-      <button id="btn-mode-toggle" title="切换随机/顺序 (M)">🎲</button>
-      <button id="btn-slideshow" title="幻灯片播放 (S)">▶</button>
-      <select id="slide-interval" title="播放间隔秒数">
-        <option value="3">3s</option>
-        <option value="5" selected>5s</option>
-        <option value="10">10s</option>
-        <option value="15">15s</option>
-        <option value="30">30s</option>
-        <option value="60">60s</option>
-      </select>
-      <button id="btn-q" title="随机一张 (Q)">🎲</button>
-      <button id="btn-mode" title="网格 (G)">⊞</button>
-      <button id="btn-browse" title="全部浏览 (B)">☷</button>
+      <div class="ctrl-group">
+        <button id="btn-mode-toggle" title="切换随机/顺序 (M)">🎲 随机</button>
+        <button id="btn-q" title="随机一张 (Q)">🎲</button>
+        <button id="btn-slideshow" title="幻灯片播放 (S)">▶</button>
+        <select id="slide-interval" title="播放间隔秒数">
+          <option value="3">3s</option>
+          <option value="5" selected>5s</option>
+          <option value="10">10s</option>
+          <option value="15">15s</option>
+          <option value="30">30s</option>
+          <option value="60">60s</option>
+        </select>
+      </div>
+      <div class="ctrl-group">
+        <button id="btn-mode" title="网格 (G)">⊞</button>
+        <button id="btn-color-group" title="按颜色分组" style="display:none">🎨 颜色分组</button>
+        <button id="btn-browse" title="全部浏览 (B)">☷</button>
+        <button id="hamburger" title="菜单">☰</button>
+      </div>
+      <div class="theme-picker" id="theme-picker" title="主题">
+        <span class="theme-swatch" data-theme-value="amber"></span>
+        <span class="theme-swatch" data-theme-value="emerald"></span>
+        <span class="theme-swatch" data-theme-value="rose"></span>
+        <span class="theme-swatch" data-theme-value="mono"></span>
+      </div>
     </div>
   </div>
   <div id="toolbar-row2">
@@ -43,11 +56,12 @@
 <main id="main-view">
   <section id="single-mode">
     <button id="gallery-close" type="button" title="返回网格 (Esc)">✕</button>
+    <div class="pos-indicator empty" id="pos-indicator"></div>
     <img id="main-img" src="" alt="">
     <button class="nav-arrow left" id="btn-left">◀</button>
     <button class="nav-arrow right" id="btn-right">▶</button>
     <div id="info-overlay">
-      <div class="img-name" id="info-name"></div>
+      <div class="img-name" id="info-name" title="点击展开完整文件名"></div>
       <div class="img-meta" id="info-meta"></div>
       <div class="img-tags" id="info-tags"></div>
       <div class="fav-badge" id="info-fav" style="display:none"></div>
@@ -89,9 +103,9 @@
 <div id="error-toast"></div>
 <div id="favorite-toast">♥</div>
 <footer id="hint">
-  <kbd>←</kbd><kbd>→</kbd> 历史 &nbsp; <kbd>Q</kbd> 随机 &nbsp; <kbd>Space</kbd> 收藏 &nbsp; <kbd>D</kbd> 不喜欢 &nbsp; <kbd>C</kbd> 清记录 &nbsp; <kbd>S</kbd> 播放 &nbsp; <kbd>G</kbd> 网格 &nbsp; <kbd>B</kbd> 全部浏览 &nbsp; <kbd>M</kbd> 模式
+  <kbd>←</kbd><kbd>→</kbd> 历史 &nbsp; <kbd>Q</kbd> 随机 &nbsp; <kbd>Space</kbd> 收藏 &nbsp; <kbd>⌦</kbd> 不喜欢 &nbsp; <kbd>C</kbd> 清记录 &nbsp; <kbd>S</kbd> 播放 &nbsp; <kbd>G</kbd> 网格 &nbsp; <kbd>B</kbd> 全部浏览 &nbsp; <kbd>M</kbd> 模式
 </footer>
 
-<script src="/static/app.js?v=34"></script>
+<script src="/static/app.js?v=51"></script>
 </body>
 </html>
