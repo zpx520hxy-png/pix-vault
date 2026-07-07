@@ -100,6 +100,8 @@ function openFavorite(src, code) {
     if ((fav.source || src) !== src) { console.warn('openFavorite: source mismatch', fav, src); return; }
     renderResult();
     scheduleSyncSave();
+    // 滚到结果区 (跟 trend-card 点击一致)
+    $('resultArea').scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
   if (src === 'jable') {
     if (DATA && DATA.source === 'jable') { applyFavorite(); return; }

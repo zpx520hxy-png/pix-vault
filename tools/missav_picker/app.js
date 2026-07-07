@@ -45,3 +45,22 @@ async function refreshCacheStatus() {
     el.textContent = '缓存预热: 获取失败';
   }
 }
+
+// ---- 回到顶部按钮 ----
+(function() {
+  const btn = document.getElementById('backToTop');
+  if (!btn) return;
+  const THRESHOLD = 400; // 滚动 > 400px 才显示
+  let ticking = false;
+  function update() {
+    if (window.scrollY > THRESHOLD) btn.classList.add('visible');
+    else btn.classList.remove('visible');
+    ticking = false;
+  }
+  window.addEventListener('scroll', function() {
+    if (!ticking) { requestAnimationFrame(update); ticking = true; }
+  }, { passive: true });
+  btn.addEventListener('click', function() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+})();
