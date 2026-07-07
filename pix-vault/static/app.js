@@ -142,9 +142,11 @@ function updatePosIndicator(img) {
 
 // ── 信息叠加层自动隐藏（桌面端 3 秒；移动端不隐藏，单击切换） ──
 let hideInfoTimer;
+let lastTouchInfoToggleAt = 0;
 function showInfoBriefly() {
   const io = $('#info-overlay');
   if (!io) return;
+  if (isMobileUI() && io.classList.contains('hidden')) return;
   io.classList.remove('hidden');
   const nameEl = $('#info-name');
   if (nameEl) nameEl.classList.remove('expanded');
@@ -153,6 +155,18 @@ function showInfoBriefly() {
     hideInfoTimer = setTimeout(() => io.classList.add('hidden'), 3000);
   }
 }
+
+function toggleInfoOverlay() {
+  const io = $('#info-overlay');
+  if (!io) return;
+  io.classList.toggle('hidden');
+  if (!io.classList.contains('hidden')) {
+    const nameEl = $('#info-name');
+    if (nameEl) nameEl.classList.remove('expanded');
+  }
+}
+
+window.toggleInfoOverlay = toggleInfoOverlay;
 
 async function refresh() {
   await api('/api/rescan');
@@ -254,6 +268,13 @@ function renderCatBar() {
 // ── 侧边栏（手机）──
 function renderSidebarChips() {
   const tagColors = { '写实':'t-写实','动漫':'t-动漫','NSFW':'t-NSFW','正常':'t-正常','单人':'t-单人','双人':'t-双人','多人':'t-多人','巨乳':'t-巨乳','贫乳':'t-贫乳','特写':'t-特写','半身':'t-半身','全身':'t-全身','POV':'t-POV','低角度':'t-低角度','背光':'t-背光' };
+  const sv = $('#sidebar-view');
+  const infoVisible = !$('#info-overlay')?.classList.contains('hidden');
+  sv.innerHTML = '<div class="sh sidebar-view-row"><span>🖼️ 图片信息</span><button class="sidebar-switch ' + (infoVisible ? 'on' : '') + '" id="sidebar-info-toggle" type="button" aria-label="切换图片信息显示" aria-pressed="' + (infoVisible ? 'true' : 'false') + '"><span></span></button></div>';
+  sv.querySelector('#sidebar-info-toggle').addEventListener('click', () => {
+    toggleInfoOverlay();
+    renderSidebarChips();
+  });
   // 标签
   const st = $('#sidebar-tags');
   const allTagsOn = S.allTags.every(t => S.activeTags.has(t));
@@ -1438,17 +1459,50 @@ $('#btn-refresh').addEventListener('click', async () => {
 });
 
 // 触摸滑动（只在图片区域生效，不影响按钮点击）
-let touchStartX = 0, touchStartY = 0, touchOnBtn = false;
+let touchStartX = 0, touchStartY = 0, touchOnBtn = false, touchMoved = false;
 let touchHint = null;
+let pointerTapStartX = 0, pointerTapStartY = 0, pointerTapArmed = false;
+let directTapStartX = 0, directTapStartY = 0, directTapArmed = false;
+function shouldIgnoreInfoToggleTarget(target) {
+  return !!target.closest('button, .chip, #fav-chip, #dislike-chip, select, #info-name');
+}
+function maybeToggleInfoFromPointer(e) {
+  if (!isMobileUI()) return;
+  if (S.isGallery || S.isBrowse) return;
+  if (shouldIgnoreInfoToggleTarget(e.target)) return;
+  if (touchOnBtn || touchMoved) return;
+  const dx = Math.abs((e.clientX || 0) - touchStartX);
+  const dy = Math.abs((e.clientY || 0) - touchStartY);
+  if (dx > 18 || dy > 18) return;
+  lastTouchInfoToggleAt = Date.now();
+  toggleInfoOverlay();
+}
+function handleDirectImageTap(clientX, clientY, target) {
+  if (!isMobileUI()) return false;
+  if (S.isGallery || S.isBrowse) return false;
+  if (shouldIgnoreInfoToggleTarget(target || document.body)) return false;
+  if (typeof clientX === 'number' && typeof clientY === 'number') {
+    const dx = Math.abs(clientX - directTapStartX);
+    const dy = Math.abs(clientY - directTapStartY);
+    if (dx > 18 || dy > 18) return false;
+  }
+  lastTouchInfoToggleAt = Date.now();
+  toggleInfoOverlay();
+  return true;
+}
 $('#main-view').addEventListener('touchstart', e => {
+  if (!e.touches || !e.touches[0]) return;
   touchStartX = e.touches[0].clientX;
   touchStartY = e.touches[0].clientY;
-  touchOnBtn = e.target.closest('button, .chip, #fav-chip, #dislike-chip, select') !== null;
+  touchOnBtn = shouldIgnoreInfoToggleTarget(e.target);
+  touchMoved = false;
 }, { passive: true });
 $('#main-view').addEventListener('touchmove', e => {
+  if (!e.touches || !e.touches[0]) return;
   if (touchOnBtn) return;
   const dx = e.touches[0].clientX - touchStartX;
   const dy = e.touches[0].clientY - touchStartY;
+  if (Math.abs(dx) > 12 || Math.abs(dy) > 12) touchMoved = true;
   // 网格/浏览模式：从顶部下滑 60px+ → 触发下拉刷新
   if ((S.isGallery || S.isBrowse) && dy > 0) {
     const mv = e.currentTarget;
@@ -1477,6 +1531,7 @@ $('#main-view').addEventListener('touchmove', e => {
   touchHint.style.opacity = Math.min(0.9, Math.abs(dx) / 120);
 }, { passive: false });
 $('#main-view').addEventListener('touchend', e => {
+  if (!e.changedTouches || !e.changedTouches[0]) return;
   if (touchHint) {
     touchHint.style.opacity = '0';
     setTimeout(() => { if (touchHint) { touchHint.remove(); touchHint = null; } }, 200);
@@ -1488,6 +1543,10 @@ $('#main-view').addEventListener('touchend', e => {
   if ((S.isGallery || S.isBrowse) && dy > 100) {
     if (S.isGallery) loadGallery();
     else if (S.isBrowse) loadBrowse();
+    return;
+  }
+  if (!S.isGallery && !S.isBrowse && isMobileUI() && !touchMoved && Math.abs(dx) < 18 && Math.abs(dy) < 18) {
+    maybeToggleInfoFromPointer(e.changedTouches[0]);
     return;
   }
   if (S.isGallery || S.isBrowse) return;
@@ -1526,14 +1585,68 @@ $('#info-name').addEventListener('touchend', e => {
 }, { passive: true });
 
 // 鼠标移动时短暂显示信息（桌面端 3 秒自动隐藏）
-$('#main-view').addEventListener('mousemove', showInfoBriefly);
+$('#main-view').addEventListener('mousemove', () => {
+  if (isMobileUI()) return;
+  showInfoBriefly();
+});
 // mobile 单击图片区域切换信息显示/隐藏（不自动隐藏）
 $('#main-view').addEventListener('click', e => {
   if (!isMobileUI()) return;
-  if (e.target.closest('button, .chip, #fav-chip, #dislike-chip, select')) return;
+  if (shouldIgnoreInfoToggleTarget(e.target)) return;
   if (S.isGallery || S.isBrowse) return;
-  const io = $('#info-overlay');
-  if (io) io.classList.toggle('hidden');
+  if (Date.now() - lastTouchInfoToggleAt < 450) return;
+  toggleInfoOverlay();
+});
+$('#single-mode').addEventListener('touchstart', e => {
+  if (!isMobileUI()) return;
+  if (!e.touches || !e.touches[0]) return;
+  directTapArmed = !shouldIgnoreInfoToggleTarget(e.target) && !S.isGallery && !S.isBrowse;
+  directTapStartX = e.touches[0].clientX;
+  directTapStartY = e.touches[0].clientY;
+}, { passive: true, capture: true });
+$('#single-mode').addEventListener('touchend', e => {
+  if (!isMobileUI()) return;
+  if (!directTapArmed) return;
+  directTapArmed = false;
+  if (!e.changedTouches || !e.changedTouches[0]) return;
+  if (handleDirectImageTap(e.changedTouches[0].clientX, e.changedTouches[0].clientY, e.target)) {
+    e.preventDefault();
+  }
+}, { passive: false, capture: true });
+$('#single-mode').addEventListener('pointerdown', e => {
+  if (e.pointerType !== 'touch') return;
+  pointerTapArmed = !shouldIgnoreInfoToggleTarget(e.target);
+  pointerTapStartX = e.clientX;
+  pointerTapStartY = e.clientY;
+});
+$('#single-mode').addEventListener('pointerup', e => {
+  if (e.pointerType !== 'touch') return;
+  if (!pointerTapArmed) return;
+  pointerTapArmed = false;
+  if (S.isGallery || S.isBrowse) return;
+  handleDirectImageTap(e.clientX, e.clientY, e.target);
+});
+$('#main-img').addEventListener('touchstart', e => {
+  if (!isMobileUI()) return;
+  if (!e.touches || !e.touches[0]) return;
+  directTapStartX = e.touches[0].clientX;
+  directTapStartY = e.touches[0].clientY;
+}, { passive: true });
+$('#main-img').addEventListener('touchend', e => {
+  if (!isMobileUI()) return;
+  if (!e.changedTouches || !e.changedTouches[0]) return;
+  if (handleDirectImageTap(e.changedTouches[0].clientX, e.changedTouches[0].clientY, e.target)) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+}, { passive: false });
+$('#main-img').addEventListener('click', e => {
+  if (!isMobileUI()) return;
+  if (Date.now() - lastTouchInfoToggleAt < 450) return;
+  if (handleDirectImageTap(null, null, e.target)) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
 });
 
 init();
