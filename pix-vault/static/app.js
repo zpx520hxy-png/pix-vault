@@ -1437,17 +1437,6 @@ $('#btn-refresh').addEventListener('click', async () => {
   onFilterChanged();
 });
 
-// 信息叠加层自动隐藏
-let hideInfoTimer;
-$('#main-view').addEventListener('mousemove', () => {
-  $('#info-overlay').classList.remove('hidden');
-  // 切换图时重置文件名展开状态
-  const nameEl = $('#info-name');
-  if (nameEl) nameEl.classList.remove('expanded');
-  clearTimeout(hideInfoTimer);
-  hideInfoTimer = setTimeout(() => $('#info-overlay').classList.add('hidden'), 3000);
-});
-
 // 触摸滑动（只在图片区域生效，不影响按钮点击）
 let touchStartX = 0, touchStartY = 0, touchOnBtn = false;
 let touchHint = null;
