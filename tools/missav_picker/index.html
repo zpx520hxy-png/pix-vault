@@ -1200,7 +1200,24 @@
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
   }
-</style>
+
+/* 回到顶部按钮 (DOM 在 <body> 末尾, 样式从 app.css 复制过来因为 index.html 未 link app.css) */
+#backToTop {
+  position: fixed; right: 24px; bottom: 24px;
+  width: 44px; height: 44px;
+  display: none;
+  align-items: center; justify-content: center;
+  background: #e91e63;
+  color: #fff;
+  border: none; border-radius: 50%;
+  font-size: 22px; font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(233,30,99,.45);
+  z-index: 1000;
+  transition: opacity .2s, transform .2s;
+}
+#backToTop.visible { display: flex; }
+#backToTop:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(233,30,99,.55); }</style>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
 </head>
 <body>

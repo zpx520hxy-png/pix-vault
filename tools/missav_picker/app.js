@@ -53,14 +53,23 @@ async function refreshCacheStatus() {
   const THRESHOLD = 400; // 滚动 > 400px 才显示
   let ticking = false;
   function update() {
-    if (window.scrollY > THRESHOLD) btn.classList.add('visible');
+    // 兼容: 页面可能用 documentElement / body 滚动而非 window
+    const y = window.scrollY || window.pageYOffset
+      || document.documentElement.scrollTop || document.body.scrollTop;
+    if (y > THRESHOLD) btn.classList.add('visible');
     else btn.classList.remove('visible');
     ticking = false;
   }
-  window.addEventListener('scroll', function() {
+  function onScroll() {
     if (!ticking) { requestAnimationFrame(update); ticking = true; }
-  }, { passive: true });
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  document.addEventListener('scroll', onScroll, { passive: true });
+  // 初次检查 (用户可能刷新页面时已滚到中段)
+  update();
   btn.addEventListener('click', function() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
   });
 })();

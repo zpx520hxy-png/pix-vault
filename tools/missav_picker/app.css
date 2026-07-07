@@ -1108,7 +1108,7 @@
     *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
   }
 
-/* 回到顶部按钮 */
+/* 回到顶部按钮 — V1 index.html 未 link app.css, 实际靠 index.html 内联 style 生效; 此处保留作同步参考 */
 #backToTop {
   position: fixed; right: 24px; bottom: 24px;
   width: 44px; height: 44px;
