@@ -86,14 +86,15 @@ document.addEventListener('mouseout', function(e) {
   if (v) { try { v.pause(); } catch (e) {} }
 });
 
-// 热门卡片点击:jable 在结果区显示(需要本地有数据),missav 打开外链
+// 热门卡片点击:本地有数据就跳结果卡 + 自动起播, 没有就降级开外链
 document.addEventListener('click', function(e) {
   const card = e.target.closest('.trend-card');
   if (!card) return;
   if (e.target.closest('.card-collapse')) return; // 收起按钮不触发
   const code = card.dataset.code;
   if (!code) return;
-  if (trendIsJable() && DATA && DATA.videos) {
+  // 优先从本地 DATA.videos 找(同时支持 missav/jable 趋势项, code lowercase 比对)
+  if (DATA && DATA.videos) {
     const v = DATA.videos.find(x => (x.code || '').toLowerCase() === code);
     if (v) {
       e.preventDefault();
@@ -106,10 +107,15 @@ document.addEventListener('click', function(e) {
       scheduleSyncSave();
       // 滚到结果区
       $('resultArea').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // 热门点击语义:直接起播(跟 showFromPlayableJable 一致)
+      setTimeout(() => {
+        const cover = document.getElementById('jpCover');
+        if (cover) cover.click();
+      }, 80);
       return;
     }
   }
-  // missav 或 jable 本地没找到:开新标签
+  // 本地没找到 (趋势项不在 1228 部里 / jable trend 全部走这条): 降级开外链
   const url = card.dataset.url;
   if (url) window.open(url, '_blank', 'noopener');
 });
