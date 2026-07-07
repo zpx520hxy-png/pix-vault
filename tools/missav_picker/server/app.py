@@ -343,12 +343,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._send_text("index.html not found")
             return
         html = index_path.read_text(encoding="utf-8")
-        html = re.sub(
-            r'<script id="DATA"[^>]*>.*?</script>',
-            "",
-            html,
-            flags=re.S,
-        )
+        # 只有当 <script id="DATA"> 还是 __DATA_JSON_PLACEHOLDER__ 时才删掉这段
+        # (兜底: 没跑 assemble 时不让浏览器拿到 placeholder 字符串)
+        # 跑过 assemble 后,这里已经是真实 JSON,保留内嵌数据走 full 模式
+        if "__DATA_JSON_PLACEHOLDER__" in html:
+            html = re.sub(
+                r'<script id="DATA"[^>]*>.*?</script>',
+                "",
+                html,
+                flags=re.S,
+            )
         self._send_gzip(html.encode("utf-8"), "text/html; charset=utf-8", "no-cache")
 
     def _handle_data_file(self, key, content_type):

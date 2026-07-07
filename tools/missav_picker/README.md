@@ -55,11 +55,30 @@ picker_index.json    →    picker_data.json
   女优/标签立即可见          随机/浏览功能可用
 ```
 
+### 数据语义：`saved` 有两个独立含义
+
+前端"已收藏"标签背后其实是**两个不同维度**的数据源，名称都叫 `saved` 但不要混用：
+
+| 字段 | 含义 | 数据来源 | 范围 |
+|---|---|---|---|
+| `videos[*].is_saved` (bool) | 你**收藏了这部作品** | `scripts/missav_scrape/saved.json` | 作品级 |
+| `actress_groups[code] == 'saved'` | 这位女优在**关注名单**里 | `scripts/picker_lib/saved_actresses.AUTH_SAVED_NAMES` (子串匹配 39 位) | 女优级 |
+
+UI 上的对应关系：
+
+- 卡片角标 "⭐ 已收藏" / chip 过滤 "⭐ 仅收藏" → `videos[*].is_saved`
+- 左侧女优网格 "⭐ 已收藏" 分桶 → `actress_groups[*] == 'saved'`
+
+**注意**：
+- `AUTH_SAVED_NAMES` 用的是**子串匹配** (`a in n or n in a`)，名字里含相同字符的不同女优可能被误判成"关注"
+- 两套维度**没有强制一致性**：一位"已收藏女优"的作品不一定是 `is_saved=true`（可能这部没收藏但女优关注了）；一部 `is_saved=true` 的作品的女优不一定是"已收藏女优"（可能这部被收藏但女优不在关注名单里）
+- 改 `AUTH_SAVED_NAMES` → 重跑 `python scripts/build_picker_data.py` 即可
+
 ### 女优分组逻辑
 
 | 组 | 判定 |
 |---|---|
-| ⭐ 已收藏 | 用户 MissAV 收藏页 (`missav.ws/cn/saved/actresses`) 中列出的 37 位 |
+| ⭐ 已收藏 (= 关注名单) | 名字在 `AUTH_SAVED_NAMES` 里命中（子串匹配） |
 | 🌟 新人 | Top 15 作品中有「出道/首秀/NO.1 STYLE」关键词 |
 | 👤 其他 | 其余 |
 

@@ -36,3 +36,15 @@ playwright-output/
 # pix-vault
 pix-vault/.thumbs/
 pix-vault/.pix-vault.pid
+
+# missav_picker 运行时产物
+tools/missav_picker/.cache_plan.json
+tools/missav_picker/.shared_state.json
+tools/missav_picker/.img_cache/
+tools/missav_picker/server.log
+tools/missav_picker/server.err
+tools/missav_picker/nul
+tools/missav_picker_v2/.cache_plan.json
+tools/missav_picker_v2/.img_cache/
+tools/missav_picker_v2/server.log
+tools/missav_picker_v2/server.err
