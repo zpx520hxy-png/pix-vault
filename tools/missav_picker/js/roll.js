@@ -16,6 +16,7 @@ function rollOne() {
   saveHistory();
   renderResult();
   renderHistory();
+  focusResultArea();
   scheduleSyncSave();
 }
 
@@ -49,6 +50,7 @@ function pickShortlist(code) {
   saveHistory();
   renderResult();
   renderHistory();
+  focusResultArea();
   scheduleSyncSave();
 }
 

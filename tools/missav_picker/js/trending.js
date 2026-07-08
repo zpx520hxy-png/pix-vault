@@ -59,7 +59,7 @@ function showFromPlayableJable(code) {
   if (!v) return;
   state.current = v;
   renderResult();
-  $('resultArea').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  focusResultArea();
   // 既然这里叫“可播放作品”,点卡片后直接自动起播
   setTimeout(async () => {
     const jp = $('jp');
@@ -197,7 +197,7 @@ function openTrendingCard(card, e) {
     renderResult();
     renderHistory();
     scheduleSyncSave();
-    $('resultArea').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    focusResultArea();
   };
   if (isJableTrend && (!DATA || DATA.source !== 'jable')) {
     fetch('jable_data.json?_=' + Date.now()).then(r => r.json()).then(d => {

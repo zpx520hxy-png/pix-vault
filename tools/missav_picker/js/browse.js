@@ -49,7 +49,7 @@ function showFromBrowse(code) {
   renderResult();
   renderHistory();
   scheduleSyncSave();
-  $('resultArea').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  focusResultArea();
 }
 
 document.addEventListener('keydown', (e) => {

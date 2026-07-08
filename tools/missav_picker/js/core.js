@@ -178,14 +178,7 @@ function isFavoriteActress(name) {
   return !!(resolved && state.favoriteActresses && state.favoriteActresses.has(resolved));
 }
 function favoriteActressSet() {
-  const out = new Set(state.favoriteActresses || []);
-  (state.favoritesMissav || []).forEach(v => {
-    (Array.isArray(v.actresses) ? v.actresses : []).forEach(a => {
-      const resolved = resolveActressName(a);
-      if (resolved) out.add(resolved);
-    });
-  });
-  return out;
+  return new Set(state.favoriteActresses || []);
 }
 function toggleFavoriteActress(name) {
   const resolved = resolveActressName(name);

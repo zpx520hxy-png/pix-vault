@@ -84,21 +84,34 @@ function renderActressGrid(filter='') {
   const meta = IDX || D;
   const groups = meta.actress_groups || {};
   const display = meta.actress_display || {};
+  const favoriteNames = favoriteActressSet();
 
   // classify
   const saved = [], rookie = [], other = [];
+  const savedSeen = new Set();
   const allActresses = (D.actresses || []);
   for (const a of allActresses) {
     if (filter && !a.toLowerCase().includes(filter.toLowerCase())) continue;
     const resolved = resolveActressName(a);
-    if (state.favoriteActresses && (state.favoriteActresses.has(a) || state.favoriteActresses.has(resolved))) {
+    if (favoriteNames.has(a) || favoriteNames.has(resolved)) {
       saved.push(a);
+      savedSeen.add(resolved);
+      savedSeen.add(a);
       continue;
     }
     const g = groups[resolved] || 'other';
     if (g === 'rookie') rookie.push(a);
     else other.push(a);
   }
+  [...favoriteNames].forEach(a => {
+    if (!a || savedSeen.has(a)) return;
+    const resolved = resolveActressName(a);
+    if (savedSeen.has(resolved)) return;
+    if (filter && !String(a).toLowerCase().includes(filter.toLowerCase())) return;
+    saved.push(a);
+    savedSeen.add(a);
+    savedSeen.add(resolved);
+  });
 
   function fillGrid(id, list) { $(id).innerHTML = list.map(chipHTML).join(''); }
 

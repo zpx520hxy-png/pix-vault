@@ -120,7 +120,7 @@ document.addEventListener('mouseout', function(e) {
 
 function showFromHistory(code) {
   const v = state.history.find(h => h.code === code) || (DATA && DATA.videos ? DATA.videos.find(x => x.code === code) : null);
-  if (v) { state.current = v; renderResult(); }
+  if (v) { state.current = v; renderResult(); focusResultArea(); }
 }
 
 function copyCode(code, btn) {

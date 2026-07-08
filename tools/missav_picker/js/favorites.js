@@ -47,6 +47,7 @@ function loadFavorites() {
     state.removedFavorites = {};
   }
   renderFavorites();
+  renderActressGrid(($('actressSearch') && $('actressSearch').value) || '');
 }
 function toggleFavorite() {
   if (!state.current) return;
@@ -66,6 +67,7 @@ function toggleFavorite() {
   saveFavorites(src);
   saveRemovedFavorites();
   renderFavorites();
+  renderActressGrid(($('actressSearch') && $('actressSearch').value) || '');
   // 只更新收藏按钮和徽章,不重建结果卡(避免 Jable 播放器被销毁)
   const favBtn = document.querySelector('.result-card .actions .fav-toggle');
   if (favBtn) favBtn.textContent = isManualFavorite(state.current) ? '⭐ 取消手动收藏' : '☆ 手动收藏';
@@ -86,6 +88,7 @@ function removeFavorite(src, code) {
   saveFavorites(src);
   saveRemovedFavorites();
   renderFavorites();
+  renderActressGrid(($('actressSearch') && $('actressSearch').value) || '');
   updateCount();
   if (state.current && currentSourceOf(state.current) === src && state.current.code === code) renderResult();
   scheduleSyncSave();
@@ -98,6 +101,7 @@ function clearFavorites(src) {
   localStorage.removeItem(favStorageKey(src));
   saveRemovedFavorites();
   renderFavorites();
+  renderActressGrid(($('actressSearch') && $('actressSearch').value) || '');
   updateCount();
   renderResult();
   scheduleSyncSave();

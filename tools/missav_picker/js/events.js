@@ -135,15 +135,15 @@ function motionAllowed() {
 }
 function syncMotionToggle() {
   const btn = $('motionToggle');
-  if (!btn) return;
   const active = motionAllowed();
+  if (document.body) document.body.classList.toggle('motion-off', !active);
+  if (!btn) return;
   btn.classList.toggle('active', active);
   btn.setAttribute('aria-pressed', active ? 'true' : 'false');
   btn.title = active ? '关闭动效' : '开启动效';
 }
 
 function markMotionReveal(root) {
-  if (!motionAllowed()) return;
   const scope = root && root.querySelectorAll ? root : document;
   const selector = 'header, .trending, .playable-jable, .filters, .candidate-info, .selected-bar, .roll-btn, .shortlist, #browseArea, #resultArea, .history, .trend-card, .playable-card, .browse-card, .fav-card, .hist-card, .short-card, .result-card, .trash-card';
   const nodes = [];
@@ -159,7 +159,6 @@ function markMotionReveal(root) {
 
 function initPageMotion() {
   syncMotionToggle();
-  if (!motionAllowed()) return;
   document.body.classList.toggle('motion-force', getMotionPreference() === '1');
   document.body.classList.add('motion-ready');
   motionObserver = new IntersectionObserver(entries => {
@@ -194,14 +193,25 @@ function initPageMotion() {
 
 initPageMotion();
 
+function focusResultArea() {
+  const area = $('resultArea');
+  if (!area) return;
+  area.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  requestAnimationFrame(() => {
+    area.classList.remove('result-focus');
+    void area.offsetWidth;
+    area.classList.add('result-focus');
+    setTimeout(() => area.classList.remove('result-focus'), 820);
+  });
+}
+
 if ($('motionToggle')) $('motionToggle').addEventListener('click', () => {
   const next = !motionAllowed();
   setMotionPreference(next);
   document.body.classList.toggle('motion-force', next && prefersReducedMotion);
   syncMotionToggle();
   if (!next) {
-    document.body.classList.remove('motion-ready', 'motion-pulse');
-    document.querySelectorAll('.motion-reveal').forEach(node => node.classList.remove('motion-reveal', 'in-view'));
+    document.body.classList.remove('motion-pulse');
     return;
   }
   document.body.classList.add('motion-ready');
