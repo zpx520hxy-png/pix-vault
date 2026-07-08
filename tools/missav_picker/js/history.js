@@ -2,7 +2,7 @@ function renderHistory() {
   if (state.history.length === 0) { $('historyArea').style.display = 'none'; return; }
   $('historyArea').style.display = 'block';
   $('historyGrid').innerHTML = state.history.map(v => `
-    <div class="hist-card" onclick="showFromHistory(${jsArg(v.code)})">
+    <div class="hist-card" data-card-action="history" data-code="${escHtml(v.code)}" role="button" tabindex="0">
       <div class="img-wrap">
         <img src="${escHtml(coverUrl(v))}" data-fallback-cover="${escHtml(fallbackCoverUrl(v))}" onload="handleCoverLoad(this)" alt="${escHtml(v.code)}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
           onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${escHtml(fallbackCoverUrl(v))}';}else if(!this.dataset.fallback2){this.dataset.fallback2='1';this.src='${escHtml(p(v.cover || ""))}';}else{this.parentElement.style.background='var(--border)';this.style.display='none';}">

@@ -117,15 +117,89 @@ function setSidebarTab(tab) {
   $('sideFavorites').classList.toggle('active', tab === 'favorites');
   $('sideTrash').classList.toggle('active', tab === 'trash');
 }
-if ($('sideOpen')) $('sideOpen').addEventListener('click', () => openSidebar('favorites'));
+function bindTap(el, fn) {
+  if (!el) return;
+  let start = null;
+  let lastTouch = 0;
+  el.addEventListener('touchstart', e => {
+    const t = e.changedTouches && e.changedTouches[0];
+    if (t) start = { x: t.clientX, y: t.clientY };
+  }, { passive: true });
+  el.addEventListener('touchend', e => {
+    const t = e.changedTouches && e.changedTouches[0];
+    if (start && t && Math.hypot(t.clientX - start.x, t.clientY - start.y) > 12) return;
+    lastTouch = Date.now();
+    e.preventDefault();
+    fn(e);
+  }, { passive: false });
+  el.addEventListener('click', e => {
+    if (Date.now() - lastTouch < 450) return;
+    fn(e);
+  });
+}
+if ($('sideOpen')) bindTap($('sideOpen'), () => openSidebar('favorites'));
 document.querySelectorAll('.side-tab').forEach(b => b.addEventListener('click', () => setSidebarTab(b.dataset.sideTab)));
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSidebar(); });
+
+let cardTouchStart = null;
+let lastCardTouch = 0;
+const videoCardSelector = '.short-card[data-card-action],.browse-card[data-card-action],.hist-card[data-card-action],.fav-card[data-card-action],.trend-card[data-card-action],.playable-card[data-card-action]';
+function interactiveChild(target) {
+  return target && target.closest && target.closest('a,button,input,textarea,select,label,.card-collapse');
+}
+function activateVideoCard(card, e) {
+  if (!card || interactiveChild(e.target)) return;
+  const action = card.dataset.cardAction;
+  const code = card.dataset.code || '';
+  if (!action || !code) return;
+  if (e) { e.preventDefault(); e.stopPropagation(); }
+  if (action === 'shortlist') pickShortlist(code);
+  else if (action === 'browse') showFromBrowse(code);
+  else if (action === 'history') showFromHistory(code);
+  else if (action === 'favorite') openFavorite(card.dataset.source || state.source || 'missav', code);
+  else if (action === 'trending') openTrendingCard(card, e);
+  else if (action === 'playable') showFromPlayableJable(code);
+}
+document.addEventListener('touchstart', e => {
+  const card = e.target.closest && e.target.closest(videoCardSelector);
+  if (!card || interactiveChild(e.target)) return;
+  const t = e.changedTouches && e.changedTouches[0];
+  if (t) cardTouchStart = { x: t.clientX, y: t.clientY, card };
+}, { passive: true });
+document.addEventListener('touchend', e => {
+  const card = e.target.closest && e.target.closest(videoCardSelector);
+  if (!card || interactiveChild(e.target)) return;
+  const t = e.changedTouches && e.changedTouches[0];
+  if (cardTouchStart && cardTouchStart.card === card && t && Math.hypot(t.clientX - cardTouchStart.x, t.clientY - cardTouchStart.y) > 12) return;
+  cardTouchStart = null;
+  lastCardTouch = Date.now();
+  activateVideoCard(card, e);
+}, { passive: false });
+document.addEventListener('click', e => {
+  if (Date.now() - lastCardTouch < 450) return;
+  const card = e.target.closest && e.target.closest(videoCardSelector);
+  if (card) activateVideoCard(card, e);
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const card = e.target.closest && e.target.closest(videoCardSelector);
+  if (card) activateVideoCard(card, e);
+});
 
 const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 let motionPulseTimer = null;
 let motionObserver = null;
 function motionStorageKey() { return 'missav_picker_motion_enabled_v1'; }
-function getMotionPreference() { try { return localStorage.getItem(motionStorageKey()) || ''; } catch (e) { return ''; } }
+function getMotionPreference() {
+  try {
+    const value = localStorage.getItem(motionStorageKey());
+    if (value === null) {
+      localStorage.setItem(motionStorageKey(), '1');
+      return '1';
+    }
+    return value || '';
+  } catch (e) { return '1'; }
+}
 function setMotionPreference(on) { try { localStorage.setItem(motionStorageKey(), on ? '1' : '0'); } catch (e) {} }
 function motionAllowed() {
   const pref = getMotionPreference();
@@ -136,7 +210,17 @@ function motionAllowed() {
 function syncMotionToggle() {
   const btn = $('motionToggle');
   const active = motionAllowed();
+  if (document.documentElement) document.documentElement.classList.toggle('motion-off', !active);
   if (document.body) document.body.classList.toggle('motion-off', !active);
+  document.querySelectorAll('.motion-reveal').forEach(node => {
+    if (!active) {
+      node.classList.add('in-view');
+      if (motionObserver) motionObserver.unobserve(node);
+    } else if (motionObserver) {
+      node.classList.remove('in-view');
+      motionObserver.observe(node);
+    }
+  });
   if (!btn) return;
   btn.classList.toggle('active', active);
   btn.setAttribute('aria-pressed', active ? 'true' : 'false');
@@ -153,7 +237,8 @@ function markMotionReveal(root) {
     if (node.classList.contains('motion-reveal')) return;
     node.classList.add('motion-reveal');
     node.style.setProperty('--motion-delay', Math.min(index % 8, 7) * 42 + 'ms');
-    if (motionObserver) motionObserver.observe(node);
+    if (!motionAllowed()) node.classList.add('in-view');
+    else if (motionObserver) motionObserver.observe(node);
   });
 }
 
@@ -196,7 +281,9 @@ initPageMotion();
 function focusResultArea() {
   const area = $('resultArea');
   if (!area) return;
-  area.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  const active = motionAllowed();
+  area.scrollIntoView({ behavior: active ? 'smooth' : 'auto', block: 'center' });
+  if (!active) return;
   requestAnimationFrame(() => {
     area.classList.remove('result-focus');
     void area.offsetWidth;
@@ -232,13 +319,13 @@ function openBrowse() {
   browsePage = 0;
   renderBrowse();
   $('browseArea').style.display = 'block';
-  $('browseArea').scrollIntoView({behavior:'smooth'});
+  $('browseArea').scrollIntoView({behavior: motionAllowed() ? 'smooth' : 'auto'});
   scheduleSyncSave();
 }
 
 function browseGo(page) {
   browsePage = page;
   renderBrowse();
-  $('browseArea').scrollIntoView({behavior:'smooth'});
+  $('browseArea').scrollIntoView({behavior: motionAllowed() ? 'smooth' : 'auto'});
   scheduleSyncSave();
 }

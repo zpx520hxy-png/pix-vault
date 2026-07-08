@@ -718,6 +718,7 @@
     --click-y: 18%;
   }
   html { scroll-behavior: smooth; }
+  html.motion-off { scroll-behavior: auto !important; }
   body {
     position: relative;
     overflow-x: hidden;
@@ -745,6 +746,11 @@
     animation: gridFloat 38s linear infinite;
   }
   body.motion-off, body.motion-off::before { animation: none !important; }
+  html.motion-off *, html.motion-off *::before, html.motion-off *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
   body::after {
     content: '';
     position: fixed;
@@ -782,6 +788,12 @@
     opacity: 1;
     transform: translate3d(0, 0, 0) scale(1);
     filter: saturate(1) blur(0);
+  }
+  html.motion-off .motion-reveal,
+  body.motion-off .motion-reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
   }
   .container { position: relative; z-index: 1; max-width: 1760px; animation: pageRise .52s var(--ease-out) both; }
   header {
@@ -1047,6 +1059,12 @@
     background: rgba(255,255,255,.045);
     box-shadow: 0 10px 28px rgba(0,0,0,.2);
     backdrop-filter: blur(14px) saturate(122%);
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .trend-card, .playable-card, .side-open, .motion-toggle {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
   .browse-card:hover, .fav-card:hover, .hist-card:hover, .short-card:hover {
     transform: translateY(-3px);
@@ -1139,6 +1157,49 @@
     opacity: .98;
     transform: scale(1.04);
     filter: saturate(1.13) contrast(1.05);
+  }
+  @media (hover: none), (pointer: coarse), (max-width: 1024px) {
+    .result-card .cover::before,
+    .browse-card .bc-cover::before,
+    .short-card .img-wrap::before,
+    .fav-card .img-wrap::before,
+    .hist-card .img-wrap::before,
+    .trend-card .cover::before,
+    .playable-card .cover::before {
+      display: none;
+    }
+    .result-card .cover::after,
+    .browse-card .bc-cover::after,
+    .short-card .img-wrap::after,
+    .fav-card .img-wrap::after,
+    .hist-card .img-wrap::after,
+    .trend-card .cover::after,
+    .playable-card .cover::after {
+      background: linear-gradient(180deg, rgba(255,255,255,.10), transparent 28%, rgba(7,9,15,.28));
+      mix-blend-mode: normal;
+      opacity: .38;
+    }
+    .result-card .cover img,
+    .browse-card .bc-cover img,
+    .short-card .img-wrap img,
+    .fav-card .img-wrap img,
+    .hist-card .img-wrap img,
+    .trend-card .cover img,
+    .playable-card .cover img,
+    .browse-card:hover .bc-cover img,
+    .short-card:hover .img-wrap img,
+    .fav-card:hover .img-wrap img,
+    .hist-card:hover .img-wrap img,
+    .trend-card:hover .cover img,
+    .playable-card:hover .cover img,
+    .result-card:hover .cover img {
+      opacity: 1;
+      transform: none;
+      filter: saturate(1.04) contrast(1.02);
+      mask-image: none;
+      -webkit-mask-image: none;
+      transition: none;
+    }
   }
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: rgba(255,255,255,.035); }

@@ -38,7 +38,7 @@ function rollShortlist() {
   state.shortlist = sampleUnique(pool, Math.min(6, pool.length));
   renderShortlist();
   $('shortlistArea').style.display = 'block';
-  $('shortlistArea').scrollIntoView({behavior:'smooth', block:'center'});
+  $('shortlistArea').scrollIntoView({behavior: motionAllowed() ? 'smooth' : 'auto', block:'center'});
   scheduleSyncSave();
 }
 
@@ -74,7 +74,7 @@ function renderShortlist() {
     const src = currentSourceOf(v);
     const actress = (v.actresses || []).slice(0, 2).join('、') || '未知女优';
     return `
-      <div class="short-card" onclick="pickShortlist(${jsArg(v.code)})" title="点选 ${escHtml(v.code)}">
+      <div class="short-card" data-card-action="shortlist" data-code="${escHtml(v.code)}" role="button" tabindex="0" title="点选 ${escHtml(v.code)}">
         <div class="img-wrap">
           <img src="${escHtml(coverUrl(v))}" data-fallback-cover="${escHtml(fallbackCoverUrl(v))}" onload="handleCoverLoad(this)" alt="${escHtml(v.code)}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
             onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${escHtml(fallbackCoverUrl(v))}';}else if(!this.dataset.fallback2){this.dataset.fallback2='1';this.src='${escHtml(p(v.cover || ""))}';}else{this.parentElement.style.background='var(--border)';this.style.display='none';}">

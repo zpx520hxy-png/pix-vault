@@ -29,7 +29,7 @@ function renderPlayableJable() {
     return;
   }
   grid.innerHTML = playableJableCache.items.slice(0, 30).map(v => `
-    <div class="playable-card" onclick="showFromPlayableJable(${jsArg(v.code)})">
+    <div class="playable-card" data-card-action="playable" data-code="${escHtml(v.code)}" role="button" tabindex="0">
       <div class="cover">
         <img src="${escHtml(p('fourhoi.com/' + (v.code || '').toLowerCase() + '-uncensored-leak/cover-t.jpg'))}" alt="${escHtml(v.code)}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
              onerror="if(this.dataset.fallback){this.parentElement.innerHTML='<div class=placeholder>🎞 ${escHtml(v.code)}</div>';}else{this.dataset.fallback='1';this.src='${escHtml(p(v.cover || ''))}';}">
@@ -138,7 +138,7 @@ function renderTrending() {
     const safeTitle = escHtml(it.title || it.code || '');
     const safeUrl = it.url || (isJ ? `https://jable.tv/videos/${code}/` : `https://missav.ws/cn/${code}`);
     return `
-       <div class="trend-card ${isJ ? 'is-jable' : ''}" onclick="openTrendingCard(this, event)" data-code="${escHtml(code)}" data-url="${escHtml(safeUrl)}" data-title="${safeTitle}" data-cover="${escHtml(cover)}" title="${safeTitle}">
+       <div class="trend-card ${isJ ? 'is-jable' : ''}" data-card-action="trending" data-code="${escHtml(code)}" data-url="${escHtml(safeUrl)}" data-title="${safeTitle}" data-cover="${escHtml(cover)}" role="button" tabindex="0" title="${safeTitle}">
          <div class="cover">
             <span class="rank">${i + 1}</span>
             <img src="${escHtml(p(cover))}" data-fallback-cover="${escHtml(p('fourhoi.com/' + code + '/cover-t.jpg'))}" onload="handleCoverLoad(this)" alt="${escHtml(it.code || '')}" loading="lazy" referrerpolicy="no-referrer"

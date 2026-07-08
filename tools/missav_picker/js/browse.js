@@ -8,7 +8,7 @@ function renderBrowse() {
     ? `🖼 ${cands.length} 部作品 · 第 ${browsePage + 1} / ${totalPages} 页`
     : '🖼 0 部作品';
   $('browseGrid').innerHTML = show.map(v => `
-    <div class="browse-card" onclick="showFromBrowse(${jsArg(v.code)})">
+    <div class="browse-card" data-card-action="browse" data-code="${escHtml(v.code)}" role="button" tabindex="0">
       <div class="bc-cover">
         <img src="${escHtml(coverUrl(v))}" data-fallback-cover="${escHtml(fallbackCoverUrl(v))}" onload="handleCoverLoad(this)" alt="${escHtml(v.code)}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
           onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${escHtml(fallbackCoverUrl(v))}';}else if(!this.dataset.fallback2){this.dataset.fallback2='1';this.src='${escHtml(p(v.cover || ""))}';}else{this.parentElement.style.background='var(--border)';this.style.display='none';}">
