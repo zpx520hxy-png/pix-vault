@@ -20,6 +20,7 @@ function renderBrowse() {
       </div>
     </div>
   `).join('');
+  prewarmCoverBatch(show, 30);
 
   // 渲染分页器
   const pager = $('browsePager');

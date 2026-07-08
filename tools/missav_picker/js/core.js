@@ -53,6 +53,22 @@ function handleCoverLoad(img) {
   const fallback = img.dataset.fallbackCover;
   if (fallback && img.src !== fallback) img.src = fallback;
 }
+const _coverPrewarmSeen = new Set();
+function prewarmCover(url) {
+  if (!url || _coverPrewarmSeen.has(url)) return;
+  _coverPrewarmSeen.add(url);
+  const img = new Image();
+  img.decoding = 'async';
+  img.loading = 'eager';
+  img.referrerPolicy = 'no-referrer';
+  img.src = url;
+}
+function prewarmCoverBatch(items, limit) {
+  (items || []).slice(0, limit || 20).forEach(v => {
+    prewarmCover(coverUrl(v));
+    prewarmCover(fallbackCoverUrl(v));
+  });
+}
 function previewUrl(v) {
   const code = (v && v.code || '').toLowerCase();
   if (currentSourceOf(v) === 'jable' && code) {

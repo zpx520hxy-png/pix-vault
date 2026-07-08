@@ -156,6 +156,7 @@ function renderTrending() {
          </div>
        </div>`;
   }).join('');
+  prewarmCoverBatch(visibleItems, 20);
   renderPlayableJable();
 }
 
