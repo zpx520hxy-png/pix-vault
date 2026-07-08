@@ -1011,6 +1011,90 @@
   .shortlist { border-radius: 24px; }
   .short-card { border-radius: 16px; }
   .short-card .img-wrap, .fav-card .img-wrap, .hist-card .img-wrap, .browse-card .bc-cover { background: linear-gradient(135deg, #151a26, #0d0f17); }
+  .result-card .cover,
+  .browse-card .bc-cover,
+  .short-card .img-wrap,
+  .fav-card .img-wrap,
+  .hist-card .img-wrap,
+  .trend-card .cover,
+  .playable-card .cover {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background:
+      radial-gradient(120% 95% at 18% 0%, rgba(255,255,255,.13), transparent 40%),
+      radial-gradient(130% 110% at 84% 92%, rgba(103,232,249,.13), transparent 44%),
+      linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.018) 44%, rgba(7,9,15,.82));
+  }
+  .result-card .cover::before,
+  .browse-card .bc-cover::before,
+  .short-card .img-wrap::before,
+  .fav-card .img-wrap::before,
+  .hist-card .img-wrap::before,
+  .trend-card .cover::before,
+  .playable-card .cover::before {
+    content: '';
+    position: absolute;
+    inset: auto -18% -32% -18%;
+    height: 58%;
+    z-index: 2;
+    pointer-events: none;
+    background:
+      radial-gradient(42% 70% at 16% 28%, rgba(255,255,255,.30), transparent 64%),
+      radial-gradient(36% 58% at 70% 4%, rgba(103,232,249,.20), transparent 68%),
+      linear-gradient(to top, rgba(8,10,18,.80), rgba(8,10,18,.30) 48%, transparent);
+    backdrop-filter: blur(18px) saturate(138%);
+    -webkit-backdrop-filter: blur(18px) saturate(138%);
+    mask-image: radial-gradient(120% 95% at 50% 100%, #000 0 48%, rgba(0,0,0,.74) 66%, transparent 100%);
+    -webkit-mask-image: radial-gradient(120% 95% at 50% 100%, #000 0 48%, rgba(0,0,0,.74) 66%, transparent 100%);
+  }
+  .result-card .cover::after,
+  .browse-card .bc-cover::after,
+  .short-card .img-wrap::after,
+  .fav-card .img-wrap::after,
+  .hist-card .img-wrap::after,
+  .trend-card .cover::after,
+  .playable-card .cover::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.20), transparent 14% 62%, rgba(255,255,255,.10)),
+      radial-gradient(62% 42% at 0% 10%, rgba(255,255,255,.18), transparent 70%),
+      radial-gradient(16px 42px at 16% 84%, rgba(255,255,255,.20), transparent 74%),
+      radial-gradient(22px 58px at 76% 88%, rgba(103,232,249,.16), transparent 76%);
+    mix-blend-mode: screen;
+    opacity: .54;
+  }
+  .result-card .cover img,
+  .browse-card .bc-cover img,
+  .short-card .img-wrap img,
+  .fav-card .img-wrap img,
+  .hist-card .img-wrap img,
+  .trend-card .cover img,
+  .playable-card .cover img {
+    position: relative;
+    z-index: 1;
+    opacity: .94;
+    transform: scale(1.012);
+    filter: saturate(1.04) contrast(1.02);
+    transition: transform .42s var(--ease-out), opacity .32s var(--ease-out), filter .32s var(--ease-out);
+    mask-image: radial-gradient(118% 105% at 50% 34%, #000 0 58%, rgba(0,0,0,.88) 69%, rgba(0,0,0,.28) 86%, transparent 100%);
+    -webkit-mask-image: radial-gradient(118% 105% at 50% 34%, #000 0 58%, rgba(0,0,0,.88) 69%, rgba(0,0,0,.28) 86%, transparent 100%);
+  }
+  .browse-card:hover .bc-cover img,
+  .short-card:hover .img-wrap img,
+  .fav-card:hover .img-wrap img,
+  .hist-card:hover .img-wrap img,
+  .trend-card:hover .cover img,
+  .playable-card:hover .cover img,
+  .result-card:hover .cover img {
+    opacity: .98;
+    transform: scale(1.04);
+    filter: saturate(1.13) contrast(1.05);
+  }
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: rgba(255,255,255,.035); }
   ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.16); border: 2px solid transparent; border-radius: 999px; background-clip: content-box; }
