@@ -40,6 +40,28 @@ function deselectAllActresses() {
   scheduleSyncSave();
 }
 
+function selectActressSection(gridId) {
+  const grid = $(gridId);
+  if (!grid) return;
+  grid.querySelectorAll('.actress-chip').forEach(c => {
+    state.actresses.add(c.dataset.actress);
+    c.classList.add('active');
+  });
+  updateCount();
+  scheduleSyncSave();
+}
+
+function deselectActressSection(gridId) {
+  const grid = $(gridId);
+  if (!grid) return;
+  grid.querySelectorAll('.actress-chip').forEach(c => {
+    state.actresses.delete(c.dataset.actress);
+    c.classList.remove('active');
+  });
+  updateCount();
+  scheduleSyncSave();
+}
+
 function selectAllTags() {
   document.querySelectorAll('#tagChips .chip').forEach(c => {
     state.tags.add(c.dataset.tag);

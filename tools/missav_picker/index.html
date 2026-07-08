@@ -1395,18 +1395,30 @@
         <div class="actress-section">
           <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')" style="display:none" id="savedHeader">
             <span>⭐ 已收藏</span><span class="section-count" id="savedCount"></span>
+            <span style="margin-left:auto;display:flex;gap:6px;">
+              <span class="glow-btn sel" onclick="event.stopPropagation(); selectActressSection('savedGrid')">全选</span>
+              <span class="glow-btn desel" onclick="event.stopPropagation(); deselectActressSection('savedGrid')">清除</span>
+            </span>
           </div>
           <div class="actress-grid-wrap"><div class="actress-grid" id="savedGrid"></div></div>
         </div>
         <div class="actress-section">
           <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')" style="display:none" id="rookieHeader">
             <span>🌟 新人</span><span class="section-count" id="rookieCount"></span>
+            <span style="margin-left:auto;display:flex;gap:6px;">
+              <span class="glow-btn sel" onclick="event.stopPropagation(); selectActressSection('rookieGrid')">全选</span>
+              <span class="glow-btn desel" onclick="event.stopPropagation(); deselectActressSection('rookieGrid')">清除</span>
+            </span>
           </div>
           <div class="actress-grid-wrap"><div class="actress-grid" id="rookieGrid"></div></div>
         </div>
         <div class="actress-section">
           <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')" style="display:none" id="otherHeader">
             <span>👤 其他</span><span class="section-count" id="otherCount"></span>
+            <span style="margin-left:auto;display:flex;gap:6px;">
+              <span class="glow-btn sel" onclick="event.stopPropagation(); selectActressSection('otherGrid')">全选</span>
+              <span class="glow-btn desel" onclick="event.stopPropagation(); deselectActressSection('otherGrid')">清除</span>
+            </span>
           </div>
           <div class="actress-grid-wrap"><div class="actress-grid" id="otherGrid"></div></div>
         </div>
