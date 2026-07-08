@@ -21,7 +21,7 @@ $('sourceChips').addEventListener('click', function(e) {
   renderTrending();
   loadTrending();
   if (src === 'jable') {
-    DATA = null; IDX = null;
+    DATA = null;
     $('tagChips').innerHTML = '';
     $('excludeChips').innerHTML = '';
     ['savedGrid','rookieGrid','otherGrid'].forEach(function(id) { $(id).innerHTML = ''; });
@@ -38,7 +38,7 @@ $('sourceChips').addEventListener('click', function(e) {
       scheduleSyncSave();
     });
   } else {
-    DATA = null; IDX = null;
+    DATA = null;
     $('tagChips').innerHTML = '';
     ['savedGrid','rookieGrid','otherGrid'].forEach(function(id) { $(id).innerHTML = ''; });
     fetch('picker_index.json?_=' + Date.now()).then(function(r) { return r.json(); }).then(function(d) {

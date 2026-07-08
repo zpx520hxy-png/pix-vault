@@ -3,6 +3,7 @@ function init(stage) {
   if (stage === 'index') {
     // 索引已加载(actresses/groups/avatars/display/tags),立即渲染 UI
     $('stats').textContent = `📊 ${IDX.video_count} 部作品 · ${IDX.actresses.length} 位女优 · ${IDX.tags.length} 个标签 · 按空格快速抽`;
+    loadFavoriteActresses();
     renderTagChips();
     renderActressGrid();
     loadFavorites();
@@ -25,6 +26,7 @@ function init(stage) {
   } else {
     // file:// 一次性内嵌
     $('stats').textContent = `📊 ${DATA.videos.length} 部作品 · ${DATA.actresses.length} 位女优 · ${DATA.tags.length} 个标签 · 按空格快速抽`;
+    loadFavoriteActresses();
     renderTagChips();
     renderActressGrid();
     loadFavorites();

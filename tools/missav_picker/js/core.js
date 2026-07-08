@@ -18,6 +18,7 @@ const state = {
   shortlist: [],
   favoritesMissav: [],
   favoritesJable: [],
+  favoriteActresses: new Set(),
   removedFavorites: {},
   removedVideos: {},
   removedVideoSnapshots: {},
@@ -88,6 +89,31 @@ function escHtml(value) {
 function jsArg(value) {
   return escHtml(JSON.stringify(String(value == null ? '' : value)));
 }
+function normalizeActressToken(s) {
+  return String(s == null ? '' : s).toLowerCase().replace(/\s+/g, '').trim();
+}
+function actressNameTokens(name) {
+  const raw = String(name == null ? '' : name).trim();
+  if (!raw) return [];
+  const parts = raw
+    .split(/[()（）,，/｜|]+/)
+    .map(s => normalizeActressToken(s))
+    .filter(Boolean);
+  const all = [normalizeActressToken(raw)].concat(parts);
+  return [...new Set(all.filter(Boolean))];
+}
+function resolveActressName(name) {
+  const meta = IDX || DATA || {};
+  const actresses = Array.isArray(meta.actresses) ? meta.actresses : [];
+  if (!name || !actresses.length) return name;
+  if (actresses.includes(name)) return name;
+  const wanted = actressNameTokens(name);
+  for (const actress of actresses) {
+    const tokens = actressNameTokens(actress);
+    if (wanted.some(t => tokens.includes(t))) return actress;
+  }
+  return name;
+}
 function cssIdent(value) {
   const s = String(value == null ? '' : value);
   if (window.CSS && typeof window.CSS.escape === 'function') return window.CSS.escape(s);
@@ -106,6 +132,34 @@ function readStoredFavorites(src) {
   } catch (e) {
     return [];
   }
+}
+function favoriteActressesStorageKey() {
+  return 'missav_picker_favorite_actresses_v1';
+}
+function loadFavoriteActresses() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(favoriteActressesStorageKey()) || '[]');
+    state.favoriteActresses = new Set(Array.isArray(raw) ? raw : []);
+  } catch (e) { state.favoriteActresses = new Set(); }
+}
+function saveFavoriteActresses() {
+  try { localStorage.setItem(favoriteActressesStorageKey(), JSON.stringify([...state.favoriteActresses])); } catch (e) {}
+}
+function primaryActress(v) {
+  return Array.isArray(v && v.actresses) && v.actresses.length ? resolveActressName(v.actresses[0]) : '';
+}
+function isFavoriteActress(name) {
+  const resolved = resolveActressName(name);
+  return !!(resolved && state.favoriteActresses && state.favoriteActresses.has(resolved));
+}
+function toggleFavoriteActress(name) {
+  const resolved = resolveActressName(name);
+  if (!resolved) return;
+  if (state.favoriteActresses.has(resolved)) state.favoriteActresses.delete(resolved);
+  else state.favoriteActresses.add(resolved);
+  saveFavoriteActresses();
+  renderActressGrid(($('actressSearch') && $('actressSearch').value) || '');
+  renderResult();
 }
 function removedFavoritesStorageKey() {
   return 'missav_picker_removed_favorites_v1';

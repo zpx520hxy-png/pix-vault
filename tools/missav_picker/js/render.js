@@ -16,6 +16,7 @@ function renderResult() {
   const actressText = v.actresses.length > 0
     ? v.actresses.map(a => `<strong>${escHtml(a)}</strong>`).join('、')
     : '<span style="color:var(--text-mute)">未知</span>';
+  const leadActress = primaryActress(v);
 
   const isJable = currentSourceOf(v) === 'jable';
   const coverBlock = isJable
@@ -94,6 +95,7 @@ function renderResult() {
           <button class="btn btn-ghost" onclick="rollOne()">🎲 再抽一部</button>
           <button class="btn btn-ghost" onclick="copyCode(${jsArg(v.code)}, this)">📋 复制番号</button>
           <button class="btn btn-ghost fav-toggle" onclick="toggleFavorite()">${isManualFavorite(v) ? '⭐ 取消手动收藏' : '☆ 手动收藏'}</button>
+          <button class="btn btn-ghost" onclick="toggleFavoriteActress(${jsArg(leadActress)})" ${leadActress ? '' : 'disabled'}>${leadActress && isFavoriteActress(leadActress) ? '💖 已收藏女优' : '🤍 收藏女优'}</button>
           <button class="btn btn-ghost" onclick="removeCurrentVideo()" style="color:var(--err)">🗑 移除作品</button>
         </div>
       </div>

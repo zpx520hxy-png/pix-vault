@@ -63,34 +63,40 @@ function renderTagChips() {
 }
 
 function chipHTML(a) {
-  const sel = state.actresses.has(a) ? ' active' : '';
-  const D = DATA || IDX;
-  const avatar = (D.actress_avatars || {})[a];
-  const dispName = (D.actress_display || {})[a] || a;
+  const resolved = resolveActressName(a);
+  const sel = state.actresses.has(a) || state.actresses.has(resolved) ? ' active' : '';
+  const meta = IDX || DATA || {};
+  const avatar = (meta.actress_avatars || {})[resolved];
+  const dispName = (meta.actress_display || {})[resolved] || a;
   const initial = a.replace(/[（(].*[）)]/g,'').charAt(0);
   const fallback = `<span class="avatar-fallback">${escHtml(initial)}</span>`;
   const imgHtml = avatar
     ? `<img src="${escHtml(avatar)}" alt="${escHtml(a)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`
     : '';
-  return `<div class="actress-chip${sel}" data-actress="${escHtml(a)}" title="${escHtml(dispName)}">
+  return `<div class="actress-chip${sel}" data-actress="${escHtml(resolved)}" data-actress-raw="${escHtml(a)}" title="${escHtml(dispName)}">
             <div class="blob">${fallback}${imgHtml}</div>
             <span class="name">${escHtml(dispName)}</span>
           </div>`;
 }
 
 function renderActressGrid(filter='') {
-  const D = DATA || IDX;
-  const groups = D.actress_groups || {};
-  const display = D.actress_display || {};
+  const D = DATA || IDX || {};
+  const meta = IDX || D;
+  const groups = meta.actress_groups || {};
+  const display = meta.actress_display || {};
 
   // classify
   const saved = [], rookie = [], other = [];
-  const allActresses = (DATA || IDX).actresses;
+  const allActresses = (D.actresses || []);
   for (const a of allActresses) {
     if (filter && !a.toLowerCase().includes(filter.toLowerCase())) continue;
-    const g = groups[a] || 'other';
-    if (g === 'saved') saved.push(a);
-    else if (g === 'rookie') rookie.push(a);
+    const resolved = resolveActressName(a);
+    if (state.favoriteActresses && (state.favoriteActresses.has(a) || state.favoriteActresses.has(resolved))) {
+      saved.push(a);
+      continue;
+    }
+    const g = groups[resolved] || 'other';
+    if (g === 'rookie') rookie.push(a);
     else other.push(a);
   }
 
@@ -138,7 +144,7 @@ function getCandidates() {
     }
     // 女优
   if (state.actresses.size > 0) {
-      const hit = (Array.isArray(v.actresses) ? v.actresses : []).some(a => state.actresses.has(a));
+      const hit = (Array.isArray(v.actresses) ? v.actresses : []).some(a => state.actresses.has(resolveActressName(a)) || state.actresses.has(a));
       if (!hit) return false;
     }
     if (state.removedVideos && state.removedVideos[(v.source || state.source) + ':' + v.code]) return false;
@@ -165,7 +171,8 @@ function renderSelBar() {
   if (!state.actresses.size && !state.tags.size && state.type === 'all') {
     sb.innerHTML = ''; return;
   }
-  const D = DATA || IDX;
+  const D = DATA || IDX || {};
+  const meta = IDX || D;
   const parts = [];
   if (state.type !== 'all') {
     const tl = {all:'',solo:'👤 单人',multi:'👥 多人',saved:'⭐ 仅收藏'}[state.type];
@@ -173,11 +180,12 @@ function renderSelBar() {
   }
   state.tags.forEach(t => parts.push('<span class="sel-chip tag" data-click="dropTag" data-tag="'+escHtml(t)+'">'+escHtml(t)+' ×</span>'));
   state.actresses.forEach(a => {
-    const av = (D.actress_avatars || {})[a];
-    const disp = (D.actress_display||{})[a] || a;
+    const resolved = resolveActressName(a);
+    const av = (meta.actress_avatars || {})[resolved];
+    const disp = (meta.actress_display||{})[resolved] || a;
     const initial = a.replace(/[（(].*[）)]/g,'').charAt(0);
     const img = '<span class="avatar-fallback">'+escHtml(initial)+'</span>' + (av ? '<img src="'+escHtml(av)+'" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">' : '');
-    parts.push('<span class="sel-item" data-click="dropActress" data-actress="'+escHtml(a)+'" title="'+escHtml(disp)+'"><span class="sel-blob">'+img+'</span><span class="sel-name">'+escHtml(disp)+'</span></span>');
+    parts.push('<span class="sel-item" data-click="dropActress" data-actress="'+escHtml(resolved)+'" title="'+escHtml(disp)+'"><span class="sel-blob">'+img+'</span><span class="sel-name">'+escHtml(disp)+'</span></span>');
   });
   sb.innerHTML = parts.join('');
 }
