@@ -32,6 +32,10 @@ function coverUrl(v) {
   // 失败时再回退到 jable 自带 cover。
   const code = (v.code || '').toLowerCase();
   if (currentSourceOf(v) === 'jable' && (v.cover || code)) {
+    const lowConfidence = (!v.preview && !(v.date || '').trim() && (!Array.isArray(v.actresses) || v.actresses.length === 0) && ((v.title || '').trim().toUpperCase() === (v.code || '').trim().toUpperCase()));
+    if (lowConfidence && code) {
+      return p(`fourhoi.com/${code}/cover-t.jpg`);
+    }
     return p(v.cover || `fourhoi.com/${code}/cover-t.jpg`);
   }
   if (currentSourceOf(v) === 'missav' && code) {

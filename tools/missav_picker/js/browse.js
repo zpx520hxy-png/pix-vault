@@ -10,7 +10,7 @@ function renderBrowse() {
   $('browseGrid').innerHTML = show.map(v => `
     <div class="browse-card" onclick="showFromBrowse(${jsArg(v.code)})">
       <div class="bc-cover">
-        <img src="${escHtml(coverUrl(v))}" alt="${escHtml(v.code)}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+        <img src="${escHtml(coverUrl(v))}" data-fallback-cover="${escHtml(fallbackCoverUrl(v))}" onload="handleCoverLoad(this)" alt="${escHtml(v.code)}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
           onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${escHtml(fallbackCoverUrl(v))}';}else if(!this.dataset.fallback2){this.dataset.fallback2='1';this.src='${escHtml(p(v.cover || ""))}';}else{this.parentElement.style.background='var(--border)';this.style.display='none';}">
         <div class="bc-preview" data-preview-src="${escHtml(previewUrl(v))}" data-poster="${escHtml(p(v.cover))}"></div>
       </div>
