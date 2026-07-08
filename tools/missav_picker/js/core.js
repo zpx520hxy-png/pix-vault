@@ -122,6 +122,31 @@ function cssIdent(value) {
 function favListForSource(src) {
   return src === 'jable' ? state.favoritesJable : state.favoritesMissav;
 }
+function findDataVideo(src, code) {
+  if (!DATA || !Array.isArray(DATA.videos) || !code) return null;
+  const dataSource = DATA.source || 'missav';
+  if ((src || 'missav') !== dataSource) return null;
+  const wanted = String(code).toUpperCase();
+  return DATA.videos.find(v => String(v && v.code || '').toUpperCase() === wanted) || null;
+}
+function mergeVideoSnapshot(base, overlay, src) {
+  const out = Object.assign({}, base || {}, { source: src || currentSourceOf(base || overlay || {}) });
+  const v = overlay || {};
+  Object.keys(v).forEach(key => {
+    const val = v[key];
+    if (Array.isArray(val)) {
+      if (val.length) out[key] = val.slice();
+    } else if (val !== undefined && val !== null && val !== '') {
+      out[key] = val;
+    }
+  });
+  out.source = src || out.source || currentSourceOf(out);
+  return out;
+}
+function hydrateVideoRef(v, src) {
+  if (!v) return null;
+  return mergeVideoSnapshot(findDataVideo(src, v.code), v, src);
+}
 function favStorageKey(src) {
   return src === 'jable' ? 'missav_picker_favorites_jable_v1' : 'missav_picker_favorites_missav_v1';
 }

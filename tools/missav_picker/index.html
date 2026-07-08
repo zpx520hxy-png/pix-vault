@@ -702,26 +702,70 @@
     --shadow-lg: 0 26px 80px rgba(0, 0, 0, 0.48);
     --shadow-glow: 0 18px 52px rgba(255, 79, 135, 0.18);
     --ease-out: cubic-bezier(.16, 1, .3, 1);
+    --click-x: 50%;
+    --click-y: 18%;
   }
   html { scroll-behavior: smooth; }
   body {
+    position: relative;
+    overflow-x: hidden;
+    isolation: isolate;
     font-family: "Aptos Display", "Segoe UI Variable", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
     background:
+      radial-gradient(circle at var(--click-x) var(--click-y), rgba(255, 255, 255, .12) 0%, transparent 42%),
       radial-gradient(circle at 12% -8%, rgba(255, 79, 135, 0.28), transparent 34rem),
       radial-gradient(circle at 86% 2%, rgba(103, 232, 249, 0.16), transparent 28rem),
       linear-gradient(145deg, #07090f 0%, #11131f 48%, #08070d 100%);
+    background-size: 100% 100%, 110% 110%, 120% 120%, 100% 100%;
+    animation: ambientDrift 18s ease-in-out infinite alternate;
     letter-spacing: 0.01em;
   }
   body::before {
     content: '';
-    position: fixed; inset: 0; pointer-events: none; z-index: -1;
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
     background-image:
       linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
       linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
     background-size: 54px 54px;
     mask-image: linear-gradient(to bottom, rgba(0,0,0,.75), transparent 74%);
+    animation: gridFloat 22s linear infinite;
   }
-  .container { max-width: 1480px; animation: pageRise .52s var(--ease-out) both; }
+  body::after {
+    content: '';
+    position: fixed;
+    left: var(--click-x);
+    top: var(--click-y);
+    width: 36rem;
+    height: 36rem;
+    pointer-events: none;
+    z-index: 0;
+    border-radius: 50%;
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(.12);
+    background:
+      radial-gradient(circle, rgba(255,255,255,.18), transparent 0 12%),
+      radial-gradient(circle, rgba(255,79,135,.30), transparent 0 34%),
+      radial-gradient(circle, rgba(103,232,249,.16), transparent 0 54%);
+    mix-blend-mode: screen;
+    filter: blur(3px);
+  }
+  body.motion-pulse::after { animation: clickPulse .85s var(--ease-out); }
+  .motion-ready .motion-reveal {
+    opacity: 0;
+    transform: translate3d(0, 22px, 0) scale(.985);
+    transition:
+      opacity .62s var(--ease-out) var(--motion-delay, 0ms),
+      transform .62s var(--ease-out) var(--motion-delay, 0ms),
+      filter .62s var(--ease-out) var(--motion-delay, 0ms);
+    filter: saturate(.86) blur(2px);
+    will-change: opacity, transform, filter;
+  }
+  .motion-ready .motion-reveal.in-view {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: saturate(1) blur(0);
+  }
+  .container { position: relative; z-index: 1; max-width: 1480px; animation: pageRise .52s var(--ease-out) both; }
   header {
     position: relative;
     overflow: hidden;
@@ -917,6 +961,19 @@
   ::-webkit-scrollbar-thumb:hover { background: rgba(255,79,135,.45); background-clip: content-box; }
   @keyframes pageRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
   @keyframes cardIn { from { opacity: 0; transform: translateY(16px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  @keyframes ambientDrift {
+    0% { background-position: 0 0, 0% 0%, 100% 0%, 0 0; }
+    100% { background-position: 0 0, 14% 8%, 84% 12%, 0 0; }
+  }
+  @keyframes gridFloat {
+    0% { background-position: 0 0, 0 0; opacity: .82; }
+    100% { background-position: 54px 54px, 54px 54px; opacity: .46; }
+  }
+  @keyframes clickPulse {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(.12); }
+    18% { opacity: 1; }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.45); }
+  }
   @media (max-width: 768px) {
     body { padding: 12px; }
     header { padding: 22px 18px; border-radius: 22px; }
@@ -1204,6 +1261,7 @@
 
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
+    .motion-ready .motion-reveal { opacity: 1 !important; transform: none !important; filter: none !important; }
   }
 
 /* 回到顶部按钮 (DOM 在 <body> 末尾, 样式从 app.css 复制过来因为 index.html 未 link app.css) */

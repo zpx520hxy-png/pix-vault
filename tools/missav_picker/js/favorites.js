@@ -7,7 +7,8 @@ function renderFavorites() {
     if (!list.length) { area.style.display = 'none'; grid.innerHTML = ''; return; }
     area.style.display = 'block';
     const isJableFav = (src === 'jable');
-    grid.innerHTML = list.map(v => {
+    grid.innerHTML = list.map(raw => {
+      const v = hydrateVideoRef(raw, src) || Object.assign({}, raw, { source: src });
       const externalUrl = v.url || '';
       const extBtn = externalUrl
         ? `<a class="ext-link" href="${escHtml(externalUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🔗 打开 ${isJableFav ? 'Jable' : 'MissAV'}</a>`
@@ -103,38 +104,21 @@ function clearFavorites(src) {
 }
 function openFavorite(src, code) {
   const list = src === 'jable' ? state.favoritesJable : state.favoritesMissav;
-  const fav = list.find(v => v.code === code);
+  const fav = list.find(v => String(v && v.code || '').toUpperCase() === String(code || '').toUpperCase());
   if (!fav) return;
   function applyFavorite() {
     document.querySelectorAll('#sourceChips .chip').forEach(c => c.classList.remove('active'));
     const chip = document.querySelector(`#sourceChips .chip[data-source="${src}"]`);
     if (chip) chip.classList.add('active');
     state.source = src;
-    state.current = fav;
-    if ((fav.source || src) !== src) { console.warn('openFavorite: source mismatch', fav, src); return; }
+    state.current = hydrateVideoRef(fav, src) || mergeVideoSnapshot(null, fav, src);
     renderResult();
     scheduleSyncSave();
-    // 滚到结果区 (跟 trend-card 点击一致)
+    closeSidebar();
     $('resultArea').scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
-  if (src === 'jable') {
-    if (DATA && DATA.source === 'jable') { applyFavorite(); return; }
-    fetch('jable_data.json?_=' + Date.now()).then(r => r.json()).then(d => {
-      DATA = d;
-      var uniq = {};
-      DATA.videos.forEach(function(v){(v.actresses||[]).forEach(function(a){uniq[a]=1});});
-      DATA.actresses = Object.keys(uniq);
-      $('stats').textContent = '📊 ' + DATA.videos.length + ' 部作品 · ' + DATA.actresses.length + ' 位女优 · Jable.TV';
-      renderTagChips(); renderActressGrid(); renderFavorites(); updateCount();
-      applyFavorite();
-    });
-  } else {
-    if (DATA && (!DATA.source || DATA.source === 'missav')) { applyFavorite(); return; }
-    fetch('picker_data.json?_=' + Date.now()).then(r => r.json()).then(d => {
-      DATA = d;
-      $('stats').textContent = '📊 ' + DATA.videos.length + ' 部作品 · ' + (DATA.actresses||[]).length + ' 位女优 · 按空格快速抽';
-      renderTagChips(); renderActressGrid(); renderFavorites(); updateCount();
-      applyFavorite();
-    });
-  }
+  loadSourceData(src).then(applyFavorite).catch(e => {
+    console.error('openFavorite load source failed:', e);
+    applyFavorite();
+  });
 }

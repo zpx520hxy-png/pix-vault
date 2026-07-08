@@ -121,6 +121,59 @@ if ($('sideOpen')) $('sideOpen').addEventListener('click', () => openSidebar('fa
 document.querySelectorAll('.side-tab').forEach(b => b.addEventListener('click', () => setSidebarTab(b.dataset.sideTab)));
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSidebar(); });
 
+const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+let motionPulseTimer = null;
+let motionObserver = null;
+
+function markMotionReveal(root) {
+  if (prefersReducedMotion) return;
+  const scope = root && root.querySelectorAll ? root : document;
+  const selector = 'header, .trending, .playable-jable, .filters, .candidate-info, .selected-bar, .roll-btn, .shortlist, #browseArea, #resultArea, .history, .trend-card, .playable-card, .browse-card, .fav-card, .hist-card, .short-card, .result-card, .trash-card';
+  const nodes = [];
+  if (scope.matches && scope.matches(selector)) nodes.push(scope);
+  scope.querySelectorAll(selector).forEach(node => nodes.push(node));
+  nodes.forEach((node, index) => {
+    if (node.classList.contains('motion-reveal')) return;
+    node.classList.add('motion-reveal');
+    node.style.setProperty('--motion-delay', Math.min(index % 8, 7) * 42 + 'ms');
+    if (motionObserver) motionObserver.observe(node);
+  });
+}
+
+function initPageMotion() {
+  if (prefersReducedMotion) return;
+  document.body.classList.add('motion-ready');
+  motionObserver = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      entry.target.classList.add('in-view');
+      motionObserver.unobserve(entry.target);
+    });
+  }, { rootMargin: '0px 0px -10% 0px', threshold: 0.12 });
+
+  markMotionReveal(document);
+  new MutationObserver(records => {
+    records.forEach(record => {
+      record.addedNodes.forEach(node => {
+        if (node.nodeType === 1) markMotionReveal(node);
+      });
+    });
+  }).observe(document.body, { childList: true, subtree: true });
+
+  document.addEventListener('pointerdown', e => {
+    document.documentElement.style.setProperty('--click-x', e.clientX + 'px');
+    document.documentElement.style.setProperty('--click-y', e.clientY + 'px');
+    document.body.classList.remove('motion-pulse');
+    void document.body.offsetWidth;
+    document.body.classList.add('motion-pulse');
+    clearTimeout(motionPulseTimer);
+    motionPulseTimer = setTimeout(() => document.body.classList.remove('motion-pulse'), 900);
+  }, { passive: true });
+
+}
+
+initPageMotion();
+
 let browsePage = 0;
 const BROWSE_PER = 30;
 
