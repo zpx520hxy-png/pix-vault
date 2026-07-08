@@ -461,36 +461,51 @@
   .fav-card .ext-link:hover { color: var(--primary); }
   .history-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr));
+    gap: 12px;
     contain: layout style;
   }
   .hist-card {
+    display: grid;
+    grid-template-columns: 112px minmax(0, 1fr);
+    align-items: stretch;
+    gap: 10px;
     background: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 6px;
+    border-radius: 14px;
+    padding: 8px;
     cursor: pointer;
-    transition: border-color 0.15s;
+    transition: transform 0.18s var(--ease-out), border-color 0.18s, box-shadow 0.18s;
     content-visibility: auto;
-    contain-intrinsic-size: auto 180px;
+    contain-intrinsic-size: auto 96px;
   }
-  .hist-card:hover { border-color: var(--primary); }
+  .hist-card:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: 0 14px 28px rgba(0,0,0,.22); }
   .hist-card .img-wrap {
-    width: 100%; aspect-ratio: 16/11;
-    border-radius: 4px; overflow: hidden; background: linear-gradient(135deg, #2a1a2e, #1c1420);
+    grid-row: 1 / span 2;
+    width: 100%; height: 100%; min-height: 78px; aspect-ratio: 16/11;
+    border-radius: 10px; overflow: hidden; background: linear-gradient(135deg, #2a1a2e, #1c1420);
   }
   .hist-card img {
     width: 100%; height: 100%; object-fit: cover;
     display: block;
   }
   .hist-card .hist-code {
-    font-size: 11px; color: var(--primary); font-weight: 700;
-    margin-top: 4px; letter-spacing: 0.5px;
+    grid-column: 2;
+    align-self: end;
+    font-size: 12px; color: var(--primary); font-weight: 800;
+    margin-top: 0; letter-spacing: 0.5px;
   }
   .hist-card .hist-title {
-    font-size: 10px; color: var(--text-mute);
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    grid-column: 2;
+    align-self: start;
+    font-size: 12px; color: var(--text-mute); line-height: 1.45;
+    overflow: hidden;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    word-break: break-word;
+  }
+  @media (max-width: 560px) {
+    .history-grid { grid-template-columns: 1fr; }
+    .hist-card { grid-template-columns: 96px minmax(0, 1fr); }
   }
 
   /* 空状态 */
@@ -1080,10 +1095,12 @@
   .filters .card-collapse { position: absolute; top: 14px; right: 14px; }
 
   /* history 区:按钮在 h2 内,不走绝对定位 */
-  .history h2 { position: relative; }
-  .history h2 .right { float: right; display: inline-flex; align-items: center; gap: 8px; }
+  .history h2 { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .history h2 .left { min-width: 0; }
+  .history h2 .right { display: inline-flex; align-items: center; gap: 8px; flex: 0 0 auto; }
   .history h2 .card-collapse { position: static; }
   .history-body {
+    clear: both;
     overflow: hidden;
     max-height: 4000px;
     transition: max-height .4s var(--ease-out), opacity .25s var(--ease-out), margin-top .3s var(--ease-out);
@@ -1167,8 +1184,16 @@
   @media (max-width: 600px)  { .trending-grid { grid-template-columns: repeat(1, minmax(0, 1fr)); } }
 
   @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
+    body:not(.motion-force) *, body:not(.motion-force) *::before, body:not(.motion-force) *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
     .motion-ready .motion-reveal { opacity: 1 !important; transform: none !important; filter: none !important; }
+    body.motion-force.motion-ready .motion-reveal {
+      opacity: 0 !important;
+      transform: translate3d(0, 22px, 0) scale(.985) !important;
+      filter: saturate(.86) blur(2px) !important;
+      transition: opacity .62s var(--ease-out) var(--motion-delay, 0ms), transform .62s var(--ease-out) var(--motion-delay, 0ms), filter .62s var(--ease-out) var(--motion-delay, 0ms) !important;
+    }
+    body.motion-force.motion-ready .motion-reveal.in-view { opacity: 1 !important; transform: translate3d(0, 0, 0) scale(1) !important; filter: saturate(1) blur(0) !important; }
+    body.motion-force.motion-pulse::after { animation: clickPulse .85s var(--ease-out) !important; }
   }
 
 /* 回到顶部按钮 — V1 index.html 未 link app.css, 实际靠 index.html 内联 style 生效; 此处保留作同步参考 */
@@ -1195,6 +1220,16 @@
   box-shadow: 0 14px 38px rgba(0,0,0,.35); backdrop-filter: blur(14px);
   cursor: pointer;
 }
+.motion-toggle {
+  position: fixed; right: 116px; top: 24px; z-index: 1100;
+  border: 1px solid rgba(255,255,255,.14); border-radius: 999px;
+  background: rgba(12,14,22,.68); color: #d9c7d1; padding: 10px 14px;
+  box-shadow: 0 14px 34px rgba(0,0,0,.28); backdrop-filter: blur(14px);
+  cursor: pointer;
+  transition: transform .2s var(--ease-out), background .2s, color .2s, border-color .2s, box-shadow .2s;
+}
+.motion-toggle:hover { transform: translateY(-1px); color: #fff; border-color: rgba(255,79,135,.42); }
+.motion-toggle.active { color: #fff; background: linear-gradient(135deg, rgba(255,79,135,.82), rgba(103,232,249,.28)); border-color: rgba(255,255,255,.24); box-shadow: 0 14px 34px rgba(255,79,135,.24); }
 .side-drawer { position: fixed; inset: 0; z-index: 1300; pointer-events: none; }
 .side-drawer.open { pointer-events: auto; }
 .side-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.42); opacity: 0; transition: opacity .22s var(--ease-out); }
@@ -1228,4 +1263,4 @@
 .trash-card .code { color: #ff7aa6; font-weight: 700; font-size: 12px; }
 .trash-card .title { color: #ddd2dc; font-size: 12px; line-height: 1.35; margin: 3px 0 8px; }
 .trash-card .restore { border: 1px solid rgba(255,255,255,.14); border-radius: 10px; background: rgba(103,232,249,.12); color: #baf6ff; padding: 6px 9px; cursor: pointer; }
-@media (max-width: 640px) { .side-open { right: 12px; top: 12px; } .side-panel { width: 100vw; } .side-fav-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } }
+@media (max-width: 640px) { .side-open { right: 12px; top: 12px; } .motion-toggle { right: 104px; top: 12px; padding: 10px 12px; } .side-panel { width: 100vw; } .side-fav-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } }

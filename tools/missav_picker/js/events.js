@@ -124,9 +124,26 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSidebar
 const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 let motionPulseTimer = null;
 let motionObserver = null;
+function motionStorageKey() { return 'missav_picker_motion_enabled_v1'; }
+function getMotionPreference() { try { return localStorage.getItem(motionStorageKey()) || ''; } catch (e) { return ''; } }
+function setMotionPreference(on) { try { localStorage.setItem(motionStorageKey(), on ? '1' : '0'); } catch (e) {} }
+function motionAllowed() {
+  const pref = getMotionPreference();
+  if (pref === '1') return true;
+  if (pref === '0') return false;
+  return !prefersReducedMotion;
+}
+function syncMotionToggle() {
+  const btn = $('motionToggle');
+  if (!btn) return;
+  const active = motionAllowed();
+  btn.classList.toggle('active', active);
+  btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+  btn.title = active ? '关闭动效' : '开启动效';
+}
 
 function markMotionReveal(root) {
-  if (prefersReducedMotion) return;
+  if (!motionAllowed()) return;
   const scope = root && root.querySelectorAll ? root : document;
   const selector = 'header, .trending, .playable-jable, .filters, .candidate-info, .selected-bar, .roll-btn, .shortlist, #browseArea, #resultArea, .history, .trend-card, .playable-card, .browse-card, .fav-card, .hist-card, .short-card, .result-card, .trash-card';
   const nodes = [];
@@ -141,7 +158,9 @@ function markMotionReveal(root) {
 }
 
 function initPageMotion() {
-  if (prefersReducedMotion) return;
+  syncMotionToggle();
+  if (!motionAllowed()) return;
+  document.body.classList.toggle('motion-force', getMotionPreference() === '1');
   document.body.classList.add('motion-ready');
   motionObserver = new IntersectionObserver(entries => {
     entries.forEach(entry => {
@@ -161,6 +180,7 @@ function initPageMotion() {
   }).observe(document.body, { childList: true, subtree: true });
 
   document.addEventListener('pointerdown', e => {
+    if (!motionAllowed()) return;
     document.documentElement.style.setProperty('--click-x', e.clientX + 'px');
     document.documentElement.style.setProperty('--click-y', e.clientY + 'px');
     document.body.classList.remove('motion-pulse');
@@ -173,6 +193,27 @@ function initPageMotion() {
 }
 
 initPageMotion();
+
+if ($('motionToggle')) $('motionToggle').addEventListener('click', () => {
+  const next = !motionAllowed();
+  setMotionPreference(next);
+  document.body.classList.toggle('motion-force', next && prefersReducedMotion);
+  syncMotionToggle();
+  if (!next) {
+    document.body.classList.remove('motion-ready', 'motion-pulse');
+    document.querySelectorAll('.motion-reveal').forEach(node => node.classList.remove('motion-reveal', 'in-view'));
+    return;
+  }
+  document.body.classList.add('motion-ready');
+  if (!motionObserver) initPageMotion();
+  document.querySelectorAll('.motion-reveal').forEach(node => node.classList.remove('in-view'));
+  markMotionReveal(document);
+  requestAnimationFrame(() => {
+    document.querySelectorAll('.motion-reveal').forEach((node, index) => {
+      setTimeout(() => node.classList.add('in-view'), Math.min(index % 8, 7) * 42);
+    });
+  });
+});
 
 let browsePage = 0;
 const BROWSE_PER = 30;

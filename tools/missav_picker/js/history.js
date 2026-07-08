@@ -8,7 +8,7 @@ function renderHistory() {
           onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${escHtml(fallbackCoverUrl(v))}';}else if(!this.dataset.fallback2){this.dataset.fallback2='1';this.src='${escHtml(p(v.cover || ""))}';}else{this.parentElement.style.background='var(--border)';this.style.display='none';}">
       </div>
       <div class="hist-code">${escHtml(v.code)}</div>
-      <div class="hist-title">${escHtml((v.title || '').slice(0, 30) || '—')}</div>
+      <div class="hist-title">${escHtml(v.title || '—')}</div>
     </div>
   `).join('');
 }
