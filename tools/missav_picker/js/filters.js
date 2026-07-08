@@ -16,16 +16,16 @@ function renderTagChips() {
   if (!DATA) {
     // 初始渲染:用索引数据
     $('tagChips').innerHTML = IDX.tags.slice(0, 24).map(t =>
-      `<span class="chip" data-tag="${t}" style="opacity:0.5">${t}<span class="count">${IDX.tag_counts[t]}</span></span>`
+      `<span class="chip" data-tag="${escHtml(t)}" style="opacity:0.5">${escHtml(t)}<span class="count">${IDX.tag_counts[t]}</span></span>`
     ).join('');
     $('excludeChips').innerHTML = EXCLUDE_PRESET.map(t =>
-      `<span class="chip" data-extag="${t}" style="opacity:0.5">🚫 ${t}</span>`
+      `<span class="chip" data-extag="${escHtml(t)}" style="opacity:0.5">🚫 ${escHtml(t)}</span>`
     ).join('');
     return;
   }
   const pool = getTypePool();
   const tc = {};
-  for (const v of pool) for (const t of v.tags) tc[t] = (tc[t] || 0) + 1;
+  for (const v of pool) for (const t of (Array.isArray(v.tags) ? v.tags : [])) tc[t] = (tc[t] || 0) + 1;
   // 按频次排序,取 top 24
   const sorted = Object.entries(tc).sort((a, b) => b[1] - a[1]).slice(0, 24);
   const topSet = new Set(sorted.map(e => e[0]));
@@ -37,27 +37,27 @@ function renderTagChips() {
   $('tagChips').innerHTML = [...topSet].map(t => {
     const n = tc[t] || 0;
     const dim = n === 0 ? ' style="opacity:0.35"' : '';
-    return `<span class="chip" data-tag="${t}"${dim}>${t}<span class="count">${n}</span></span>`;
+    return `<span class="chip" data-tag="${escHtml(t)}"${dim}>${escHtml(t)}<span class="count">${n}</span></span>`;
   }).join('');
 
   // 恢复 active 态
   for (const t of state.tags) {
-    const chip = document.querySelector(`#tagChips .chip[data-tag="${t}"]`);
+    const chip = document.querySelector(`#tagChips .chip[data-tag="${cssIdent(t)}"]`);
     if (chip) chip.classList.add('active');
   }
   for (const t of state.excludeTags) {
-    const chip = document.querySelector(`#excludeChips .chip[data-extag="${t}"]`);
+    const chip = document.querySelector(`#excludeChips .chip[data-extag="${cssIdent(t)}"]`);
     if (chip) chip.classList.add('active');
   }
 
   $('excludeChips').innerHTML = EXCLUDE_PRESET.map(t => {
     const n = tc[t] || 0;
     const dim = n === 0 ? ' style="opacity:0.35"' : '';
-    return `<span class="chip" data-extag="${t}"${dim}>🚫 ${t}</span>`;
+    return `<span class="chip" data-extag="${escHtml(t)}"${dim}>🚫 ${escHtml(t)}</span>`;
   }).join('');
   // 恢复 exclude active
   for (const t of state.excludeTags) {
-    const chip = document.querySelector(`#excludeChips .chip[data-extag="${t}"]`);
+    const chip = document.querySelector(`#excludeChips .chip[data-extag="${cssIdent(t)}"]`);
     if (chip) chip.classList.add('active');
   }
 }
@@ -68,13 +68,13 @@ function chipHTML(a) {
   const avatar = (D.actress_avatars || {})[a];
   const dispName = (D.actress_display || {})[a] || a;
   const initial = a.replace(/[（(].*[）)]/g,'').charAt(0);
-  const fallback = `<span class="avatar-fallback">${initial}</span>`;
+  const fallback = `<span class="avatar-fallback">${escHtml(initial)}</span>`;
   const imgHtml = avatar
-    ? `<img src="${avatar}" alt="${a}" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`
+    ? `<img src="${escHtml(avatar)}" alt="${escHtml(a)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`
     : '';
-  return `<div class="actress-chip${sel}" data-actress="${a}" title="${dispName}">
+  return `<div class="actress-chip${sel}" data-actress="${escHtml(a)}" title="${escHtml(dispName)}">
             <div class="blob">${fallback}${imgHtml}</div>
-            <span class="name">${dispName}</span>
+            <span class="name">${escHtml(dispName)}</span>
           </div>`;
 }
 
@@ -128,26 +128,27 @@ function getCandidates() {
     if (state.type === 'saved' && !isFavorite(v)) return false;
     // 包含标签(任一命中)
     if (state.tags.size > 0) {
-      const hit = v.tags.some(t => state.tags.has(t));
+      const hit = (Array.isArray(v.tags) ? v.tags : []).some(t => state.tags.has(t));
       if (!hit) return false;
     }
     // 排除标签
     if (state.excludeTags.size > 0) {
-      const exHit = v.tags.some(t => state.excludeTags.has(t));
+      const exHit = (Array.isArray(v.tags) ? v.tags : []).some(t => state.excludeTags.has(t));
       if (exHit) return false;
     }
     // 女优
-    if (state.actresses.size > 0) {
-      const hit = v.actresses.some(a => state.actresses.has(a));
+  if (state.actresses.size > 0) {
+      const hit = (Array.isArray(v.actresses) ? v.actresses : []).some(a => state.actresses.has(a));
       if (!hit) return false;
     }
+    if (state.removedVideos && state.removedVideos[(v.source || state.source) + ':' + v.code]) return false;
     return true;
   });
 }
 
 function deselectTag(t) {
   state.tags.delete(t);
-  const chip = document.querySelector('#tagChips .chip[data-tag="'+t+'"]');
+  const chip = document.querySelector('#tagChips .chip[data-tag="'+cssIdent(t)+'"]');
   if (chip) chip.classList.remove('active');
   renderTagChips(); updateCount();
 }
@@ -170,13 +171,13 @@ function renderSelBar() {
     const tl = {all:'',solo:'👤 单人',multi:'👥 多人',saved:'⭐ 仅收藏'}[state.type];
     parts.push('<span class="sel-chip type" data-click="clearType">'+tl+' ×</span>');
   }
-  state.tags.forEach(t => parts.push('<span class="sel-chip tag" data-click="dropTag" data-tag="'+t.replace(/"/g,'&quot;')+'">'+t+' ×</span>'));
+  state.tags.forEach(t => parts.push('<span class="sel-chip tag" data-click="dropTag" data-tag="'+escHtml(t)+'">'+escHtml(t)+' ×</span>'));
   state.actresses.forEach(a => {
     const av = (D.actress_avatars || {})[a];
     const disp = (D.actress_display||{})[a] || a;
     const initial = a.replace(/[（(].*[）)]/g,'').charAt(0);
-    const img = '<span class="avatar-fallback">'+initial+'</span>' + (av ? '<img src="'+av+'" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">' : '');
-    parts.push('<span class="sel-item" data-click="dropActress" data-actress="'+a.replace(/"/g,'&quot;')+'" title="'+disp.replace(/"/g,'&quot;')+'"><span class="sel-blob">'+img+'</span><span class="sel-name">'+disp+'</span></span>');
+    const img = '<span class="avatar-fallback">'+escHtml(initial)+'</span>' + (av ? '<img src="'+escHtml(av)+'" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">' : '');
+    parts.push('<span class="sel-item" data-click="dropActress" data-actress="'+escHtml(a)+'" title="'+escHtml(disp)+'"><span class="sel-blob">'+img+'</span><span class="sel-name">'+escHtml(disp)+'</span></span>');
   });
   sb.innerHTML = parts.join('');
 }

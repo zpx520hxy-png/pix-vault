@@ -610,6 +610,10 @@
     cursor: pointer; background: #000;
   }
   .jplayer .jp-cover img { width: 100%; height: 100%; object-fit: contain; }
+  .jplayer .jp-cover .jp-preview { display: none; position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; z-index: 1; }
+  .jplayer .jp-cover.preview-on .jp-preview { display: block; }
+  .jplayer .jp-cover.preview-on img { opacity: 0; }
+  .jplayer .jp-cover.preview-on .jp-play-icon { opacity: .55; }
   .jplayer .jp-cover .jp-play-icon {
     position: absolute; width: 72px; height: 72px; border-radius: 50%;
     background: rgba(233,30,99,0.85); display: flex; align-items: center; justify-content: center;
@@ -618,7 +622,7 @@
   }
   .jplayer .jp-cover:hover .jp-play-icon { transform: scale(1.1); background: var(--primary); }
   .jplayer[data-state="play"] .jp-cover { display: none; }
-  .jplayer[data-state="cover"] video,
+  .jplayer[data-state="cover"] video:not(.jp-preview),
   .jplayer[data-state="cover"] .jp-bar,
   .jplayer[data-state="cover"] .jp-progress,
   .jplayer[data-state="cover"] .jp-loading { display: none !important; }
@@ -978,9 +982,9 @@
   .period-chip.ghost { background: transparent; }
   .trending-body {
     position: relative;
-    overflow: hidden;
-    max-height: 4000px;
-    transition: max-height .4s var(--ease-out), opacity .25s var(--ease-out), margin-top .3s var(--ease-out);
+    overflow: visible;
+    max-height: none;
+    transition: opacity .25s var(--ease-out), margin-top .3s var(--ease-out);
     opacity: 1;
   }
 
@@ -1062,6 +1066,7 @@
   .filters.is-collapsed .filter-row { display: none !important; }
   .trending.collapsed .trending-body {
     max-height: 0;
+    overflow: hidden;
     opacity: 0;
     margin-top: 0;
   }
@@ -1217,10 +1222,78 @@
   transition: opacity .2s, transform .2s;
 }
 #backToTop.visible { display: flex; }
-#backToTop:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(233,30,99,.55); }</style>
+#backToTop:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(233,30,99,.55); }
+.side-open {
+  position: fixed; right: 24px; top: 24px; z-index: 1100;
+  border: 1px solid rgba(255,255,255,.16); border-radius: 999px;
+  background: rgba(12,14,22,.78); color: #fff; padding: 10px 14px;
+  box-shadow: 0 14px 38px rgba(0,0,0,.35); backdrop-filter: blur(14px);
+  cursor: pointer;
+}
+.side-drawer { position: fixed; inset: 0; z-index: 1300; pointer-events: none; }
+.side-drawer.open { pointer-events: auto; }
+.side-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.42); opacity: 0; transition: opacity .22s var(--ease-out); }
+.side-drawer.open .side-backdrop { opacity: 1; }
+.side-panel {
+  position: absolute; right: 0; top: 0; height: 100%; width: min(460px, 100vw);
+  background: linear-gradient(145deg, rgba(25,27,38,.98), rgba(13,15,24,.98));
+  border-left: 1px solid rgba(255,255,255,.14);
+  box-shadow: -28px 0 70px rgba(0,0,0,.46);
+  transform: translateX(100%); transition: transform .28s var(--ease-out);
+  display: flex; flex-direction: column;
+}
+.side-drawer.open .side-panel { transform: translateX(0); }
+.side-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 18px 12px; }
+.side-head strong { font-size: 18px; color: #fff; }
+.side-close { border: 1px solid rgba(255,255,255,.13); border-radius: 12px; background: rgba(255,255,255,.06); color: #fff; width: 38px; height: 38px; cursor: pointer; }
+.side-tabs { display: flex; gap: 8px; padding: 0 18px 14px; }
+.side-tab { flex: 1; border: 1px solid rgba(255,255,255,.13); border-radius: 14px; background: rgba(255,255,255,.05); color: #d7ccd5; padding: 10px; cursor: pointer; }
+.side-tab.active { background: linear-gradient(135deg, #ff4f87, #ff7a59); color: #fff; }
+.side-content { flex: 1; overflow: auto; padding: 0 18px 22px; }
+.side-page { display: none; }
+.side-page.active { display: block; }
+.side-fav-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.side-section { margin-bottom: 18px; }
+.side-section h3 { display: flex; justify-content: space-between; align-items: center; margin: 0 0 10px; font-size: 14px; color: #fff; }
+.trash-list { display: grid; gap: 10px; }
+.trash-card { display: grid; grid-template-columns: 68px 1fr; gap: 10px; border: 1px solid rgba(255,255,255,.1); border-radius: 16px; background: rgba(255,255,255,.045); padding: 8px; cursor: pointer; transition: transform .18s var(--ease-out), border-color .18s; }
+.trash-card:hover { transform: translateY(-2px); border-color: rgba(255,79,135,.48); }
+.trash-card .thumb { width: 68px; aspect-ratio: 4/3; border-radius: 12px; overflow: hidden; background: #151a26; }
+.trash-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.trash-card .code { color: #ff7aa6; font-weight: 700; font-size: 12px; }
+.trash-card .title { color: #ddd2dc; font-size: 12px; line-height: 1.35; margin: 3px 0 8px; }
+.trash-card .restore { border: 1px solid rgba(255,255,255,.14); border-radius: 10px; background: rgba(103,232,249,.12); color: #baf6ff; padding: 6px 9px; cursor: pointer; }
+@media (max-width: 640px) { .side-open { right: 12px; top: 12px; } .side-panel { width: 100vw; } .side-fav-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } }
+</style>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
 </head>
 <body>
+<button class="side-open" id="sideOpen" type="button">☰ 更多</button>
+<aside class="side-drawer" id="sideDrawer" aria-hidden="true">
+  <div class="side-backdrop" onclick="closeSidebar()"></div>
+  <div class="side-panel" role="dialog" aria-label="收藏夹和回收站">
+    <div class="side-head"><strong>作品库</strong><button class="side-close" type="button" onclick="closeSidebar()">×</button></div>
+    <div class="side-tabs">
+      <button class="side-tab active" type="button" data-side-tab="favorites">收藏夹</button>
+      <button class="side-tab" type="button" data-side-tab="trash">回收站</button>
+    </div>
+    <div class="side-content">
+      <div class="side-page active" id="sideFavorites">
+        <div class="side-fav-columns">
+          <div class="side-section" id="missavFavArea" style="display:none;">
+            <h3><span>⭐ MissAV</span><button class="btn btn-ghost" onclick="clearFavorites('missav')" style="font-size:11px;padding:4px 10px;">清空</button></h3>
+            <div class="favorites-grid" id="missavFavGrid"></div>
+          </div>
+          <div class="side-section" id="jableFavArea" style="display:none;">
+            <h3><span>⭐ Jable</span><button class="btn btn-ghost" onclick="clearFavorites('jable')" style="font-size:11px;padding:4px 10px;">清空</button></h3>
+            <div class="favorites-grid" id="jableFavGrid"></div>
+          </div>
+        </div>
+      </div>
+      <div class="side-page" id="sideTrash"><div class="trash-list" id="trashGrid"></div></div>
+    </div>
+  </div>
+</aside>
 <div class="container">
   <header>
     <h1>🎲 MissAV 随机选片器</h1>
@@ -1268,16 +1341,6 @@
       <div class="playable-grid" id="playableJableGrid"></div>
     </div>
   </section>
-
-  <div class="favorites" id="missavFavArea" style="display:none;">
-    <h2><span class="left">⭐ MissAV 收藏</span><button class="btn btn-ghost" onclick="clearFavorites('missav')" style="font-size:11px;padding:4px 10px;">🗑 清空</button></h2>
-    <div class="favorites-grid" id="missavFavGrid"></div>
-  </div>
-
-  <div class="favorites" id="jableFavArea" style="display:none;">
-    <h2><span class="left">⭐ Jable 收藏</span><button class="btn btn-ghost" onclick="clearFavorites('jable')" style="font-size:11px;padding:4px 10px;">🗑 清空</button></h2>
-    <div class="favorites-grid" id="jableFavGrid"></div>
-  </div>
 
   <div class="filters">
     <div class="filters-head">

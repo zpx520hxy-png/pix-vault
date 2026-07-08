@@ -77,6 +77,7 @@ C:\Users\Pda\AppData\Local\Programs\Python\Python311\python.exe server.py
 | 浏览器侧缓存 | `max-age` 跟随 TTL | 走 HTTP `Cache-Control` 头 |
 
 ### 容量控制
+
 - 缓存目录上限 **500MB**（`CACHE_MAX_BYTES`）
 - 超过后自动按 mtime 删最旧的 10% 文件
 - 想清空：直接删 `tools\missav_picker\.img_cache\` 目录

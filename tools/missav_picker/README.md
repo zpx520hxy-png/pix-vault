@@ -135,6 +135,7 @@ scripts/
 | 方式 | 命令 |
 |---|---|
 | 双击启动 | `start.bat` |
+| 双击停止 | `stop.bat` |
 | 命令行 | `python server.py` |
 | 开机自启 | 已复制到 `启动` 文件夹 (missav_picker.vbs) |
 

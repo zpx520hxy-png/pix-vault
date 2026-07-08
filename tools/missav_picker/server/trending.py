@@ -120,14 +120,23 @@ def _parse_jable_trending(html):
         if code in seen:
             continue
         seen.add(code)
-        start = max(0, m.start() - 600)
-        end = min(len(html), m.end() + 200)
-        local = html[start:end]
+        end_anchor = html.find("</a>", m.end())
+        if end_anchor == -1 or end_anchor - m.start() > 1200:
+            end_anchor = m.end() + 220
+        local = html[m.start() : min(len(html), end_anchor + 4)]
         cover_m = re.search(
             r"(?:data-original|data-src|src)=[\"\'](https?://assets-cdn\.jable\.tv/[^\"\' ]+\.(?:jpe?g|png|webp))",
             local,
             re.I,
         )
+        if not cover_m:
+            start = max(0, m.start() - 260)
+            local = html[start : min(len(html), m.end() + 220)]
+            cover_m = re.search(
+                r"(?:data-original|data-src|src)=[\"\'](https?://assets-cdn\.jable\.tv/[^\"\' ]+\.(?:jpe?g|png|webp))",
+                local,
+                re.I,
+            )
         title_m = re.search(r"(?:alt|title|h4|h3)[^>]*>([^<]{2,200})<", local, re.I)
         cover = cover_m.group(1) if cover_m else ""
         title = title_m.group(1).strip() if title_m else ""
@@ -227,6 +236,61 @@ def _local_fallback_trending(source, period):
     return out
 
 
+def _local_video_map(source):
+    data_file = ROOT / ("jable_data.json" if source == "jable" else "picker_data.json")
+    if not data_file.is_file():
+        return {}
+    try:
+        videos = json.loads(data_file.read_text(encoding="utf-8")).get("videos") or []
+    except Exception:
+        return {}
+    return {(v.get("code") or "").lower(): v for v in videos if v.get("code")}
+
+
+def _removed_video_keys():
+    path = ROOT / ".removed_videos.json"
+    if not path.is_file():
+        return set()
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return set()
+    return {str(k).lower() for k in data.keys()}
+
+
+def _hydrate_trending_items(source, items):
+    local = _local_video_map(source)
+    removed = _removed_video_keys()
+    out = []
+    seen = set()
+    for it in items or []:
+        code = (it.get("code") or "").lower()
+        if not code or code in seen or f"{source}:{code}" in removed:
+            continue
+        local_v = local.get(code) or {}
+        seen.add(code)
+        url = local_v.get("url") or it.get("url") or ""
+        if not url:
+            url = (
+                f"https://jable.tv/videos/{code}/"
+                if source == "jable"
+                else f"https://missav.ws/cn/{code}"
+            )
+        out.append(
+            {
+                "code": local_v.get("code") or it.get("code") or code,
+                "title": it.get("title") or local_v.get("title") or "",
+                "cover": it.get("cover") or local_v.get("cover") or "",
+                "url": url,
+                "date": local_v.get("date") or it.get("date") or "",
+                "local": bool(local_v),
+            }
+        )
+        if len(out) >= 20:
+            break
+    return out
+
+
 def _scrape_trending(source, period):
     if source == "missav":
         url = "https://missav.ws/"
@@ -261,7 +325,7 @@ def _scrape_trending(source, period):
                 seen.add(it["code"])
                 if len(items) >= 20:
                     break
-    items = [{**it, "date": it.get("date", "")} for it in items]
+    items = _hydrate_trending_items(source, items)
     return {
         "source": source,
         "period": period,

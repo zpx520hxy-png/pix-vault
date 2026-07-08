@@ -72,15 +72,15 @@ function renderShortlist() {
     const src = currentSourceOf(v);
     const actress = (v.actresses || []).slice(0, 2).join('、') || '未知女优';
     return `
-      <div class="short-card" onclick="pickShortlist('${v.code}')" title="点选 ${v.code}">
+      <div class="short-card" onclick="pickShortlist(${jsArg(v.code)})" title="点选 ${escHtml(v.code)}">
         <div class="img-wrap">
-          <img src="${coverUrl(v)}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
-            onerror="if(this.dataset.fallback){this.parentElement.style.background='var(--border)';this.style.display='none';}else{this.dataset.fallback='1';this.src='${p(v.cover || "")}';}">
+          <img src="${escHtml(coverUrl(v))}" alt="${escHtml(v.code)}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+            onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${escHtml(fallbackCoverUrl(v))}';}else if(!this.dataset.fallback2){this.dataset.fallback2='1';this.src='${escHtml(p(v.cover || ""))}';}else{this.parentElement.style.background='var(--border)';this.style.display='none';}">
         </div>
         <div class="info">
-          <div class="code">${v.code}</div>
-          <div class="title">${v.title || '（无标题）'}</div>
-          <div class="meta">${actress}${v.date ? ' · ' + v.date : ''}</div>
+          <div class="code">${escHtml(v.code)}</div>
+          <div class="title">${escHtml(v.title || '（无标题）')}</div>
+          <div class="meta">${escHtml(actress)}${v.date ? ' · ' + escHtml(v.date) : ''}</div>
         </div>
       </div>`;
   }).join('');

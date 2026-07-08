@@ -38,6 +38,49 @@ from .img_proxy import proxy_img, _detect_ct
 from .trending import get_trending
 
 
+def _rebuild_index():
+    import collections
+
+    f = DATA_FILES.get("missav")
+    if not f or not f.is_file():
+        return
+    try:
+        data = json.loads(f.read_text(encoding="utf-8"))
+        videos = data.get("videos", [])
+        actresses = sorted(
+            set(
+                a.strip()
+                for v in videos
+                for a in (v.get("actresses") or [])
+                if a.strip()
+            )
+        )
+        tags = sorted(
+            set(t.strip() for v in videos for t in (v.get("tags") or []) if t.strip())
+        )
+        tag_counts = collections.Counter()
+        for v in videos:
+            for t in set(t.strip() for t in (v.get("tags") or []) if t.strip()):
+                tag_counts[t] += 1
+        idx = DATA_FILES.get("index")
+        if idx:
+            idx.write_text(
+                json.dumps(
+                    {
+                        "actresses": actresses,
+                        "tags": tags,
+                        "tag_counts": dict(tag_counts),
+                        "total_videos": len(videos),
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+    except Exception:
+        pass
+
+
 class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
@@ -89,6 +132,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         path = urlparse(self.path).path
         if path == "/sync_state":
             self._handle_save_sync_state()
+        elif path == "/remove_video":
+            self._handle_remove_video()
+        elif path == "/restore_video":
+            self._handle_restore_video()
         else:
             self.send_response(404)
             self.end_headers()
@@ -373,6 +420,113 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             body = self.rfile.read(length)
             ok = save_sync_state(body)
             resp = json.dumps({"ok": ok}).encode("utf-8")
+            self._send_json(resp)
+        except Exception:
+            self.send_response(500)
+            self.end_headers()
+
+    def _handle_remove_video(self):
+        try:
+            length = int(self.headers.get("Content-Length", "0") or "0")
+            if length <= 0 or length > 1024:
+                self.send_response(400)
+                self.end_headers()
+                return
+            body = json.loads(self.rfile.read(length))
+            code = (body.get("code") or "").upper()
+            source = (body.get("source") or "missav").lower()
+            if not code:
+                self.send_response(400)
+                self.end_headers()
+                return
+
+            data_file = DATA_FILES.get(source)
+            removed = {}
+            removed_file = ROOT / ".removed_videos.json"
+            if removed_file.is_file():
+                try:
+                    removed = json.loads(removed_file.read_text(encoding="utf-8"))
+                except Exception:
+                    pass
+            key = source + ":" + code
+            removed[key] = time.time()
+            removed_file.write_text(
+                json.dumps(removed, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+
+            if data_file and data_file.is_file():
+                try:
+                    data = json.loads(data_file.read_text(encoding="utf-8"))
+                    before = len(data.get("videos", []))
+                    data["videos"] = [
+                        v
+                        for v in data.get("videos", [])
+                        if (v.get("code") or "").upper() != code
+                    ]
+                    if len(data.get("videos", [])) < before:
+                        data_file.write_text(
+                            json.dumps(data, ensure_ascii=False, indent=2),
+                            encoding="utf-8",
+                        )
+                        _rebuild_index()
+                except Exception:
+                    pass
+
+            resp = json.dumps({"ok": True, "code": code, "source": source}).encode(
+                "utf-8"
+            )
+            self._send_json(resp)
+        except Exception:
+            self.send_response(500)
+            self.end_headers()
+
+    def _handle_restore_video(self):
+        try:
+            length = int(self.headers.get("Content-Length", "0") or "0")
+            if length <= 0 or length > 512 * 1024:
+                self.send_response(400)
+                self.end_headers()
+                return
+            body = json.loads(self.rfile.read(length))
+            code = (body.get("code") or "").upper()
+            source = (body.get("source") or "missav").lower()
+            video = body.get("video") or {}
+            if not code:
+                self.send_response(400)
+                self.end_headers()
+                return
+
+            removed_file = ROOT / ".removed_videos.json"
+            removed = {}
+            if removed_file.is_file():
+                try:
+                    removed = json.loads(removed_file.read_text(encoding="utf-8"))
+                except Exception:
+                    pass
+            removed.pop(source + ":" + code, None)
+            removed_file.write_text(
+                json.dumps(removed, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+
+            data_file = DATA_FILES.get(source)
+            if data_file and data_file.is_file() and isinstance(video, dict):
+                data = json.loads(data_file.read_text(encoding="utf-8"))
+                videos = data.get("videos") or []
+                exists = any((v.get("code") or "").upper() == code for v in videos)
+                if not exists:
+                    video["code"] = code
+                    video["source"] = source
+                    videos.append(video)
+                    data["videos"] = videos
+                    data_file.write_text(
+                        json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+                    )
+                    if source == "missav":
+                        _rebuild_index()
+
+            resp = json.dumps({"ok": True, "code": code, "source": source}).encode(
+                "utf-8"
+            )
             self._send_json(resp)
         except Exception:
             self.send_response(500)

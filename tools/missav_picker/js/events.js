@@ -97,6 +97,30 @@ $('actressSearch').addEventListener('input', (e) => {
 
 $('rollBtn').addEventListener('click', rollOne);
 
+function openSidebar(tab) {
+  const drawer = $('sideDrawer');
+  if (!drawer) return;
+  drawer.classList.add('open');
+  drawer.setAttribute('aria-hidden', 'false');
+  setSidebarTab(tab || 'favorites');
+  renderFavorites();
+  renderTrash();
+}
+function closeSidebar() {
+  const drawer = $('sideDrawer');
+  if (!drawer) return;
+  drawer.classList.remove('open');
+  drawer.setAttribute('aria-hidden', 'true');
+}
+function setSidebarTab(tab) {
+  document.querySelectorAll('.side-tab').forEach(b => b.classList.toggle('active', b.dataset.sideTab === tab));
+  $('sideFavorites').classList.toggle('active', tab === 'favorites');
+  $('sideTrash').classList.toggle('active', tab === 'trash');
+}
+if ($('sideOpen')) $('sideOpen').addEventListener('click', () => openSidebar('favorites'));
+document.querySelectorAll('.side-tab').forEach(b => b.addEventListener('click', () => setSidebarTab(b.dataset.sideTab)));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSidebar(); });
+
 let browsePage = 0;
 const BROWSE_PER = 30;
 

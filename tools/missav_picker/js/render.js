@@ -2,16 +2,19 @@
 function renderResult() {
   const v = state.current;
   if (!v) return;
+  v.tags = Array.isArray(v.tags) ? v.tags : [];
+  v.actresses = Array.isArray(v.actresses) ? v.actresses : [];
   const badges = [];
   badges.push(v.is_multi
     ? `<span class="badge multi">👥 多人 · ${v.actresses.length} 位</span>`
     : `<span class="badge solo">👤 单人</span>`);
-  if (isFavorite(v)) badges.push('<span class="badge saved">⭐ 已收藏</span>');
-  if (v.date) badges.push(`<span class="badge">📅 ${v.date}</span>`);
-  v.tags.forEach(t => badges.push(`<span class="badge tag">${t}</span>`));
+  if (isManualFavorite(v)) badges.push('<span class="badge saved manual-fav">⭐ 手动收藏</span>');
+  if (isScrapedFavorite(v)) badges.push('<span class="badge saved scraped-fav">✅ 站内收藏</span>');
+  if (v.date) badges.push(`<span class="badge">📅 ${escHtml(v.date)}</span>`);
+  v.tags.forEach(t => badges.push(`<span class="badge tag">${escHtml(t)}</span>`));
 
   const actressText = v.actresses.length > 0
-    ? v.actresses.map(a => `<strong>${a}</strong>`).join('、')
+    ? v.actresses.map(a => `<strong>${escHtml(a)}</strong>`).join('、')
     : '<span style="color:var(--text-mute)">未知</span>';
 
   const isJable = currentSourceOf(v) === 'jable';
@@ -19,11 +22,11 @@ function renderResult() {
     ? `<div class="media-col">
           <div class="jplayer" id="jp" data-state="cover">
           <div class="jp-cover" id="jpCover">
-             <img src="${coverUrl(v)}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
-               onerror="if(this.dataset.fallback){this.parentElement.innerHTML='<div class=placeholder>🎞 ${v.code}</div>';}else{this.dataset.fallback='1';this.src='${p(v.cover || "")}';}">
-           <div class="jp-play-icon">▶</div>
-         </div>
-         <video id="jpVideo" playsinline preload="auto" poster="${p(v.cover)}"></video>
+             <video class="jp-preview" id="jpPreview" muted loop playsinline disableRemotePlayback preload="none" poster="${escHtml(p(v.cover))}"></video>
+             <img src="${escHtml(coverUrl(v))}" data-fallback-cover="${escHtml(fallbackCoverUrl(v))}" onload="handleCoverLoad(this)" alt="${escHtml(v.code)}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+               onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${escHtml(fallbackCoverUrl(v))}';}else if(!this.dataset.fallback2){this.dataset.fallback2='1';this.src='${escHtml(p(v.cover || ""))}';}else{this.parentElement.innerHTML='<div class=placeholder>🎞 ${escHtml(v.code)}</div>';}">
+          </div>
+          <video id="jpVideo" playsinline preload="auto" poster="${escHtml(p(v.cover))}"></video>
          <div class="jp-loading" id="jpLoading">⏳ 加载中...</div>
          <div class="jp-progress" id="jpProgress">
            <div class="jp-buffered" id="jpBuffered"></div>
@@ -61,55 +64,58 @@ function renderResult() {
          </div>
        </div>`
     : `<div class="media-col"><div class="cover-wrap" onclick="(function(w){w.classList.contains('preview-on')?w.classList.remove('preview-on'):(w.classList.add('preview-on'),w.querySelector('video').play().catch(function(){}))})(this)">
-         <video src="${v.preview || ''}" muted loop playsinline disableRemotePlayback preload="auto"
-           poster="${p(v.cover)}"
-           onerror="this.style.display='none'"></video>
-         <div class="cover">
-             <img src="${coverUrl(v)}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
-                 onerror="if(this.dataset.fallback){this.parentElement.innerHTML='<div class=placeholder>🎞 ${v.code}</div>';}else{this.dataset.fallback='1';this.src='${p(v.cover || "")}';}">
-         </div>
-        </div></div>`;
+         <video src="${escHtml(v.preview || '')}" muted loop playsinline disableRemotePlayback preload="auto"
+            poster="${escHtml(p(v.cover))}"
+            onerror="this.style.display='none'"></video>
+          <div class="cover">
+              <img src="${escHtml(coverUrl(v))}" data-fallback-cover="${escHtml(fallbackCoverUrl(v))}" onload="handleCoverLoad(this)" alt="${escHtml(v.code)}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+                  onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${escHtml(fallbackCoverUrl(v))}';}else if(!this.dataset.fallback2){this.dataset.fallback2='1';this.src='${escHtml(p(v.cover || ""))}';}else{this.parentElement.innerHTML='<div class=placeholder>🎞 ${escHtml(v.code)}</div>';}">
+          </div>
+         </div></div>`;
 
   $('resultArea').innerHTML = `
     <div class="result-card">
       ${coverBlock}
       <div class="info">
         <div class="info-head">
-          <div class="code">${v.code}</div>
+          <div class="code">${escHtml(v.code)}</div>
           <button class="card-collapse" type="button" data-collapse="card">
             <span class="x">×</span><span class="lbl">收起</span><span class="arr">▾</span>
           </button>
         </div>
         <div class="badges">${badges.join('')}</div>
-        <div class="title">${v.title || '（无标题）'}</div>
+        <div class="title">${escHtml(v.title || '（无标题）')}</div>
         <div class="meta">
           <strong>女优</strong>：${actressText}<br>
-          <strong>发布日期</strong>：${v.date || '—'}
+          <strong>发布日期</strong>：${escHtml(v.date || '—')}
         </div>
         <div class="actions">
-          <a class="btn btn-primary" href="${v.url}" target="_blank" rel="noopener">▶️ 去 ${isJable?'Jable':'MissAV'} 观看</a>
+          <a class="btn btn-primary" href="${escHtml(v.url || '')}" target="_blank" rel="noopener">▶️ 去 ${isJable?'Jable':'MissAV'} 观看</a>
           <button class="btn btn-ghost" onclick="rollOne()">🎲 再抽一部</button>
-          <button class="btn btn-ghost" onclick="copyCode('${v.code}')">📋 复制番号</button>
-          <button class="btn btn-ghost" onclick="toggleFavorite()">${isFavorite(v) ? '⭐ 取消收藏' : '☆ 收藏'}</button>
+          <button class="btn btn-ghost" onclick="copyCode(${jsArg(v.code)}, this)">📋 复制番号</button>
+          <button class="btn btn-ghost fav-toggle" onclick="toggleFavorite()">${isManualFavorite(v) ? '⭐ 取消手动收藏' : '☆ 手动收藏'}</button>
+          <button class="btn btn-ghost" onclick="removeCurrentVideo()" style="color:var(--err)">🗑 移除作品</button>
         </div>
       </div>
     </div>`;
   if (isJable) {
     const cover = $('jpCover');
-    if (cover) cover.onclick = async () => {
-      const jp = $('jp');
-      const loading = $('jpLoading');
-      jp.setAttribute('data-state', 'play');
-      loading.textContent = '⏳ 正在准备播放链路...';
-      loading.classList.remove('hide');
-      const result = await ensurePlayReady((v.code || '').toLowerCase());
-      if (!result.ok) {
-        loading.textContent = result.status === 'not_found'
-          ? '⚠️ 当前未找到可播放链路'
-          : '⚠️ 播放准备失败';
+    if (cover) cover.onclick = () => {
+      const preview = $('jpPreview');
+      if (!preview) return;
+      if (preview.dataset.previewMounted !== '1') {
+        preview.dataset.previewMounted = '1';
+        mountHls(preview, previewUrl(v));
+        cover.classList.add('preview-on');
         return;
       }
-      initJplayer(v);
+      if (preview.paused) {
+        preview.play().catch(function(){});
+        cover.classList.add('preview-on');
+      } else {
+        preview.pause();
+        cover.classList.remove('preview-on');
+      }
     };
   }
 }

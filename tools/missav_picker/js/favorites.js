@@ -10,20 +10,20 @@ function renderFavorites() {
     grid.innerHTML = list.map(v => {
       const externalUrl = v.url || '';
       const extBtn = externalUrl
-        ? `<a class="ext-link" href="${externalUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🔗 打开 ${isJableFav ? 'Jable' : 'MissAV'}</a>`
+        ? `<a class="ext-link" href="${escHtml(externalUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🔗 打开 ${isJableFav ? 'Jable' : 'MissAV'}</a>`
         : '';
       return `
-      <div class="fav-card" onclick="openFavorite('${src}','${v.code}')">
+      <div class="fav-card" onclick="openFavorite(${jsArg(src)},${jsArg(v.code)})">
         <div class="img-wrap">
-          <img src="${coverUrl(v)}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
-               onerror="if(this.dataset.fallback){this.style.display='none';}else{this.dataset.fallback='1';this.src='${p(v.cover || "")}';}">
+          <img src="${escHtml(coverUrl(v))}" alt="${escHtml(v.code)}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+               onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${escHtml(fallbackCoverUrl(v))}';}else if(!this.dataset.fallback2){this.dataset.fallback2='1';this.src='${escHtml(p(v.cover || ""))}';}else{this.style.display='none';}">
         </div>
         <div class="info">
-          <div class="code">${v.code}</div>
-          <div class="title">${v.title || '（无标题）'}</div>
+          <div class="code">${escHtml(v.code)}</div>
+          <div class="title">${escHtml(v.title || '（无标题）')}</div>
           <div class="meta">
             ${extBtn}
-            <button class="remove" onclick="event.stopPropagation(); removeFavorite('${src}','${v.code}')">移除</button>
+            <button class="remove" onclick="event.stopPropagation(); removeFavorite(${jsArg(src)},${jsArg(v.code)})">移除</button>
           </div>
         </div>
       </div>`;
@@ -40,8 +40,10 @@ function loadFavorites() {
     const b = JSON.parse(localStorage.getItem(favStorageKey('jable')) || '[]');
     state.favoritesMissav = Array.isArray(a) ? a : [];
     state.favoritesJable = Array.isArray(b) ? b : [];
+    state.removedFavorites = readRemovedFavorites();
   } catch(e) {
     state.favoritesMissav = []; state.favoritesJable = [];
+    state.removedFavorites = {};
   }
   renderFavorites();
 }
@@ -50,38 +52,50 @@ function toggleFavorite() {
   const src = currentSourceOf(state.current);
   const list = favListForSource(src);
   const idx = list.findIndex(v => v.code === state.current.code);
-  if (idx >= 0) list.splice(idx, 1);
-  else list.unshift(normFavorite(state.current, src));
-  if (src === 'jable') state.favoritesJable = list.filter((v,i,a) => a.findIndex(x => x.code === v.code) === i);
-  else state.favoritesMissav = list.filter((v,i,a) => a.findIndex(x => x.code === v.code) === i);
+  const key = favKey(state.current, src);
+  if (idx >= 0) {
+    list.splice(idx, 1);
+    state.removedFavorites[key] = Date.now();
+  } else {
+    delete state.removedFavorites[key];
+    list.unshift(normFavorite(state.current, src));
+  }
+  if (src === 'jable') state.favoritesJable = applyRemovedFavorites(list, 'jable');
+  else state.favoritesMissav = applyRemovedFavorites(list, 'missav');
   saveFavorites(src);
+  saveRemovedFavorites();
   renderFavorites();
   // 只更新收藏按钮和徽章,不重建结果卡(避免 Jable 播放器被销毁)
-  const favBtn = document.querySelector('.result-card .actions .btn:last-child');
-  if (favBtn) favBtn.textContent = isFavorite(state.current) ? '⭐ 取消收藏' : '☆ 收藏';
-  const badge = document.querySelector('.result-card .badge.saved');
-  if (isFavorite(state.current) && !badge) {
+  const favBtn = document.querySelector('.result-card .actions .fav-toggle');
+  if (favBtn) favBtn.textContent = isManualFavorite(state.current) ? '⭐ 取消手动收藏' : '☆ 手动收藏';
+  const manualBadge = document.querySelector('.result-card .badge.manual-fav');
+  if (isManualFavorite(state.current) && !manualBadge) {
     const badgesEl = document.querySelector('.result-card .badges');
-    if (badgesEl) badgesEl.insertAdjacentHTML('beforeend', '<span class="badge saved">⭐ 已收藏</span>');
-  } else if (!isFavorite(state.current) && badge) {
-    badge.remove();
+    if (badgesEl) badgesEl.insertAdjacentHTML('beforeend', '<span class="badge saved manual-fav">⭐ 手动收藏</span>');
+  } else if (!isManualFavorite(state.current) && manualBadge) {
+    manualBadge.remove();
   }
   updateCount();
   scheduleSyncSave();
 }
 function removeFavorite(src, code) {
+  state.removedFavorites[src + ':' + code] = Date.now();
   if (src === 'jable') state.favoritesJable = state.favoritesJable.filter(v => v.code !== code);
   else state.favoritesMissav = state.favoritesMissav.filter(v => v.code !== code);
   saveFavorites(src);
+  saveRemovedFavorites();
   renderFavorites();
   updateCount();
   if (state.current && currentSourceOf(state.current) === src && state.current.code === code) renderResult();
   scheduleSyncSave();
 }
 function clearFavorites(src) {
+  const list = src === 'jable' ? state.favoritesJable : state.favoritesMissav;
+  list.forEach(v => { if (v && v.code) state.removedFavorites[src + ':' + v.code] = Date.now(); });
   if (src === 'jable') state.favoritesJable = [];
   else state.favoritesMissav = [];
   localStorage.removeItem(favStorageKey(src));
+  saveRemovedFavorites();
   renderFavorites();
   updateCount();
   renderResult();

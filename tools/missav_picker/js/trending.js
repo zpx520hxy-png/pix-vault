@@ -29,14 +29,14 @@ function renderPlayableJable() {
     return;
   }
   grid.innerHTML = playableJableCache.items.slice(0, 30).map(v => `
-    <div class="playable-card" onclick="showFromPlayableJable('${v.code}')">
+    <div class="playable-card" onclick="showFromPlayableJable(${jsArg(v.code)})">
       <div class="cover">
-        <img src="${p('fourhoi.com/' + (v.code || '').toLowerCase() + '-uncensored-leak/cover-t.jpg')}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
-             onerror="if(this.dataset.fallback){this.parentElement.innerHTML='<div class=placeholder>🎞 ${v.code}</div>';}else{this.dataset.fallback='1';this.src='${p(v.cover || '')}';}">
+        <img src="${escHtml(p('fourhoi.com/' + (v.code || '').toLowerCase() + '-uncensored-leak/cover-t.jpg'))}" alt="${escHtml(v.code)}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+             onerror="if(this.dataset.fallback){this.parentElement.innerHTML='<div class=placeholder>🎞 ${escHtml(v.code)}</div>';}else{this.dataset.fallback='1';this.src='${escHtml(p(v.cover || ''))}';}">
       </div>
       <div class="info">
-        <div class="code">${v.code}</div>
-        <div class="title">${(v.title || '（无标题）').slice(0, 60)}</div>
+        <div class="code">${escHtml(v.code)}</div>
+        <div class="title">${escHtml((v.title || '（无标题）').slice(0, 60))}</div>
       </div>
     </div>`).join('');
 }
@@ -61,9 +61,19 @@ function showFromPlayableJable(code) {
   renderResult();
   $('resultArea').scrollIntoView({ behavior: 'smooth', block: 'center' });
   // 既然这里叫“可播放作品”,点卡片后直接自动起播
-  setTimeout(() => {
-    const cover = document.getElementById('jpCover');
-    if (cover) cover.click();
+  setTimeout(async () => {
+    const jp = $('jp');
+    const loading = $('jpLoading');
+    if (!jp || !loading) return;
+    jp.setAttribute('data-state', 'play');
+    loading.textContent = '⏳ 正在准备播放链路...';
+    loading.classList.remove('hide');
+    const result = await ensurePlayReady((v.code || '').toLowerCase());
+    if (!result.ok) {
+      loading.textContent = result.status === 'not_found' ? '⚠️ 当前未找到可播放链路' : '⚠️ 播放准备失败';
+      return;
+    }
+    initJplayer(v);
   }, 80);
 }
 
@@ -94,35 +104,111 @@ function renderTrending() {
   }
   if (!data.items || data.items.length === 0) {
     const err = data.error ? `（${data.error}）` : '';
-    grid.innerHTML = `<div class="trending-empty">暂时拉不到 ${trendLabel()} 热门 ${err}<br><span style="opacity:.7">先看下方筛选区，或稍后点 ↻ 刷新</span></div>`;
+    grid.innerHTML = `<div class="trending-empty">暂时拉不到 ${escHtml(trendLabel())} 热门 ${escHtml(err)}<br><span style="opacity:.7">先看下方筛选区，或稍后点 ↻ 刷新</span></div>`;
     return;
   }
-  grid.innerHTML = data.items.slice(0, 20).map((it, i) => {
-    const cover = it.cover || '';
+  const localMap = new Map();
+  if (DATA && Array.isArray(DATA.videos)) {
+    DATA.videos.forEach(v => {
+      if (v && v.code) localMap.set((v.code || '').toLowerCase(), v);
+    });
+  }
+  const visibleItems = data.items.map(it => {
+    const code = (it.code || '').toLowerCase();
+    const local = localMap.get(code);
+    if (isVideoRemoved(code, trendSource())) return null;
+    return Object.assign({}, local || {}, it, {
+      title: it.title || (local && local.title) || '',
+      cover: it.cover || (local && local.cover) || '',
+      url: it.url || (local && local.url) || '',
+      local: !!local
+    });
+  }).filter(Boolean).slice(0, 20);
+  if (visibleItems.length === 0) {
+    grid.innerHTML = '<div class="trending-empty">当前热门都已被移除，稍后点 ↻ 刷新</div>';
+    renderPlayableJable();
+    return;
+  }
+  grid.innerHTML = visibleItems.map((it, i) => {
     const code = (it.code || '').toLowerCase();
     const isJ = trendIsJable();
-    // missav 预览走本地代理(免 fourhoi 403); jable 不再播放预览
-    const preview = !isJ && code ? `/trend_preview/missav/${code}.mp4` : '';
-    const dataKind = !isJ && code ? 'mp4' : '';
-    const safeTitle = (it.title || it.code || '').replace(/"/g, '&quot;');
-    const safeUrl = it.url || '';
+    const cover = isJ && code ? (it.cover || `fourhoi.com/${code}/cover-t.jpg`) : (it.cover || (code ? `fourhoi.com/${code}/cover-t.jpg` : ''));
+    const preview = code ? (isJ ? `https://fourhoi.com/${code}/preview.mp4` : `/trend_preview/missav/${code}.mp4`) : '';
+    const dataKind = code ? 'mp4' : '';
+    const safeTitle = escHtml(it.title || it.code || '');
+    const safeUrl = it.url || (isJ ? `https://jable.tv/videos/${code}/` : `https://missav.ws/cn/${code}`);
     return `
-       <div class="trend-card ${isJ ? 'is-jable' : ''}" data-code="${code}" data-url="${safeUrl.replace(/"/g, '&quot;')}" title="${safeTitle}">
+       <div class="trend-card ${isJ ? 'is-jable' : ''}" onclick="openTrendingCard(this, event)" data-code="${escHtml(code)}" data-url="${escHtml(safeUrl)}" data-title="${safeTitle}" data-cover="${escHtml(cover)}" title="${safeTitle}">
          <div class="cover">
-           <span class="rank">${i + 1}</span>
-           <img src="${p(isJ ? 'fourhoi.com/' + code + '-uncensored-leak/cover-t.jpg' : cover)}" alt="${it.code || ''}" loading="lazy" referrerpolicy="no-referrer"
-                onerror="if(this.dataset.fallback){this.parentElement.innerHTML='<span class=rank>${i + 1}</span><div class=placeholder>🎞 ${it.code || ''}</div>';}else{this.dataset.fallback='1';this.src='${p(cover)}';}">
-          <div class="preview">
-            ${!isJ ? `<video data-hls-src="${preview}" data-kind="${dataKind}" muted loop playsinline disableRemotePlayback referrerpolicy="no-referrer" preload="none" poster="${cover}"></video>` : ''}
-          </div>
-        </div>
-        <div class="info">
-          <div class="code">${it.code || ''}</div>
-          <div class="title">${(it.title || '（无标题）').slice(0, 60)}</div>
-        </div>
-      </div>`;
+            <span class="rank">${i + 1}</span>
+            <img src="${escHtml(p(cover))}" data-fallback-cover="${escHtml(p('fourhoi.com/' + code + '/cover-t.jpg'))}" onload="handleCoverLoad(this)" alt="${escHtml(it.code || '')}" loading="lazy" referrerpolicy="no-referrer"
+                 onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${escHtml(p('fourhoi.com/' + code + '/cover-t.jpg'))}';}else{this.parentElement.innerHTML='<span class=rank>${i + 1}</span><div class=placeholder>🎞 ${escHtml(it.code || '')}</div>';}">
+           <div class="preview">
+             ${preview ? (isJ
+               ? `<video src="${escHtml(preview)}" data-hls-src="${escHtml(preview)}" data-kind="${escHtml(dataKind)}" muted loop playsinline disableRemotePlayback crossorigin="anonymous" preload="metadata" poster="${escHtml(cover)}"></video>`
+               : `<video data-hls-src="${escHtml(preview)}" data-kind="${escHtml(dataKind)}" muted loop playsinline disableRemotePlayback referrerpolicy="no-referrer" preload="none" poster="${escHtml(cover)}"></video>`
+             ) : ''}
+           </div>
+         </div>
+         <div class="info">
+           <div class="code">${escHtml(it.code || '')}</div>
+           <div class="title">${escHtml((it.title || '（无标题）').slice(0, 60))}</div>
+         </div>
+       </div>`;
   }).join('');
   renderPlayableJable();
+}
+
+function openTrendingCard(card, e) {
+  if (!card) return;
+  if (e && e.target && e.target.closest && e.target.closest('.card-collapse')) return;
+  const code = (card.dataset.code || '').toLowerCase();
+  if (!code) return;
+  if (e) { e.preventDefault(); e.stopPropagation(); }
+  const isJableTrend = card.classList.contains('is-jable');
+  const finish = (v) => {
+    const cardVideo = {
+      code: code.toUpperCase(),
+      title: card.dataset.title || code.toUpperCase(),
+      cover: card.dataset.cover || '',
+      url: card.dataset.url || (isJableTrend ? `https://jable.tv/videos/${code}/` : `https://missav.ws/cn/${code}`),
+      source: isJableTrend ? 'jable' : 'missav',
+      is_multi: false,
+      actresses: [],
+      tags: []
+    };
+    if (!v) {
+      v = cardVideo;
+    } else if (isJableTrend) {
+      v = Object.assign({}, v, {
+        title: v.title || cardVideo.title,
+        cover: cardVideo.cover || v.cover || '',
+        url: v.url || cardVideo.url,
+        source: 'jable',
+        actresses: Array.isArray(v.actresses) ? v.actresses : [],
+        tags: Array.isArray(v.tags) ? v.tags : []
+      });
+    }
+    state.source = isJableTrend ? 'jable' : 'missav';
+    state.current = v;
+    state.history = [v, ...state.history.filter(h => (h.code || '').toLowerCase() !== code)].slice(0, 12);
+    saveHistory();
+    renderResult();
+    renderHistory();
+    scheduleSyncSave();
+    $('resultArea').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+  if (isJableTrend && (!DATA || DATA.source !== 'jable')) {
+    fetch('jable_data.json?_=' + Date.now()).then(r => r.json()).then(d => {
+      DATA = d;
+      var uniq = {};
+      DATA.videos.forEach(function(v){(v.actresses||[]).forEach(function(a){uniq[a]=1});});
+      DATA.actresses = Object.keys(uniq);
+      finish(DATA.videos.find(x => (x.code || '').toLowerCase() === code));
+    }).catch(() => finish(null));
+    return;
+  }
+  finish(DATA && DATA.videos ? DATA.videos.find(x => (x.code || '').toLowerCase() === code) : null);
 }
 
 async function loadTrending(force) {

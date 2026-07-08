@@ -2,13 +2,13 @@ function renderHistory() {
   if (state.history.length === 0) { $('historyArea').style.display = 'none'; return; }
   $('historyArea').style.display = 'block';
   $('historyGrid').innerHTML = state.history.map(v => `
-    <div class="hist-card" onclick="showFromHistory('${v.code}')">
+    <div class="hist-card" onclick="showFromHistory(${jsArg(v.code)})">
       <div class="img-wrap">
-        <img src="${coverUrl(v)}" alt="${v.code}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
-          onerror="if(this.dataset.fallback){this.parentElement.style.background='var(--border)';this.style.display='none';}else{this.dataset.fallback='1';this.src='${p(v.cover || "")}';}">
+        <img src="${escHtml(coverUrl(v))}" alt="${escHtml(v.code)}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+          onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${escHtml(fallbackCoverUrl(v))}';}else if(!this.dataset.fallback2){this.dataset.fallback2='1';this.src='${escHtml(p(v.cover || ""))}';}else{this.parentElement.style.background='var(--border)';this.style.display='none';}">
       </div>
-      <div class="hist-code">${v.code}</div>
-      <div class="hist-title">${v.title.slice(0, 30) || '—'}</div>
+      <div class="hist-code">${escHtml(v.code)}</div>
+      <div class="hist-title">${escHtml((v.title || '').slice(0, 30) || '—')}</div>
     </div>
   `).join('');
 }
@@ -16,6 +16,10 @@ function renderHistory() {
 // hover 触发后挂载 hls.js(避免一次挂 218 个实例)
 function mountHls(video, src) {
   if (!src || !video) return;
+  if (video.src && !video.src.startsWith('blob:')) {
+    video.play().catch(() => {});
+    return;
+  }
   if (video.dataset.hlsMounted === '1') {
     video.play().catch(() => {});
     return;
@@ -61,6 +65,20 @@ function mountHls(video, src) {
 document.addEventListener('mouseover', function(e) {
   const card = e.target.closest('.browse-card,.hist-card,.trend-card');
   if (card) {
+    const box = card.querySelector('.bc-preview[data-preview-src]');
+    if (box && !box.querySelector('video') && box.dataset.previewSrc) {
+      const video = document.createElement('video');
+      video.dataset.hlsSrc = box.dataset.previewSrc;
+      video.muted = true;
+      video.loop = true;
+      video.playsInline = true;
+      video.preload = 'none';
+      video.disableRemotePlayback = true;
+      if (box.dataset.poster) video.poster = box.dataset.poster;
+      box.appendChild(video);
+      mountHls(video, video.dataset.hlsSrc);
+      return;
+    }
     const v = card.querySelector('video[data-hls-src]');
     if (v) { mountHls(v, v.dataset.hlsSrc); return; }
   }
@@ -70,6 +88,20 @@ document.addEventListener('mouseover', function(e) {
 document.addEventListener('mouseenter', function(e) {
   const card = e.target.closest && e.target.closest('.browse-card,.hist-card,.trend-card');
   if (card) {
+    const box = card.querySelector('.bc-preview[data-preview-src]');
+    if (box && !box.querySelector('video') && box.dataset.previewSrc) {
+      const video = document.createElement('video');
+      video.dataset.hlsSrc = box.dataset.previewSrc;
+      video.muted = true;
+      video.loop = true;
+      video.playsInline = true;
+      video.preload = 'none';
+      video.disableRemotePlayback = true;
+      if (box.dataset.poster) video.poster = box.dataset.poster;
+      box.appendChild(video);
+      mountHls(video, video.dataset.hlsSrc);
+      return;
+    }
     const v = card.querySelector('video[data-hls-src]');
     if (v) { mountHls(v, v.dataset.hlsSrc); return; }
   }
@@ -86,48 +118,14 @@ document.addEventListener('mouseout', function(e) {
   if (v) { try { v.pause(); } catch (e) {} }
 });
 
-// 热门卡片点击:本地有数据就跳结果卡 + 自动起播, 没有就降级开外链
-document.addEventListener('click', function(e) {
-  const card = e.target.closest('.trend-card');
-  if (!card) return;
-  if (e.target.closest('.card-collapse')) return; // 收起按钮不触发
-  const code = card.dataset.code;
-  if (!code) return;
-  // 优先从本地 DATA.videos 找(同时支持 missav/jable 趋势项, code lowercase 比对)
-  if (DATA && DATA.videos) {
-    const v = DATA.videos.find(x => (x.code || '').toLowerCase() === code);
-    if (v) {
-      e.preventDefault();
-      e.stopPropagation();
-      state.current = v;
-      state.history = [v, ...state.history.filter(h => h.code !== v.code)].slice(0, 12);
-      saveHistory();
-      renderResult();
-      renderHistory();
-      scheduleSyncSave();
-      // 滚到结果区
-      $('resultArea').scrollIntoView({ behavior: 'smooth', block: 'center' });
-      // 热门点击语义:直接起播(跟 showFromPlayableJable 一致)
-      setTimeout(() => {
-        const cover = document.getElementById('jpCover');
-        if (cover) cover.click();
-      }, 80);
-      return;
-    }
-  }
-  // 本地没找到 (趋势项不在 1228 部里 / jable trend 全部走这条): 降级开外链
-  const url = card.dataset.url;
-  if (url) window.open(url, '_blank', 'noopener');
-});
-
 function showFromHistory(code) {
-  const v = state.history.find(h => h.code === code) || DATA.videos.find(x => x.code === code);
+  const v = state.history.find(h => h.code === code) || (DATA && DATA.videos ? DATA.videos.find(x => x.code === code) : null);
   if (v) { state.current = v; renderResult(); }
 }
 
-function copyCode(code) {
+function copyCode(code, btn) {
   navigator.clipboard.writeText(code).then(() => {
-    const btn = event.target;
+    if (!btn) return;
     const old = btn.textContent;
     btn.textContent = '✅ 已复制';
     setTimeout(() => btn.textContent = old, 1000);

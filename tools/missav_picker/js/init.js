@@ -7,6 +7,7 @@ function init(stage) {
     renderActressGrid();
     loadFavorites();
     loadHistory();
+    loadRemovedVideos();
     // 热门板块(随当前片源)
     loadTrending();
     // 异步加载完整数据
@@ -28,6 +29,7 @@ function init(stage) {
     renderActressGrid();
     loadFavorites();
     loadHistory();
+    loadRemovedVideos();
     updateCount();
   }
 }
