@@ -127,7 +127,11 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ── 位置指示器 ──
-function isMobileUI() { return window.matchMedia && window.matchMedia('(max-width: 500px)').matches; }
+function isMobileUI() {
+  if (!window.matchMedia) return false;
+  return window.matchMedia('(max-width: 700px)').matches ||
+    window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+}
 function updatePosIndicator(img) {
   const el = $('#pos-indicator');
   if (!el) return;
