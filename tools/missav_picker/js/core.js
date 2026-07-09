@@ -402,6 +402,21 @@ function slimVideoRef(v) {
   return { code: v.code, source: currentSourceOf(v) };
 }
 
+function mergeVideoHistory() {
+  const seen = new Set();
+  const out = [];
+  Array.from(arguments).forEach(list => {
+    (list || []).forEach(v => {
+      if (!v || !v.code) return;
+      const key = `${currentSourceOf(v)}:${String(v.code).toLowerCase()}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push(v);
+    });
+  });
+  return out;
+}
+
 function exportSyncState() {
   return {
     version: 1,
@@ -485,7 +500,11 @@ async function applySyncState(payload) {
       localStorage.setItem(removedFavoritesStorageKey(), JSON.stringify(state.removedFavorites));
     } catch (e) {}
     state.shortlist = (payload.shortlist || []).map(findVideoByRef).filter(Boolean);
-    state.history = (payload.history || []).map(findVideoByRef).filter(Boolean);
+    state.history = mergeVideoHistory(
+      (payload.history || []).map(findVideoByRef).filter(Boolean),
+      state.history
+    );
+    saveHistory();
     browsePage = payload.browsePage || 0;
 
     document.querySelectorAll('#typeChips .chip').forEach(c => c.classList.remove('active'));
@@ -548,7 +567,8 @@ async function pullSyncState() {
   try {
     const r = await fetch('/sync_state.json?_=' + Date.now());
     const payload = await r.json();
-    if ((payload.updatedAt || 0) > (SYNC_LAST_UPDATED || 0)) {
+    const incomingHistory = Array.isArray(payload.history) ? payload.history.length : 0;
+    if ((payload.updatedAt || 0) > (SYNC_LAST_UPDATED || 0) || incomingHistory > state.history.length) {
       await applySyncState(payload);
     }
   } catch(e) {}

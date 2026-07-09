@@ -204,7 +204,7 @@ function openTrendingCard(card, e) {
     }
     state.source = isJableTrend ? 'jable' : 'missav';
     state.current = v;
-    state.history = [v, ...state.history.filter(h => (h.code || '').toLowerCase() !== code)].slice(0, 12);
+    state.history = [v, ...state.history.filter(h => (h.code || '').toLowerCase() !== code)];
     saveHistory();
     renderResult();
     renderHistory();

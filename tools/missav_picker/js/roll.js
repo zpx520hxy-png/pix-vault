@@ -5,14 +5,13 @@ function rollOne() {
   // 排除历史上已随机过的
   let pool = cands.filter(v => !state.history.some(h => h.code === v.code));
   if (pool.length === 0) {
-    // 全部抽过了,清空历史重新来
-    state.history = [];
+    // 全部抽过后允许重新进入抽池,但保留完整历史。
     pool = cands;
   }
   const v = pool[Math.floor(Math.random() * pool.length)];
   state.current = v;
   // 历史(去重,前置)
-  state.history = [v, ...state.history.filter(h => h.code !== v.code)].slice(0, 12);
+  state.history = [v, ...state.history.filter(h => h.code !== v.code)];
   saveHistory();
   renderResult();
   renderHistory();
@@ -46,7 +45,7 @@ function pickShortlist(code) {
   const v = state.shortlist.find(x => x.code === code);
   if (!v) return;
   state.current = v;
-  state.history = [v, ...state.history.filter(h => h.code !== v.code)].slice(0, 12);
+  state.history = [v, ...state.history.filter(h => h.code !== v.code)];
   saveHistory();
   renderResult();
   renderHistory();

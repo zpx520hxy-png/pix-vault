@@ -44,7 +44,7 @@ function showFromBrowse(code) {
   const v = DATA.videos.find(x => x.code === code);
   if (!v) return;
   state.current = v;
-  state.history = [v, ...state.history.filter(h => h.code !== v.code)].slice(0, 12);
+  state.history = [v, ...state.history.filter(h => h.code !== v.code)];
   saveHistory();
   renderResult();
   renderHistory();

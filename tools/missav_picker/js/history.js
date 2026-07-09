@@ -1,5 +1,8 @@
 function renderHistory() {
-  if (state.history.length === 0) { $('historyArea').style.display = 'none'; return; }
+  const count = state.history.length;
+  const countEl = $('historyCount');
+  if (countEl) countEl.textContent = `${count} 部`;
+  if (count === 0) { $('historyArea').style.display = 'none'; return; }
   $('historyArea').style.display = 'block';
   $('historyGrid').innerHTML = state.history.map(v => `
     <div class="hist-card" data-card-action="history" data-code="${escHtml(v.code)}" role="button" tabindex="0">
