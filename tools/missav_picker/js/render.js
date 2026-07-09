@@ -65,7 +65,7 @@ function renderResult() {
          </div>
        </div>`
     : `<div class="media-col"><div class="cover-wrap" onclick="(function(w){w.classList.contains('preview-on')?w.classList.remove('preview-on'):(w.classList.add('preview-on'),w.querySelector('video').play().catch(function(){}))})(this)">
-         <video src="${escHtml(v.preview || '')}" muted loop playsinline disableRemotePlayback preload="auto"
+         <video src="${escHtml(previewUrl(v))}" muted loop playsinline disableRemotePlayback preload="auto"
             poster="${escHtml(p(v.cover))}"
             onerror="this.style.display='none'"></video>
           <div class="cover">

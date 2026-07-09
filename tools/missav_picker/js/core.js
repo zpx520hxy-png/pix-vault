@@ -75,6 +75,12 @@ function previewUrl(v) {
   if (currentSourceOf(v) === 'jable' && code) {
     return p(`fourhoi.com/${code}/preview.mp4`);
   }
+  if (currentSourceOf(v) === 'missav' && code && !v.preview) {
+    return `/trend_preview/missav/${code}.mp4`;
+  }
+  if (v.preview && String(v.preview).charAt(0) === '/') {
+    return v.preview;
+  }
   return p(v.preview || '');
 }
 function escHtml(value) {

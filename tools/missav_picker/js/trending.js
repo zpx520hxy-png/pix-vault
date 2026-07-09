@@ -172,6 +172,7 @@ function openTrendingCard(card, e) {
       code: code.toUpperCase(),
       title: card.dataset.title || code.toUpperCase(),
       cover: card.dataset.cover || '',
+      preview: isJableTrend ? `https://fourhoi.com/${code}/preview.mp4` : `/trend_preview/missav/${code}.mp4`,
       url: card.dataset.url || (isJableTrend ? `https://jable.tv/videos/${code}/` : `https://missav.ws/cn/${code}`),
       source: isJableTrend ? 'jable' : 'missav',
       is_multi: false,
@@ -184,8 +185,19 @@ function openTrendingCard(card, e) {
       v = Object.assign({}, v, {
         title: v.title || cardVideo.title,
         cover: cardVideo.cover || v.cover || '',
+        preview: v.preview || cardVideo.preview,
         url: v.url || cardVideo.url,
         source: 'jable',
+        actresses: Array.isArray(v.actresses) ? v.actresses : [],
+        tags: Array.isArray(v.tags) ? v.tags : []
+      });
+    } else {
+      v = Object.assign({}, v, {
+        title: v.title || cardVideo.title,
+        cover: v.cover || cardVideo.cover || '',
+        preview: v.preview || cardVideo.preview,
+        url: v.url || cardVideo.url,
+        source: 'missav',
         actresses: Array.isArray(v.actresses) ? v.actresses : [],
         tags: Array.isArray(v.tags) ? v.tags : []
       });
