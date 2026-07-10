@@ -29,15 +29,10 @@ function currentSourceOf(v) {
 }
 function coverUrl(v) {
   // v2 统一走本地 /img/ 代理。
-  // jable 封面当前 CDN 在本机不可达，所以同时试 fourhoi 的 cover-t.jpg，
-  // 失败时再回退到 jable 自带 cover。
+  // Jable CDN 在本机不稳定，优先走 fourhoi 的轻量封面，失败时再回退原 cover。
   const code = (v.code || '').toLowerCase();
   if (currentSourceOf(v) === 'jable' && (v.cover || code)) {
-    const lowConfidence = (!v.preview && !(v.date || '').trim() && (!Array.isArray(v.actresses) || v.actresses.length === 0) && ((v.title || '').trim().toUpperCase() === (v.code || '').trim().toUpperCase()));
-    if (lowConfidence && code) {
-      return p(`fourhoi.com/${code}/cover-t.jpg`);
-    }
-    return p(v.cover || `fourhoi.com/${code}/cover-t.jpg`);
+    return p(code ? `fourhoi.com/${code}/cover-t.jpg` : v.cover);
   }
   if (currentSourceOf(v) === 'missav' && code) {
     return p(`fourhoi.com/${code}/cover-t.jpg`);
@@ -46,6 +41,9 @@ function coverUrl(v) {
 }
 function fallbackCoverUrl(v) {
   const code = (v && v.code || '').toLowerCase();
+  if (currentSourceOf(v) === 'jable' && v && v.cover) {
+    return p(v.cover);
+  }
   return code ? p(`fourhoi.com/${code}/cover-t.jpg`) : '';
 }
 function handleCoverLoad(img) {
@@ -167,14 +165,32 @@ function readStoredFavorites(src) {
 function favoriteActressesStorageKey() {
   return 'missav_picker_favorite_actresses_v1';
 }
-function loadFavoriteActresses() {
+function favoriteActressesBackupStorageKey() {
+  return 'missav_picker_favorite_actresses_backup_v1';
+}
+function readStoredFavoriteActresses() {
   try {
     const raw = JSON.parse(localStorage.getItem(favoriteActressesStorageKey()) || '[]');
-    state.favoriteActresses = new Set(Array.isArray(raw) ? raw : []);
+    const backup = JSON.parse(localStorage.getItem(favoriteActressesBackupStorageKey()) || '[]');
+    return [
+      ...(Array.isArray(raw) ? raw : []),
+      ...(Array.isArray(backup) ? backup : [])
+    ];
+  } catch (e) {
+    return [];
+  }
+}
+function loadFavoriteActresses() {
+  try {
+    state.favoriteActresses = new Set(readStoredFavoriteActresses());
   } catch (e) { state.favoriteActresses = new Set(); }
 }
 function saveFavoriteActresses() {
-  try { localStorage.setItem(favoriteActressesStorageKey(), JSON.stringify([...state.favoriteActresses])); } catch (e) {}
+  try {
+    const names = [...state.favoriteActresses];
+    localStorage.setItem(favoriteActressesStorageKey(), JSON.stringify(names));
+    localStorage.setItem(favoriteActressesBackupStorageKey(), JSON.stringify(names));
+  } catch (e) {}
 }
 function primaryActress(v) {
   return Array.isArray(v && v.actresses) && v.actresses.length ? resolveActressName(v.actresses[0]) : '';
@@ -189,6 +205,10 @@ function favoriteActressSet() {
 function toggleFavoriteActress(name) {
   const resolved = resolveActressName(name);
   if (!resolved) return;
+  state.favoriteActresses = new Set([
+    ...readStoredFavoriteActresses(),
+    ...(state.favoriteActresses || [])
+  ]);
   if (state.favoriteActresses.has(resolved)) state.favoriteActresses.delete(resolved);
   else state.favoriteActresses.add(resolved);
   saveFavoriteActresses();

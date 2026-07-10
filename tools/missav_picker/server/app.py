@@ -313,8 +313,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             source = "missav"
         if period not in ("daily", "weekly"):
             period = "daily"
+        force = "_" in query or (query.get("force", [""])[0] or "").lower() in (
+            "1",
+            "true",
+            "yes",
+        )
         try:
-            payload = get_trending(source, period)
+            payload = get_trending(source, period, force=force)
         except Exception as e:
             payload = {
                 "source": source,

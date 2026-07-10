@@ -11,6 +11,38 @@ function trendSource() {
 function trendLabel() { return trendSource() === 'jable' ? 'Jable.TV' : 'MissAV'; }
 function trendIsJable() { return trendSource() === 'jable'; }
 
+function formatTrendTime(ms) {
+  if (!ms) return '';
+  try {
+    return new Date(ms).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  } catch (e) {
+    return '';
+  }
+}
+
+function renderTrendingMeta(data) {
+  const meta = $('trendingMeta');
+  if (!meta) return;
+  meta.className = 'trending-meta';
+  if (!data) {
+    meta.textContent = '正在拉取片源...';
+    return;
+  }
+  const mode = data.sourceMode || (data.remote ? 'remote' : 'fallback');
+  meta.classList.add(data.error ? 'error' : (data.cacheHit ? 'cache' : mode));
+  const at = formatTrendTime(data.fetchedAt);
+  const age = data.cacheHit && data.cacheAgeSeconds ? ` · 上次抓取${Math.max(1, Math.round(data.cacheAgeSeconds / 60))}分钟前` : '';
+  if (data.error) {
+    meta.textContent = `片源失败${at ? ' · ' + at : ''}${age}`;
+  } else if (mode === 'fallback') {
+    meta.textContent = `本地补位${at ? ' · ' + at : ''}${age}`;
+  } else {
+    const label = mode === 'homepage' ? '片源首页' : '片源榜单';
+    meta.textContent = `${label}${at ? ' · ' + at : ''}${age}`;
+  }
+  if (data.sourceUrl) meta.title = data.sourceUrl;
+}
+
 function renderPlayableJable() {
   const section = $('playableJable');
   const grid = $('playableJableGrid');
@@ -97,6 +129,7 @@ function renderTrending() {
   $('trendingSource').textContent = trendLabel();
   $('trendingEmoji').textContent = trendIsJable() ? '🪐' : '🔥';
   $('trendingHeading').textContent = (trendPeriod === 'daily' ? '今日热门' : '本周热门');
+  renderTrendingMeta(data);
   if (!data) {
     grid.innerHTML = _trendingSkeleton(6);
     renderPlayableJable();

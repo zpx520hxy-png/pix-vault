@@ -5,7 +5,35 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 PORT = int(os.environ.get("MISSAV_PICKER_PORT", "8699"))
-UPSTREAM_PROXY = (os.environ.get("MISSAV_PICKER_PROXY") or "").strip() or None
+
+
+def _windows_user_proxy():
+    if sys.platform != "win32":
+        return None
+    try:
+        import winreg
+
+        with winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER,
+            r"Software\Microsoft\Windows\CurrentVersion\Internet Settings",
+        ) as key:
+            enabled = winreg.QueryValueEx(key, "ProxyEnable")[0]
+            server = winreg.QueryValueEx(key, "ProxyServer")[0]
+        if enabled and server:
+            server = str(server).split(";", 1)[0].strip()
+            if server and "://" not in server:
+                server = "http://" + server
+            return server or None
+    except Exception:
+        return None
+    return None
+
+
+UPSTREAM_PROXY = (
+    (os.environ.get("MISSAV_PICKER_PROXY") or "").strip()
+    or _windows_user_proxy()
+    or None
+)
 
 CACHE_DIR = ROOT / ".img_cache"
 SYNC_STATE_FILE = ROOT / ".shared_state.json"

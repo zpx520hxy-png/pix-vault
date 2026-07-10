@@ -19,15 +19,17 @@ function renderResult() {
   const leadActress = primaryActress(v);
 
   const isJable = currentSourceOf(v) === 'jable';
+  prewarmCover(coverUrl(v));
+  prewarmCover(fallbackCoverUrl(v));
   const coverBlock = isJable
     ? `<div class="media-col">
           <div class="jplayer" id="jp" data-state="cover">
           <div class="jp-cover" id="jpCover">
-             <video class="jp-preview" id="jpPreview" muted loop playsinline disableRemotePlayback preload="none" poster="${escHtml(p(v.cover))}"></video>
-             <img src="${escHtml(coverUrl(v))}" data-fallback-cover="${escHtml(fallbackCoverUrl(v))}" onload="handleCoverLoad(this)" alt="${escHtml(v.code)}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+             <video class="jp-preview" id="jpPreview" muted loop playsinline disableRemotePlayback preload="none" poster="${escHtml(coverUrl(v))}"></video>
+             <img src="${escHtml(coverUrl(v))}" data-fallback-cover="${escHtml(fallbackCoverUrl(v))}" onload="handleCoverLoad(this)" alt="${escHtml(v.code)}" loading="eager" fetchpriority="high" decoding="async" referrerpolicy="no-referrer"
                onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${escHtml(fallbackCoverUrl(v))}';}else if(!this.dataset.fallback2){this.dataset.fallback2='1';this.src='${escHtml(p(v.cover || ""))}';}else{this.parentElement.innerHTML='<div class=placeholder>🎞 ${escHtml(v.code)}</div>';}">
           </div>
-          <video id="jpVideo" playsinline preload="auto" poster="${escHtml(p(v.cover))}"></video>
+          <video id="jpVideo" playsinline preload="auto" poster="${escHtml(coverUrl(v))}"></video>
          <div class="jp-loading" id="jpLoading">⏳ 加载中...</div>
          <div class="jp-progress" id="jpProgress">
            <div class="jp-buffered" id="jpBuffered"></div>

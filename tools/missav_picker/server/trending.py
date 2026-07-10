@@ -1,5 +1,6 @@
 import re
 import json
+import os
 import time
 import hashlib
 import threading
@@ -9,6 +10,34 @@ from .config import ROOT, TREND_CACHE_DIR, TREND_OK_TTL, TREND_FAIL_TTL, proxy_k
 from .cache import get_cache_size
 
 TREND_LOCK = threading.Lock()
+
+TREND_REMOTE_URLS = {
+    "missav": {
+        "daily": [
+            ("https://missav.ws/dm298/cn/today-hot", "candidate"),
+            ("https://missav.ws/cn/today-hot", "candidate"),
+            ("https://missav.ws/", "homepage"),
+            ("https://missav.ws/cn?sort=popular", "candidate"),
+        ],
+        "weekly": [
+            ("https://missav.ws/dm170/cn/weekly-hot", "candidate"),
+            ("https://missav.ws/cn/weekly-hot", "candidate"),
+            ("https://missav.ws/", "homepage"),
+        ],
+    },
+    "jable": {
+        "daily": [
+            ("https://jable.tv/", "homepage"),
+            ("https://jable.tv/hot/", "candidate"),
+            ("https://jable.tv/videos/?sort=popular", "candidate"),
+        ],
+        "weekly": [
+            ("https://jable.tv/hot/?mode=weekly", "candidate"),
+            ("https://jable.tv/videos/?mode=weekly", "candidate"),
+            ("https://jable.tv/", "homepage"),
+        ],
+    },
+}
 
 
 def _trend_path(source, period):
@@ -21,7 +50,7 @@ def _trend_http_get(url, referer):
 
         r = creq.get(
             url,
-            impersonate="chrome",
+            impersonate="chrome124",
             timeout=15,
             **proxy_kwargs(),
             headers={
@@ -53,8 +82,18 @@ def _trend_http_get(url, referer):
     return ""
 
 
+def _trend_referer(source):
+    return "https://jable.tv/" if source == "jable" else "https://missav.ws/"
+
+
+def _remote_url_candidates(source, period):
+    by_source = TREND_REMOTE_URLS.get(source) or TREND_REMOTE_URLS["missav"]
+    return by_source.get(period) or by_source["daily"]
+
+
 _MISSAV_CODE_RE = re.compile(
-    r"/(dm\d+)/cn/([A-Z0-9]{2,8}(?:-[A-Z0-9]{2,8})?)(?![A-Za-z0-9-])", re.I
+    r"/(?:((?:dm\d+))/)?(?:cn|ja|en|ko)/([A-Z]{2,8}-\d{2,8}(?:-[A-Z0-9]{2,8})?)(?![A-Za-z0-9-])",
+    re.I,
 )
 _MISSAV_COVER_RE = re.compile(
     r"https?://[a-z0-9.-]*fourhoi\.com/[^\"' )]+cover[^\"' )]*", re.I
@@ -72,20 +111,20 @@ def _parse_missav_trending(html, period):
     )
     if m:
         snippet = m.group(0)
-    else:
+    if not _MISSAV_CODE_RE.search(snippet):
         idx = html.lower().find("<footer")
         if idx > 0:
             snippet = html[:idx]
     items = []
     seen = set()
     for m in _MISSAV_CODE_RE.finditer(snippet):
-        dm = m.group(1)
+        dm = m.group(1) or ""
         code = m.group(2).lower()
         if code in seen or code.endswith("cover-t.jpg"):
             continue
         seen.add(code)
-        start = max(0, m.start() - 400)
-        end = min(len(snippet), m.end() + 400)
+        start = m.start()
+        end = min(len(snippet), m.end() + 2200)
         local = snippet[start:end]
         cover_m = _MISSAV_COVER_RE.search(local)
         cover = cover_m.group(0) if cover_m else ""
@@ -100,7 +139,7 @@ def _parse_missav_trending(html, period):
                 "code": code,
                 "title": title,
                 "cover": cover,
-                "url": f"https://missav.ws/{dm}/cn/{code}",
+                "url": f"https://missav.ws/{dm + '/' if dm else ''}cn/{code}",
             }
         )
         if len(items) >= 20:
@@ -292,16 +331,24 @@ def _hydrate_trending_items(source, items):
 
 
 def _scrape_trending(source, period):
+    tried = []
+    source_url = ""
+    source_mode = "remote"
     if source == "missav":
-        url = "https://missav.ws/"
-        html = _trend_http_get(url, referer="https://missav.ws/")
-        items = _parse_missav_trending(html, period)
+        items = []
+        for url, kind in _remote_url_candidates(source, period):
+            html = _trend_http_get(url, referer=_trend_referer(source))
+            parsed = _parse_missav_trending(html, period)
+            tried.append({"url": url, "kind": kind, "items": len(parsed)})
+            if parsed:
+                items = parsed
+                source_url = url
+                source_mode = kind
+                break
         if not items:
             items = _local_fallback_trending(source, period)
+            source_mode = "fallback"
     else:
-        url = "https://jable.tv/"
-        html = _trend_http_get(url, referer="https://jable.tv/")
-        remote_items = _parse_jable_trending(html)
         data_file = ROOT / "jable_data.json"
         local_codes = set()
         if data_file.is_file():
@@ -314,7 +361,26 @@ def _scrape_trending(source, period):
                 }
             except Exception:
                 pass
-        items = [it for it in remote_items if it.get("code") in local_codes]
+        items = []
+        for url, kind in _remote_url_candidates(source, period):
+            html = _trend_http_get(url, referer=_trend_referer(source))
+            remote_items = _parse_jable_trending(html)
+            filtered = [it for it in remote_items if it.get("code") in local_codes]
+            usable = filtered or remote_items
+            tried.append(
+                {
+                    "url": url,
+                    "kind": kind,
+                    "items": len(usable),
+                    "localItems": len(filtered),
+                    "remoteItems": len(remote_items),
+                }
+            )
+            if usable:
+                items = usable
+                source_url = url
+                source_mode = kind
+                break
         if len(items) < 20:
             local_items = _local_fallback_trending(source, period)
             seen = {it["code"] for it in items}
@@ -325,35 +391,55 @@ def _scrape_trending(source, period):
                 seen.add(it["code"])
                 if len(items) >= 20:
                     break
+            if not source_url and items:
+                source_mode = "fallback"
     items = _hydrate_trending_items(source, items)
     return {
         "source": source,
         "period": period,
         "items": items,
         "fetchedAt": int(time.time() * 1000),
+        "sourceMode": source_mode,
+        "sourceUrl": source_url,
+        "remote": source_mode != "fallback",
+        "tried": tried[:5],
     }
 
 
-def get_trending(source, period):
+def get_trending(source, period, force=False):
     path = _trend_path(source, period)
-    if path.is_file():
+    if path.is_file() and not force:
         try:
             cached = json.loads(path.read_text(encoding="utf-8"))
             age = time.time() - (cached.get("_ts", 0) or 0)
-            ttl = TREND_FAIL_TTL if cached.get("error") else TREND_OK_TTL
-            if age < ttl and cached.get("items"):
+            if cached.get("items"):
                 cached.pop("_ts", None)
+                cached["cacheHit"] = True
+                cached["cacheAgeSeconds"] = int(age)
+                return cached
+            ttl = TREND_FAIL_TTL if cached.get("error") else TREND_OK_TTL
+            if age < ttl:
+                cached.pop("_ts", None)
+                cached["cacheHit"] = True
+                cached["cacheAgeSeconds"] = int(age)
                 return cached
         except Exception:
             pass
     with TREND_LOCK:
-        if path.is_file():
+        if path.is_file() and not force:
             try:
                 cached = json.loads(path.read_text(encoding="utf-8"))
                 age = time.time() - (cached.get("_ts", 0) or 0)
-                ttl = TREND_FAIL_TTL if cached.get("error") else TREND_OK_TTL
-                if age < ttl and cached.get("items"):
+                if cached.get("items"):
                     cached.pop("_ts", None)
+                    cached["cacheHit"] = True
+                    cached["cacheAgeSeconds"] = int(age)
+                    return cached
+                ttl = TREND_FAIL_TTL if cached.get("error") else TREND_OK_TTL
+                if age < ttl:
+                    cached.pop("_ts", None)
+                    cached["cacheHit"] = True
+                    cached["cacheAgeSeconds"] = int(age)
                     return cached
             except Exception:
                 pass
@@ -365,13 +451,18 @@ def get_trending(source, period):
                 "period": period,
                 "items": [],
                 "error": repr(e)[:120],
+                "sourceMode": "error",
+                "remote": False,
             }
         data["_ts"] = time.time()
         try:
+            path.parent.mkdir(parents=True, exist_ok=True)
             tmp = path.with_suffix(".json.tmp")
             tmp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
             os.replace(tmp, path)
         except Exception:
             pass
         data.pop("_ts", None)
+        data["cacheHit"] = False
+        data["cacheAgeSeconds"] = 0
         return data
