@@ -14,6 +14,8 @@ const S = {
   isBrowse: false,
   fromGallery: false,  // 从网格点进来的，显示关闭按钮
   fromBrowse: false,   // 从全部浏览点进来的，显示关闭按钮
+  galleryPool: [],     // 当前网格实际渲染顺序
+  galleryIdx: -1,
   colorIndex: null,    // {path: {bid,bname,hex}} 加载后缓存
   colorBuckets: [],    // [{id,name,hex}]
   groupByColor: false, // 网格是否按颜色分组
@@ -130,6 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function isMobileUI() {
   if (!window.matchMedia) return false;
   return window.matchMedia('(max-width: 700px)').matches ||
+    window.matchMedia('(max-width: 900px) and (orientation: portrait)').matches ||
     window.matchMedia('(hover: none) and (pointer: coarse)').matches;
 }
 function updatePosIndicator(img) {
@@ -274,11 +277,25 @@ function renderSidebarChips() {
   const tagColors = { '写实':'t-写实','动漫':'t-动漫','NSFW':'t-NSFW','正常':'t-正常','单人':'t-单人','双人':'t-双人','多人':'t-多人','巨乳':'t-巨乳','贫乳':'t-贫乳','特写':'t-特写','半身':'t-半身','全身':'t-全身','POV':'t-POV','低角度':'t-低角度','背光':'t-背光' };
   const sv = $('#sidebar-view');
   const infoVisible = !$('#info-overlay')?.classList.contains('hidden');
-  sv.innerHTML = '<div class="sh sidebar-view-row"><span>🖼️ 图片信息</span><button class="sidebar-switch ' + (infoVisible ? 'on' : '') + '" id="sidebar-info-toggle" type="button" aria-label="切换图片信息显示" aria-pressed="' + (infoVisible ? 'true' : 'false') + '"><span></span></button></div>';
+  sv.innerHTML = '<div class="sh sidebar-view-row"><span>🖼️ 图片信息</span><button class="sidebar-switch ' + (infoVisible ? 'on' : '') + '" id="sidebar-info-toggle" type="button" aria-label="切换图片信息显示" aria-pressed="' + (infoVisible ? 'true' : 'false') + '"><span></span></button></div>' +
+    '<div class="sh sidebar-theme-row"><span>🎨 主题颜色</span><div class="sidebar-theme-picker" id="sidebar-theme-picker" title="主题">' +
+    '<span class="theme-swatch" data-theme-value="amber"></span>' +
+    '<span class="theme-swatch" data-theme-value="emerald"></span>' +
+    '<span class="theme-swatch" data-theme-value="rose"></span>' +
+    '<span class="theme-swatch" data-theme-value="mono"></span>' +
+    '</div></div>';
   sv.querySelector('#sidebar-info-toggle').addEventListener('click', () => {
     toggleInfoOverlay();
     renderSidebarChips();
   });
+  sv.querySelector('#sidebar-theme-picker').addEventListener('click', e => {
+    const sw = e.target.closest('.theme-swatch');
+    if (!sw) return;
+    applyTheme(sw.dataset.themeValue || '');
+  });
+  let sidebarTheme = '';
+  try { sidebarTheme = localStorage.getItem('pv_theme') || ''; } catch(e) {}
+  applyTheme(sidebarTheme);
   // 标签
   const st = $('#sidebar-tags');
   const allTagsOn = S.allTags.every(t => S.activeTags.has(t));
@@ -712,6 +729,49 @@ async function deleteDisliked() {
 let _pendingReq = null;   // AbortController for in-flight /api/random
 let _preloadImg = null;   // Image() preloader
 
+function updateImageEdgeMask(el) {
+  if (!el || !el.naturalWidth || !el.naturalHeight || !isMobileUI()) {
+    if (el) {
+      el.style.webkitMaskImage = '';
+      el.style.maskImage = '';
+    }
+    return;
+  }
+  const box = { width: el.clientWidth || el.offsetWidth, height: el.clientHeight || el.offsetHeight };
+  if (!box.width || !box.height) return;
+  const boxRatio = box.width / box.height;
+  const imgRatio = el.naturalWidth / el.naturalHeight;
+  let mask = '';
+  if (boxRatio > imgRatio) {
+    const fitW = Math.min(box.width, box.height * imgRatio);
+    const x0 = Math.max(0, (box.width - fitW) / 2);
+    const x1 = Math.min(box.width, x0 + fitW);
+    const leftFade = Math.max(18, Math.min(36, fitW * 0.065));
+    const rightFade = Math.max(12, Math.min(24, fitW * 0.04));
+    mask = `linear-gradient(to right, transparent ${x0}px, #000 ${Math.min(x1, x0 + leftFade)}px, #000 ${Math.max(x0, x1 - rightFade)}px, transparent ${x1}px)`;
+  } else if (boxRatio < imgRatio) {
+    const fitH = Math.min(box.height, box.width / imgRatio);
+    const y0 = Math.max(0, (box.height - fitH) / 2);
+    const y1 = Math.min(box.height, y0 + fitH);
+    if (y0 < 6) {
+      mask = '';
+    } else {
+    const fade = Math.max(10, Math.min(22, fitH * 0.04));
+    mask = `linear-gradient(to bottom, transparent ${y0}px, #000 ${y0 + fade}px, #000 ${y1 - fade}px, transparent ${y1}px)`;
+    }
+  }
+  el.style.webkitMaskImage = mask;
+  el.style.maskImage = mask;
+  el.style.webkitMaskSize = '100% 100%';
+  el.style.maskSize = '100% 100%';
+}
+
+function scheduleImageEdgeMaskUpdate(el) {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => updateImageEdgeMask(el));
+  });
+}
+
 async function randomImage() {
   // 全部浏览/网格模式下不切图
   if (S.isBrowse || S.isGallery) { if (S.isGallery) loadGallery(); return; }
@@ -788,6 +848,7 @@ function showImage(img) {
 
   const el = $('#main-img');
   const url = '/img/' + img.path;
+  $('#single-mode').style.setProperty('--current-img-url', `url("${url.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}")`);
 
   // Ken Burns 呼吸感：旧图淡出 + 放大溢出（scale 1→1.05）
   el.classList.remove('fade-in-start');
@@ -807,7 +868,10 @@ function showImage(img) {
     el.src = url;
     // 双 RAF 确保浏览器 commit 起始态后再开始过渡到 (1, 1.0)
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => el.classList.remove('fade-in-start'));
+      requestAnimationFrame(() => {
+        el.classList.remove('fade-in-start');
+        scheduleImageEdgeMaskUpdate(el);
+      });
     });
     // mobile: 按横竖图分流展示
     el.classList.remove('landscape-mobile', 'portrait-mobile');
@@ -914,6 +978,18 @@ function prevSequential() {
   addToHistory(S.seqPool[S.seqIdx]);
 }
 
+function nextGalleryImage() {
+  if (!S.galleryPool.length) return;
+  S.galleryIdx = (S.galleryIdx + 1) % S.galleryPool.length;
+  addToHistory(S.galleryPool[S.galleryIdx]);
+}
+
+function prevGalleryImage() {
+  if (!S.galleryPool.length) return;
+  S.galleryIdx = (S.galleryIdx - 1 + S.galleryPool.length) % S.galleryPool.length;
+  addToHistory(S.galleryPool[S.galleryIdx]);
+}
+
 function updateModeUI() {
   const btn = $('#btn-mode-toggle');
   const mbBtn = $('#mb-random');
@@ -929,6 +1005,7 @@ function updateModeUI() {
 }
 
 function getNextImageFn() {
+  if (S.fromGallery) return nextGalleryImage;
   return S.seqMode ? nextSequential : randomImage;
 }
 
@@ -999,7 +1076,9 @@ function toggleGallery() {
   }
 }
 
+let _galleryLoadSeq = 0;
 async function loadGallery() {
+  const loadSeq = ++_galleryLoadSeq;
   const grid = $('#gallery-grid');
   grid.innerHTML = '';
   showLoading(true);
@@ -1009,14 +1088,19 @@ async function loadGallery() {
     const mode = S.groupByColor ? '&mode=balanced' : '';
     const n = S.groupByColor ? 500 : 60;
     const images = await api('/api/random_batch?n=' + n + params + mode);
+    if (loadSeq !== _galleryLoadSeq) return;
     if (S.groupByColor) {
       await loadColorIndex();
+      if (loadSeq !== _galleryLoadSeq) return;
       renderGalleryByColor(grid, images);
     } else {
+      S.galleryPool = images.slice();
       renderGalleryFlat(grid, images);
     }
   } catch(e) { toast('画廊加载失败'); }
-  showLoading(false);
+  finally {
+    if (loadSeq === _galleryLoadSeq) showLoading(false);
+  }
 }
 
 async function loadColorIndex() {
@@ -1031,7 +1115,7 @@ async function loadColorIndex() {
   }
 }
 
-function makeGridItem(img, i) {
+function makeGridItem(img, i, galleryIndex) {
   const item = document.createElement('div');
   item.className = 'grid-item';
   item.style.animationDelay = Math.min(i * 0.012, 1) + 's';
@@ -1047,6 +1131,7 @@ function makeGridItem(img, i) {
     $('#gallery-mode').style.display = 'none';
     $('#main-view').classList.remove('gallery');
     $('#btn-mode').classList.remove('active');
+    S.galleryIdx = typeof galleryIndex === 'number' ? galleryIndex : S.galleryPool.findIndex(si => si.path === img.path);
     if (S.seqMode) {
       const idx = S.seqPool.findIndex(si => si.path === img.path);
       if (idx >= 0) S.seqIdx = idx;
@@ -1059,7 +1144,8 @@ function makeGridItem(img, i) {
 function renderGalleryFlat(grid, images) {
   let i = 0;
   for (const img of images) {
-    const item = makeGridItem(img, i++);
+    const item = makeGridItem(img, i, i);
+    i++;
     grid.appendChild(item);
   }
 }
@@ -1080,6 +1166,7 @@ function renderGalleryByColor(grid, images) {
   const ordered = Object.values(groups).sort((a,b) => b.images.length - a.images.length);
 
   let gi = 0;
+  const displayOrder = [];
   for (const grp of ordered) {
     // 桶标题
     const head = document.createElement('div');
@@ -1094,11 +1181,14 @@ function renderGalleryByColor(grid, images) {
     const sub = document.createElement('div');
     sub.className = 'color-group-grid';
     for (const img of grp.images) {
-      const item = makeGridItem(img, gi++);
+      const galleryIndex = displayOrder.length;
+      displayOrder.push(img);
+      const item = makeGridItem(img, gi++, galleryIndex);
       sub.appendChild(item);
     }
     grid.appendChild(sub);
   }
+  S.galleryPool = displayOrder;
 }
 
 function toggleGroupByColor() {
@@ -1320,6 +1410,7 @@ function closeBrowse() {
 
 // 窗口 resize 重新计算虚拟滚动布局
 window.addEventListener('resize', () => {
+  scheduleImageEdgeMaskUpdate($('#main-img'));
   if (S.isBrowse) {
     clearTimeout(BROWSE.resizeTimer);
     BROWSE.resizeTimer = setTimeout(() => renderBrowseGrid(), 200);
@@ -1354,11 +1445,11 @@ document.addEventListener('keydown', e => {
   switch (e.key) {
     case 'ArrowLeft':
       e.preventDefault();
-      throttledNav((S.seqMode || S.fromBrowse) ? prevSequential : goBack);
+      throttledNav(S.fromGallery ? prevGalleryImage : ((S.seqMode || S.fromBrowse) ? prevSequential : goBack));
       break;
     case 'ArrowRight':
       e.preventDefault();
-      throttledNav((S.seqMode || S.fromBrowse) ? nextSequential : goForward);
+      throttledNav(S.fromGallery ? nextGalleryImage : ((S.seqMode || S.fromBrowse) ? nextSequential : goForward));
       break;
     case ' ':          e.preventDefault(); toggleFavorite(); break;
     case 'q': case 'Q': e.preventDefault(); throttledNav(randomImage); break;
@@ -1403,10 +1494,10 @@ document.addEventListener('keydown', e => {
 $('#btn-q').addEventListener('click', () => throttledNav(randomImage));
 $('#btn-mode-toggle').addEventListener('click', toggleSeqMode);
 $('#btn-left').addEventListener('click', () => {
-  throttledNav((S.seqMode || S.fromBrowse) ? prevSequential : goBack);
+  throttledNav(S.fromGallery ? prevGalleryImage : ((S.seqMode || S.fromBrowse) ? prevSequential : goBack));
 });
 $('#btn-right').addEventListener('click', () => {
-  throttledNav((S.seqMode || S.fromBrowse) ? nextSequential : goForward);
+  throttledNav(S.fromGallery ? nextGalleryImage : ((S.seqMode || S.fromBrowse) ? nextSequential : goForward));
 });
 $('#fav-chip').addEventListener('click', openFavModal);
 $('#dislike-chip').addEventListener('click', openDislikeModal);
@@ -1432,7 +1523,13 @@ $('#gallery-close').addEventListener('click', () => {
   } else {
     S.fromGallery = false;
     $('#gallery-close').classList.remove('show');
-    toggleGallery();
+    S.isGallery = true;
+    $('#single-mode').style.display = 'none';
+    $('#gallery-mode').style.display = 'block';
+    $('#main-view').classList.add('gallery');
+    $('#btn-mode').classList.add('active');
+    $('#btn-color-group').style.display = '';
+    $('#mb-grid').innerHTML = '⊞<span class="mlbl">单图</span>';
     if (S._galleryScrollY != null) {
       requestAnimationFrame(() => { $('#main-view').scrollTop = S._galleryScrollY; });
     }
@@ -1555,9 +1652,13 @@ $('#main-view').addEventListener('touchend', e => {
   }
   if (S.isGallery || S.isBrowse) return;
   if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+    if (S.fromGallery) {
+      throttledNav(dx > 0 ? prevGalleryImage : nextGalleryImage);
+      return;
+    }
     const useSeq = S.seqMode || S.fromBrowse;
-    throttledNav(dx > 0 ? (useSeq ? prevSequential() : goBack())
-                         : (useSeq ? nextSequential() : goForward()));
+    throttledNav(dx > 0 ? (useSeq ? prevSequential : goBack)
+                         : (useSeq ? nextSequential : goForward));
   }
 }, { passive: true });
 
