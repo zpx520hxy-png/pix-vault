@@ -1,5 +1,5 @@
-// v2 体验默认: 启动时固定 MissAV 首页,不让共享状态覆盖当前片源/当前结果
-window._SOURCE_SYNC_DISABLED = true;
+// 局域网多端同步: 手机/电脑共享当前片源、当前结果和抽过记录
+window._SOURCE_SYNC_DISABLED = false;
 
 if (location.protocol === 'file:') {
   DATA = JSON.parse(document.getElementById('DATA').textContent);
@@ -14,7 +14,7 @@ if (location.protocol === 'file:') {
       init('index');
       // 首次拉取共享状态,之后轮询保持 PC/手机同步
       await pullSyncState();
-      setInterval(pullSyncState, 2500);
+      setInterval(pullSyncState, 1000);
       // 启动后异步拉一次缓存计划
       refreshCacheStatus();
       setInterval(refreshCacheStatus, 30000);

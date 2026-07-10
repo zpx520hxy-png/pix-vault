@@ -1,4 +1,4 @@
-# MissAV Picker 使用说明
+# AV Roulette Browser 使用说明
 
 > 局域网 AV 随机选片工具 —— 找女优 / 找标签 / 随机抽片，封面 + 预览 + 直达播放页。
 

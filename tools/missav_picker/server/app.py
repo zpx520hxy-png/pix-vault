@@ -423,8 +423,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self.end_headers()
                 return
             body = self.rfile.read(length)
-            ok = save_sync_state(body)
-            resp = json.dumps({"ok": ok}).encode("utf-8")
+            saved = save_sync_state(body)
+            resp = json.dumps(
+                {"ok": bool(saved), "updatedAt": (saved or {}).get("updatedAt")},
+                ensure_ascii=False,
+            ).encode("utf-8")
             self._send_json(resp)
         except Exception:
             self.send_response(500)
@@ -630,7 +633,7 @@ def run():
 
     CACHE_DIR.mkdir(exist_ok=True)
     ip = get_lan_ip()
-    print(f"\n  MissAV Picker V2 (模块化)")
+    print(f"\n  AV Roulette Browser V2 (模块化)")
     print(f"  缓存目录: {CACHE_DIR}")
     print(f"  本机:  http://localhost:{PORT}")
     print(f"  手机:  http://{ip}:{PORT}")

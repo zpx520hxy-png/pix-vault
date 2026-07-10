@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""MissAV Picker main entry (compat wrapper).
+"""AV Roulette Browser main entry (compat wrapper).
 
 Keeps the original startup path `python server.py` working while
 delegating implementation to the modular v2 server package.

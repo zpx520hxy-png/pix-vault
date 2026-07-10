@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""MissAV Picker V2 — 模块化入口"""
+"""AV Roulette Browser V2 - modular entry."""
 
 import sys
 from pathlib import Path

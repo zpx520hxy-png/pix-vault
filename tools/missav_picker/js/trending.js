@@ -94,18 +94,7 @@ function showFromPlayableJable(code) {
   focusResultArea();
   // 既然这里叫“可播放作品”,点卡片后直接自动起播
   setTimeout(async () => {
-    const jp = $('jp');
-    const loading = $('jpLoading');
-    if (!jp || !loading) return;
-    jp.setAttribute('data-state', 'play');
-    loading.textContent = '⏳ 正在准备播放链路...';
-    loading.classList.remove('hide');
-    const result = await ensurePlayReady((v.code || '').toLowerCase());
-    if (!result.ok) {
-      loading.textContent = result.status === 'not_found' ? '⚠️ 当前未找到可播放链路' : '⚠️ 播放准备失败';
-      return;
-    }
-    initJplayer(v);
+    playCurrentJable();
   }, 80);
 }
 

@@ -414,12 +414,45 @@ function normFavorite(v, src) {
 }
 
 let SYNC_LAST_UPDATED = 0;
+let SYNC_LAST_SIGNATURE = '';
 let SYNC_SUPPRESS_SAVE = false;
 let syncSaveTimer = null;
 
 function slimVideoRef(v) {
   if (!v) return null;
-  return { code: v.code, source: currentSourceOf(v) };
+  return {
+    code: v.code,
+    source: currentSourceOf(v),
+    title: v.title || '',
+    url: v.url || '',
+    cover: v.cover || '',
+    preview: v.preview || '',
+    date: v.date || '',
+    actresses: Array.isArray(v.actresses) ? v.actresses.slice(0, 8) : [],
+    is_multi: !!v.is_multi,
+    tags: Array.isArray(v.tags) ? v.tags.slice(0, 24) : []
+  };
+}
+
+function normalizeVideoRef(ref) {
+  if (!ref) return null;
+  if (typeof ref === 'string') return { code: ref, source: 'missav' };
+  if (typeof ref !== 'object' || !ref.code) return null;
+  return Object.assign({}, ref, { source: ref.source || null });
+}
+
+function syncPayloadSignature(payload) {
+  if (!payload) return '';
+  const refSig = ref => {
+    const r = normalizeVideoRef(ref);
+    return r ? `${r.source || ''}:${String(r.code || '').toUpperCase()}` : '';
+  };
+  return JSON.stringify({
+    updatedAt: payload.updatedAt || 0,
+    source: payload.source || '',
+    current: refSig(payload.current),
+    history: (payload.history || []).map(refSig).join('|')
+  });
 }
 
 function mergeVideoHistory() {
@@ -457,9 +490,17 @@ function exportSyncState() {
 }
 
 function findVideoByRef(ref) {
-  if (!ref || !ref.code) return null;
-  const pool = ref.source === 'jable' ? state.favoritesJable.concat((DATA && DATA.videos) || []) : state.favoritesMissav.concat((DATA && DATA.videos) || []);
-  return pool.find(v => v.code === ref.code) || null;
+  const wanted = normalizeVideoRef(ref);
+  if (!wanted || !wanted.code) return null;
+  const code = String(wanted.code).toUpperCase();
+  const sources = wanted.source ? [wanted.source] : ['missav', 'jable'];
+  for (const src of sources) {
+    const pool = favListForSource(src)
+      .concat((DATA && (!DATA.source || DATA.source === src) && DATA.videos) || []);
+    const found = pool.find(v => String(v && v.code || '').toUpperCase() === code);
+    if (found) return hydrateVideoRef(found, src);
+  }
+  return hydrateVideoRef(wanted, wanted.source || 'missav');
 }
 
 async function loadSourceData(src) {
@@ -485,6 +526,7 @@ async function loadSourceData(src) {
 
 async function applySyncState(payload) {
   if (!payload || !payload.version) return;
+  const incomingSignature = syncPayloadSignature(payload);
   SYNC_SUPPRESS_SAVE = true;
   try {
     const src = window._SOURCE_SYNC_DISABLED ? state.source : (payload.source || 'missav');
@@ -561,6 +603,7 @@ async function applySyncState(payload) {
       $('browseArea').style.display = 'none';
     }
     SYNC_LAST_UPDATED = payload.updatedAt || 0;
+    SYNC_LAST_SIGNATURE = incomingSignature;
   } finally {
     SYNC_SUPPRESS_SAVE = false;
   }
@@ -578,7 +621,11 @@ function scheduleSyncSave() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      if (r.ok) SYNC_LAST_UPDATED = Date.now();
+      if (r.ok) {
+        const saved = await r.json().catch(() => ({}));
+        SYNC_LAST_UPDATED = saved.updatedAt || Date.now();
+        SYNC_LAST_SIGNATURE = syncPayloadSignature(Object.assign({}, payload, { updatedAt: SYNC_LAST_UPDATED }));
+      }
     } catch(e) {}
   }, 350);
 }
@@ -588,7 +635,8 @@ async function pullSyncState() {
     const r = await fetch('/sync_state.json?_=' + Date.now());
     const payload = await r.json();
     const incomingHistory = Array.isArray(payload.history) ? payload.history.length : 0;
-    if ((payload.updatedAt || 0) > (SYNC_LAST_UPDATED || 0) || incomingHistory > state.history.length) {
+    const sig = syncPayloadSignature(payload);
+    if ((payload.updatedAt || 0) > (SYNC_LAST_UPDATED || 0) || incomingHistory > state.history.length || sig !== SYNC_LAST_SIGNATURE) {
       await applySyncState(payload);
     }
   } catch(e) {}

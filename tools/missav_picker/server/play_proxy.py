@@ -65,16 +65,15 @@ def _async_resolve(code):
         if not hls_url:
             _set_resolve_status(code, PlayStatus.NOT_FOUND, "hlsUrl not found")
             return
-        req = urllib.request.Request(
+        data = _http_get_bytes(
             hls_url,
-            headers={
+            {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
                 "Referer": "https://jable.tv/",
                 "Origin": "https://jable.tv",
             },
+            timeout=15,
         )
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            data = resp.read()
         cache_root = PLAY_CACHE_DIR / code
         cache_root.mkdir(parents=True, exist_ok=True)
         m3u8_path = cache_root / "playlist.m3u8"
@@ -117,6 +116,24 @@ def _get_creq():
         except ImportError:
             _CREQ_SESSION = False
     return _CREQ_SESSION
+
+
+def _http_get_bytes(url, headers, timeout=15):
+    creq = _get_creq()
+    if creq:
+        r = creq.get(
+            url,
+            impersonate="chrome124",
+            timeout=timeout,
+            headers=headers,
+            **proxy_kwargs(),
+        )
+        if r.status_code != 200:
+            raise urllib.error.HTTPError(url, r.status_code, "HTTP error", {}, None)
+        return r.content
+    req = urllib.request.Request(url, headers=headers)
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return resp.read()
 
 
 def _acquire_ts_lock(key):
@@ -189,7 +206,7 @@ def _prefetch_ts(code, m3u8_path, meta_path, hls_url, initial_delay=15):
                 if creq:
                     r = creq.get(
                         ts_url,
-                        impersonate="chrome",
+                        impersonate="chrome124",
                         timeout=20,
                         headers=headers,
                         **proxy_kwargs(),
@@ -220,7 +237,7 @@ def fetch_jable_hlsurl(code):
     try:
         r = creq.get(
             f"https://jable.tv/videos/{code}/",
-            impersonate="chrome",
+            impersonate="chrome124",
             timeout=20,
             **proxy_kwargs(),
             headers={
@@ -289,16 +306,15 @@ def proxy_playlist(code):
         inc_play_fail()
         return None, "404"
     try:
-        req = urllib.request.Request(
+        data = _http_get_bytes(
             hls_url,
-            headers={
+            {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
                 "Referer": "https://jable.tv/",
                 "Origin": "https://jable.tv",
             },
+            timeout=15,
         )
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            data = resp.read()
         cache_root.mkdir(parents=True, exist_ok=True)
         m3u8_path.write_bytes(data)
         meta_path.write_text(hls_url, encoding="utf-8")
@@ -325,9 +341,12 @@ def request_play(code):
     m3u8_path = cache_root / "playlist.m3u8"
     meta_path = cache_root / "meta.json"
     if m3u8_path.is_file() and (time.time() - m3u8_path.stat().st_mtime) < CACHE_OK_TTL:
-        if is_play_cache_complete(code):
+        if meta_path.is_file():
             inc_play()
             return {"status": PlayStatus.READY, "source": "cache"}
+        if is_play_cache_complete(code):
+            inc_play()
+            return {"status": PlayStatus.READY, "source": "cache_complete"}
         # 已有播放链路但缓存不完整,后台继续补齐 key/ts
         if not _acquire_resolve_lock(code):
             return {
@@ -371,9 +390,12 @@ def request_play(code):
 def get_play_status(code):
     status = _get_resolve_status(code)
     m3u8_path = PLAY_CACHE_DIR / code / "playlist.m3u8"
+    meta_path = PLAY_CACHE_DIR / code / "meta.json"
     if m3u8_path.is_file() and (time.time() - m3u8_path.stat().st_mtime) < CACHE_OK_TTL:
-        if is_play_cache_complete(code):
+        if meta_path.is_file():
             return {"status": PlayStatus.READY, "source": "cache", "error": ""}
+        if is_play_cache_complete(code):
+            return {"status": PlayStatus.READY, "source": "cache_complete", "error": ""}
         return {"status": PlayStatus.PENDING, "source": "hydrate", "error": ""}
     return {
         "status": status["status"],

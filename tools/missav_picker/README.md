@@ -1,4 +1,6 @@
-# 🎲 MissAV 随机选片器
+# 🎲 AV Roulette Browser
+
+AV随机浏览工具，支持 MissAV / Jable 片源的筛选、随机浏览、收藏和预览。
 
 一个**局域网 AV 随机选片工具**——根据女优、标签筛选，随机抽取 MissAV 作品，封面 + 预览 + 直达播放页。
 

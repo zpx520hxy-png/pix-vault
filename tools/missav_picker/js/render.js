@@ -37,10 +37,10 @@ function renderResult() {
          </div>
          <div class="jp-bar">
            <button class="jp-btn" id="jpPlay" title="播放/暂停">▶️</button>
-           <div class="jp-volume">
-             <button class="jp-btn" id="jpMute" title="静音/取消">🔊</button>
-             <div class="jp-vol-slider"><input type="range" id="jpVol" min="0" max="1" step="0.05" value="1"></div>
-           </div>
+           <div class="jp-volume" id="jpVolumeWrap">
+              <button class="jp-btn" id="jpMute" title="静音/取消">🔊</button>
+              <div class="jp-vol-slider"><input type="range" id="jpVol" min="0" max="1" step="0.05" value="1"></div>
+            </div>
            <span class="jp-time" id="jpCur">0:00</span>
            <span class="jp-time" style="opacity:0.6">/</span>
            <span class="jp-time" id="jpDur">0:00</span>
@@ -94,6 +94,7 @@ function renderResult() {
         </div>
         <div class="actions">
           <a class="btn btn-primary" href="${escHtml(v.url || '')}" target="_blank" rel="noopener">▶️ 去 ${isJable?'Jable':'MissAV'} 观看</a>
+           ${isJable ? '<button class="btn btn-primary" type="button" id="jpDirectAction" onclick="playCurrentJable()">▶️ 直接播放</button><button class="btn btn-ghost" type="button" id="jpCancelAction" onclick="cancelJablePlayback()" hidden>⏹ 取消播放</button>' : ''}
           <button class="btn btn-ghost" onclick="rollOne()">🎲 再抽一部</button>
           <button class="btn btn-ghost" onclick="copyCode(${jsArg(v.code)}, this)">📋 复制番号</button>
           <button class="btn btn-ghost fav-toggle" onclick="toggleFavorite()">${isManualFavorite(v) ? '⭐ 取消手动收藏' : '☆ 手动收藏'}</button>
@@ -104,7 +105,26 @@ function renderResult() {
     </div>`;
   if (isJable) {
     const cover = $('jpCover');
-    if (cover) cover.onclick = () => {
+    if (cover) {
+      const preview = $('jpPreview');
+      const startPreview = () => {
+        if (!preview) return;
+        if (preview.dataset.previewMounted !== '1') {
+          preview.dataset.previewMounted = '1';
+          mountHls(preview, previewUrl(v));
+        } else {
+          preview.play().catch(function(){});
+        }
+        cover.classList.add('preview-on');
+      };
+      const stopPreview = () => {
+        if (!preview) return;
+        preview.pause();
+        cover.classList.remove('preview-on');
+      };
+      cover.onmouseenter = startPreview;
+      cover.onmouseleave = stopPreview;
+      cover.onclick = () => {
       const preview = $('jpPreview');
       if (!preview) return;
       if (preview.dataset.previewMounted !== '1') {
@@ -121,6 +141,7 @@ function renderResult() {
         cover.classList.remove('preview-on');
       }
     };
+    }
   }
 }
 
@@ -144,6 +165,66 @@ async function ensurePlayReady(code, timeoutMs = 30000) {
   return { ok: false, status: 'timeout', error: 'timeout' };
 }
 
+async function playCurrentJable() {
+  const v = state.current;
+  if (!v || currentSourceOf(v) !== 'jable') return;
+  const code = String(v.code || '').toLowerCase();
+  const jp = $('jp');
+  const loading = $('jpLoading');
+  if (!jp || !loading || !code) return;
+  jp.setAttribute('data-state', 'play');
+  const directBtn = $('jpDirectAction');
+  const cancelBtn = $('jpCancelAction');
+  if (directBtn) directBtn.hidden = true;
+  if (cancelBtn) cancelBtn.hidden = false;
+  loading.textContent = '⏳ 正在准备播放链路...';
+  loading.classList.remove('hide');
+  const result = await ensurePlayReady(code);
+  if (!result.ok) {
+    loading.textContent = result.status === 'not_found' ? '⚠️ 当前未找到可播放链路' : '⚠️ 播放准备失败';
+    if (directBtn) directBtn.hidden = false;
+    if (cancelBtn) cancelBtn.hidden = true;
+    return;
+  }
+  initJplayer(v);
+}
+
+function cancelJablePlayback() {
+  const jp = $('jp');
+  const video = $('jpVideo');
+  const preview = $('jpPreview');
+  const cover = $('jpCover');
+  const loading = $('jpLoading');
+  const directBtn = $('jpDirectAction');
+  const cancelBtn = $('jpCancelAction');
+  if (_jpHls) { try { _jpHls.destroy(); } catch(e){} _jpHls = null; }
+  if (video) {
+    try {
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+      const freshVideo = video.cloneNode(false);
+      freshVideo.removeAttribute('src');
+      video.replaceWith(freshVideo);
+      _jpVideo = null;
+    } catch(e) {}
+  }
+  if (preview) {
+    try { preview.pause(); } catch(e) {}
+  }
+  if (cover) cover.classList.remove('preview-on');
+  if (jp) jp.setAttribute('data-state', 'cover');
+  if (loading) { loading.textContent = '⏳ 加载中...'; loading.classList.add('hide'); }
+  const cur = $('jpCur'), dur = $('jpDur'), seek = $('jpSeekCur'), played = $('jpPlayed'), buffered = $('jpBuffered');
+  if (cur) cur.textContent = '0:00';
+  if (dur) dur.textContent = '0:00';
+  if (seek) seek.textContent = '0:00';
+  if (played) played.style.width = '0%';
+  if (buffered) buffered.style.width = '0%';
+  if (directBtn) directBtn.hidden = false;
+  if (cancelBtn) cancelBtn.hidden = true;
+}
+
 function fmtTime(s) {
   if (!s || !isFinite(s)) return '0:00';
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = Math.floor(s % 60);
@@ -161,8 +242,9 @@ function initJplayer(v) {
   const progress = $('jpProgress'), played = $('jpPlayed'), buffered = $('jpBuffered');
   const speedBtn = $('jpSpeedBtn'), speedMenu = $('jpSpeedMenu');
   const qualBtn = $('jpQualBtn'), qualMenu = $('jpQualMenu');
-  const muteBtn = $('jpMute'), volSlider = $('jpVol');
+  const muteBtn = $('jpMute'), volSlider = $('jpVol'), volumeWrap = $('jpVolumeWrap');
   const fsBtn = $('jpFs');
+  const fsHost = jp.closest('.media-col') || jp;
 
   loading.classList.remove('hide');
   video.volume = 1; video.muted = false; // 点击触发,可有声播放
@@ -171,8 +253,8 @@ function initJplayer(v) {
   const speedWrap = speedBtn.parentElement;   // .jp-speed
   const qualWrap = qualBtn.parentElement;      // .jp-quality
   function closeMenus() { speedWrap.classList.remove('open'); qualWrap.classList.remove('open'); }
-  speedBtn.onclick = (e) => { e.stopPropagation(); qualWrap.classList.remove('open'); speedWrap.classList.toggle('open'); };
-  qualBtn.onclick = (e) => { e.stopPropagation(); speedWrap.classList.remove('open'); qualWrap.classList.toggle('open'); };
+  speedBtn.onclick = (e) => { e.stopPropagation(); qualWrap.classList.remove('open'); speedWrap.classList.toggle('open'); revealFullscreenControls(); };
+  qualBtn.onclick = (e) => { e.stopPropagation(); speedWrap.classList.remove('open'); qualWrap.classList.toggle('open'); revealFullscreenControls(); };
   // 点外部关闭
   jp.addEventListener('click', (e) => { if (!e.target.closest('.jp-speed,.jp-quality')) closeMenus(); });
 
@@ -192,6 +274,7 @@ function initJplayer(v) {
       speedMenu.querySelectorAll('.jp-menu-item').forEach(x => x.classList.remove('active'));
       b.classList.add('active');
       speedWrap.classList.remove('open');
+      revealFullscreenControls();
     };
   });
 
@@ -220,12 +303,13 @@ function initJplayer(v) {
         b.classList.add('active');
         qualBtn.textContent = b.textContent;
         qualWrap.classList.remove('open');
+        revealFullscreenControls();
       };
     });
     // 默认选最高清(-1 = auto, 但配置里强制 capLevelToPlayerSize=false 已让自动选最高)
   }
 
-  const src = v.preview;
+  const src = `/play/${encodeURIComponent(String(v.code || '').toLowerCase())}/playlist.m3u8`;
   const isHls = /\.m3u8(\?|#|$)/i.test(src);
   let hlsReady = false;
 
@@ -305,12 +389,31 @@ function initJplayer(v) {
     else if (video.volume < 0.5) muteBtn.textContent = '🔉';
     else muteBtn.textContent = '🔊';
   }
-  muteBtn.onclick = () => {
+  function toggleVolumeSlider(force) {
+    if (!volumeWrap) return;
+    const open = typeof force === 'boolean' ? force : !volumeWrap.classList.contains('open');
+    volumeWrap.classList.toggle('open', open);
+    muteBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    revealFullscreenControls();
+  }
+  muteBtn.setAttribute('aria-expanded', 'false');
+  muteBtn.onclick = (e) => {
+    e.stopPropagation();
+    toggleVolumeSlider();
+  };
+  muteBtn.ondblclick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
     video.muted = !video.muted;
     if (!video.muted && video.volume === 0) { video.volume = 0.5; volSlider.value = 0.5; }
     volSlider.value = video.muted ? 0 : video.volume;
     updateMuteIcon();
+    toggleVolumeSlider(true);
   };
+  if (volumeWrap) volumeWrap.onclick = e => e.stopPropagation();
+  document.addEventListener('click', e => {
+    if (volumeWrap && !volumeWrap.contains(e.target)) toggleVolumeSlider(false);
+  });
   volSlider.oninput = () => {
     const val = parseFloat(volSlider.value);
     video.volume = val;
@@ -343,7 +446,7 @@ function initJplayer(v) {
   document.addEventListener('mouseup', () => { dragging = false; });
   progress.onclick = null; // mousedown 已处理,避免拖动末尾 click 跳回
 
-  // 跳转按钮组(seekbar 在 jplayer 外层)
+  // 跳转按钮组
   const seekbar = document.querySelector('.jp-seekbar');
   const seekCur = document.getElementById('jpSeekCur');
   if (seekbar) {
@@ -351,18 +454,50 @@ function initJplayer(v) {
       btn.onclick = () => {
         const sec = parseInt(btn.dataset.sec);
         if (video.duration) video.currentTime = Math.max(0, Math.min(video.duration, video.currentTime + sec));
+        revealFullscreenControls();
       };
     });
   }
   video.addEventListener('timeupdate', () => { if (seekCur) seekCur.textContent = fmtTime(video.currentTime); });
 
   // 全屏(Fullscreen API)
+  let fsIdleTimer = null;
+  function isPlayerFullscreen() {
+    return document.fullscreenElement === fsHost || document.fullscreenElement === jp;
+  }
+  function setFullscreenIdle(idle) {
+    fsHost.classList.toggle('fullscreen-idle', idle);
+    fsHost.classList.toggle('fullscreen-active', !idle);
+  }
+  function revealFullscreenControls() {
+    if (!isPlayerFullscreen()) return;
+    setFullscreenIdle(false);
+    if (fsIdleTimer) clearTimeout(fsIdleTimer);
+    if (speedWrap.classList.contains('open') || qualWrap.classList.contains('open') || (volumeWrap && volumeWrap.classList.contains('open'))) return;
+    fsIdleTimer = setTimeout(() => setFullscreenIdle(true), 2200);
+  }
+  function clearFullscreenIdle() {
+    if (fsIdleTimer) clearTimeout(fsIdleTimer);
+    fsIdleTimer = null;
+    fsHost.classList.remove('fullscreen-idle', 'fullscreen-active');
+  }
+  if (jp._jpFsCleanup) jp._jpFsCleanup();
+  const fsMoveEvents = ['mousemove', 'mousedown', 'touchstart', 'touchmove'];
+  fsMoveEvents.forEach(ev => document.addEventListener(ev, revealFullscreenControls, { passive: true }));
+  document.addEventListener('keydown', revealFullscreenControls);
+  jp._jpFsCleanup = () => {
+    fsMoveEvents.forEach(ev => document.removeEventListener(ev, revealFullscreenControls));
+    document.removeEventListener('keydown', revealFullscreenControls);
+    clearFullscreenIdle();
+  };
   fsBtn.onclick = () => {
     if (document.fullscreenElement) document.exitFullscreen();
-    else jp.requestFullscreen().catch(()=>{});
+    else fsHost.requestFullscreen().catch(()=>{});
   };
   document.addEventListener('fullscreenchange', () => {
     fsBtn.textContent = document.fullscreenElement ? '🗙' : '⛶';
+    if (isPlayerFullscreen()) revealFullscreenControls();
+    else clearFullscreenIdle();
   });
 
   // 销毁旧监听:重建时清理(简单做法 — 给 video 加标记)

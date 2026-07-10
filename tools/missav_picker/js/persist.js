@@ -2,14 +2,14 @@
 function saveHistory() {
   try {
     localStorage.setItem('missav_picker_history',
-      JSON.stringify(state.history.map(v => v.code)));
+      JSON.stringify(state.history.map(slimVideoRef).filter(Boolean)));
   } catch(e) {}
 }
 function loadHistory() {
   try {
-    const codes = JSON.parse(localStorage.getItem('missav_picker_history') || '[]');
-    state.history = codes
-      .map(c => DATA.videos.find(v => v.code === c))
+    const refs = JSON.parse(localStorage.getItem('missav_picker_history') || '[]');
+    state.history = (Array.isArray(refs) ? refs : [])
+      .map(findVideoByRef)
       .filter(Boolean);
     renderHistory();
   } catch(e) {}

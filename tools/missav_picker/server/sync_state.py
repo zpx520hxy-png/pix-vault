@@ -20,9 +20,9 @@ def save_sync_state(body_bytes):
         import os
 
         os.replace(tmp, SYNC_STATE_FILE)
-        return True
+        return payload
     except Exception:
-        return False
+        return None
 
 
 def get_jable_codes():
