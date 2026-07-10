@@ -180,14 +180,31 @@ function readStoredFavoriteActresses() {
     return [];
   }
 }
+function authoritativeSavedActressNames() {
+  const meta = IDX || DATA || {};
+  const groups = meta.actress_groups || {};
+  return Object.keys(groups).filter(name => groups[name] === 'saved');
+}
+function normalizeFavoriteActressList(list) {
+  return [...new Set(Array.from(list || []).map(resolveActressName).filter(Boolean))];
+}
+function mergeFavoriteActressNames() {
+  return normalizeFavoriteActressList([
+    ...authoritativeSavedActressNames(),
+    ...readStoredFavoriteActresses(),
+    ...(state.favoriteActresses || [])
+  ]);
+}
 function loadFavoriteActresses() {
   try {
-    state.favoriteActresses = new Set(readStoredFavoriteActresses());
+    state.favoriteActresses = new Set(mergeFavoriteActressNames());
+    saveFavoriteActresses();
   } catch (e) { state.favoriteActresses = new Set(); }
 }
 function saveFavoriteActresses() {
   try {
-    const names = [...state.favoriteActresses];
+    const names = normalizeFavoriteActressList(state.favoriteActresses);
+    state.favoriteActresses = new Set(names);
     localStorage.setItem(favoriteActressesStorageKey(), JSON.stringify(names));
     localStorage.setItem(favoriteActressesBackupStorageKey(), JSON.stringify(names));
   } catch (e) {}
@@ -200,20 +217,18 @@ function isFavoriteActress(name) {
   return !!(resolved && state.favoriteActresses && state.favoriteActresses.has(resolved));
 }
 function favoriteActressSet() {
-  return new Set(state.favoriteActresses || []);
+  return new Set(mergeFavoriteActressNames());
 }
 function toggleFavoriteActress(name) {
   const resolved = resolveActressName(name);
   if (!resolved) return;
-  state.favoriteActresses = new Set([
-    ...readStoredFavoriteActresses(),
-    ...(state.favoriteActresses || [])
-  ]);
+  state.favoriteActresses = new Set(mergeFavoriteActressNames());
   if (state.favoriteActresses.has(resolved)) state.favoriteActresses.delete(resolved);
   else state.favoriteActresses.add(resolved);
   saveFavoriteActresses();
   renderActressGrid(($('actressSearch') && $('actressSearch').value) || '');
   renderResult();
+  scheduleSyncSave();
 }
 function removedFavoritesStorageKey() {
   return 'missav_picker_removed_favorites_v1';
@@ -447,11 +462,17 @@ function syncPayloadSignature(payload) {
     const r = normalizeVideoRef(ref);
     return r ? `${r.source || ''}:${String(r.code || '').toUpperCase()}` : '';
   };
+  const actressSig = (payload.favoriteActresses || [])
+    .map(name => String(name || '').trim())
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b))
+    .join('|');
   return JSON.stringify({
     updatedAt: payload.updatedAt || 0,
     source: payload.source || '',
     current: refSig(payload.current),
-    history: (payload.history || []).map(refSig).join('|')
+    history: (payload.history || []).map(refSig).join('|'),
+    favoriteActresses: actressSig
   });
 }
 
@@ -471,6 +492,8 @@ function mergeVideoHistory() {
 }
 
 function exportSyncState() {
+  const favoriteActresses = mergeFavoriteActressNames();
+  state.favoriteActresses = new Set(favoriteActresses);
   return {
     version: 1,
     source: state.source,
@@ -483,6 +506,7 @@ function exportSyncState() {
     history: state.history.map(slimVideoRef).filter(Boolean),
     favoritesMissav: state.favoritesMissav,
     favoritesJable: state.favoritesJable,
+    favoriteActresses,
     removedFavorites: state.removedFavorites || {},
     browsePage,
     browseOpen: $('browseArea').style.display !== 'none'
@@ -556,6 +580,11 @@ async function applySyncState(payload) {
         .concat(Array.isArray(payload.favoritesJable) ? payload.favoritesJable : []),
       'jable'
     );
+    state.favoriteActresses = new Set(normalizeFavoriteActressList([
+      ...mergeFavoriteActressNames(),
+      ...(Array.isArray(payload.favoriteActresses) ? payload.favoriteActresses : [])
+    ]));
+    saveFavoriteActresses();
     try {
       localStorage.setItem(favStorageKey('missav'), JSON.stringify(state.favoritesMissav));
       localStorage.setItem(favStorageKey('jable'), JSON.stringify(state.favoritesJable));
