@@ -122,8 +122,6 @@ function renderResult() {
         preview.pause();
         cover.classList.remove('preview-on');
       };
-      cover.onmouseenter = startPreview;
-      cover.onmouseleave = stopPreview;
       cover.onclick = () => {
       const preview = $('jpPreview');
       if (!preview) return;

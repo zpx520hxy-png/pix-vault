@@ -10,6 +10,14 @@ function trendSource() {
 }
 function trendLabel() { return trendSource() === 'jable' ? 'Jable.TV' : 'MissAV'; }
 function trendIsJable() { return trendSource() === 'jable'; }
+function isPlaceholderCover(url) {
+  return /assets\/images\/placeholder(?:-[a-z]+)?\.jpg/i.test(String(url || ''));
+}
+function trendCover(item, local, code) {
+  const covers = [item && item.cover, local && local.cover];
+  const usable = covers.find(cover => cover && !isPlaceholderCover(cover));
+  return usable || (code ? `fourhoi.com/${code}/cover-t.jpg` : '');
+}
 
 function formatTrendTime(ms) {
   if (!ms) return '';
@@ -141,7 +149,7 @@ function renderTrending() {
     if (isVideoRemoved(code, trendSource())) return null;
     return Object.assign({}, local || {}, it, {
       title: it.title || (local && local.title) || '',
-      cover: it.cover || (local && local.cover) || '',
+      cover: trendCover(it, local, code),
       url: it.url || (local && local.url) || '',
       local: !!local
     });
@@ -154,7 +162,7 @@ function renderTrending() {
   grid.innerHTML = visibleItems.map((it, i) => {
     const code = (it.code || '').toLowerCase();
     const isJ = trendIsJable();
-    const cover = isJ && code ? (it.cover || `fourhoi.com/${code}/cover-t.jpg`) : (it.cover || (code ? `fourhoi.com/${code}/cover-t.jpg` : ''));
+    const cover = isPlaceholderCover(it.cover) ? (code ? `fourhoi.com/${code}/cover-t.jpg` : '') : it.cover;
     const preview = code ? (isJ ? `https://fourhoi.com/${code}/preview.mp4` : `/trend_preview/missav/${code}.mp4`) : '';
     const dataKind = code ? 'mp4' : '';
     const safeTitle = escHtml(it.title || it.code || '');

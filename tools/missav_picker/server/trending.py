@@ -100,6 +100,19 @@ _MISSAV_COVER_RE = re.compile(
 )
 
 
+def _is_placeholder_cover(url):
+    return "assets/images/placeholder" in (url or "").lower()
+
+
+def _find_jable_cover(html):
+    matches = re.findall(
+        r"(?:data-original|data-src|src)=[\"'](https?://assets-cdn\.jable\.tv/[^\"' ]+\.(?:jpe?g|png|webp))",
+        html,
+        re.I,
+    )
+    return next((url for url in matches if not _is_placeholder_cover(url)), "")
+
+
 def _parse_missav_trending(html, period):
     if not html:
         return []
@@ -163,21 +176,13 @@ def _parse_jable_trending(html):
         if end_anchor == -1 or end_anchor - m.start() > 1200:
             end_anchor = m.end() + 220
         local = html[m.start() : min(len(html), end_anchor + 4)]
-        cover_m = re.search(
-            r"(?:data-original|data-src|src)=[\"\'](https?://assets-cdn\.jable\.tv/[^\"\' ]+\.(?:jpe?g|png|webp))",
-            local,
-            re.I,
-        )
-        if not cover_m:
+        cover = _find_jable_cover(local)
+        if not cover:
             start = max(0, m.start() - 260)
             local = html[start : min(len(html), m.end() + 220)]
-            cover_m = re.search(
-                r"(?:data-original|data-src|src)=[\"\'](https?://assets-cdn\.jable\.tv/[^\"\' ]+\.(?:jpe?g|png|webp))",
-                local,
-                re.I,
-            )
+        if not cover:
+            cover = _find_jable_cover(local)
         title_m = re.search(r"(?:alt|title|h4|h3)[^>]*>([^<]{2,200})<", local, re.I)
-        cover = cover_m.group(1) if cover_m else ""
         title = title_m.group(1).strip() if title_m else ""
         items.append(
             {
@@ -315,11 +320,17 @@ def _hydrate_trending_items(source, items):
                 if source == "jable"
                 else f"https://missav.ws/cn/{code}"
             )
+        remote_cover = it.get("cover") or ""
+        local_cover = local_v.get("cover") or ""
+        if _is_placeholder_cover(remote_cover):
+            remote_cover = ""
+        if _is_placeholder_cover(local_cover):
+            local_cover = ""
         out.append(
             {
                 "code": local_v.get("code") or it.get("code") or code,
                 "title": it.get("title") or local_v.get("title") or "",
-                "cover": it.get("cover") or local_v.get("cover") or "",
+                "cover": remote_cover or local_cover,
                 "url": url,
                 "date": local_v.get("date") or it.get("date") or "",
                 "local": bool(local_v),
