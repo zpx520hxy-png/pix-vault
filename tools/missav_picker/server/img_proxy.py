@@ -76,11 +76,12 @@ def proxy_img(path_remainder, persistent=False, source="", code="", transient=Fa
         and (time.time() - neg_path.stat().st_mtime) < CACHE_FAIL_TTL
     ):
         return None, "neg_cache"
-    if (
+    cache_is_fresh = (
         cache_path
         and cache_path.is_file()
-        and (time.time() - cache_path.stat().st_mtime) < cache_ttl
-    ):
+        and (persistent or (time.time() - cache_path.stat().st_mtime) < cache_ttl)
+    )
+    if cache_path and cache_is_fresh:
         data = cache_path.read_bytes()
         ct = _detect_ct(data)
         inc_hit()

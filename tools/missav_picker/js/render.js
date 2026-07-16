@@ -312,6 +312,7 @@ function initJplayer(v) {
   const src = `/play/${encodeURIComponent(String(v.code || '').toLowerCase())}/playlist.m3u8${isManualFavorite(v) ? '?persist=favorite' : ''}`;
   const isHls = /\.m3u8(\?|#|$)/i.test(src);
   let hlsReady = false;
+  let fragmentRecoveryAttempts = 0;
 
   if (isHls && window.Hls && Hls.isSupported()) {
     const hls = new Hls({
@@ -347,9 +348,19 @@ function initJplayer(v) {
       if (!hlsReady) { hlsReady = true; buildQualityMenu(data.levels); hls.currentLevel = -1; loading.classList.add('hide'); }
     });
     hls.on(Hls.Events.ERROR, function(_, data) {
-      // 分片 404:跳过坏分片,不卡死
+      // A late seek can hit a segment whose signed source URL expired. Ask the
+      // backend to retry the current load instead of silently leaving the
+      // loading overlay visible forever.
       if (data.details === Hls.ErrorDetails.FRAG_LOAD_ERROR || data.details === Hls.ErrorDetails.FRAG_PARSING_ERROR) {
-        // 非致命,让 hls.js 自动跳过
+        if (fragmentRecoveryAttempts < 2) {
+          fragmentRecoveryAttempts += 1;
+          loading.textContent = '⏳ 正在恢复跳转...';
+          loading.classList.remove('hide');
+          setTimeout(() => hls.startLoad(video.currentTime), 500 * fragmentRecoveryAttempts);
+        } else {
+          loading.textContent = '⚠️ 该位置暂时不可用，请稍后重试';
+          loading.classList.remove('hide');
+        }
         return;
       }
       if (data.fatal) {
@@ -433,7 +444,7 @@ function initJplayer(v) {
     }
   });
   video.addEventListener('waiting', () => loading.classList.remove('hide'));
-  video.addEventListener('playing', () => loading.classList.add('hide'));
+  video.addEventListener('playing', () => { fragmentRecoveryAttempts = 0; loading.classList.add('hide'); });
 
   // 进度条拖动跳转
   let dragging = false;

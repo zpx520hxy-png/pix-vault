@@ -6,6 +6,16 @@ function renderFavorites() {
   pairs.forEach(([src, area, grid, list]) => {
     if (!list.length) { area.style.display = 'none'; grid.innerHTML = ''; return; }
     area.style.display = 'block';
+    list.forEach(raw => {
+      const code = String(raw && raw.code || '');
+      if (code) {
+        fetch('/favorite_media_cache', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'prepare', source: src, code })
+        }).catch(() => {});
+      }
+    });
     const isJableFav = (src === 'jable');
     grid.innerHTML = list.map(raw => {
       const v = hydrateVideoRef(raw, src) || Object.assign({}, raw, { source: src });
@@ -16,7 +26,7 @@ function renderFavorites() {
       return `
       <div class="fav-card" data-card-action="favorite" data-source="${escHtml(src)}" data-code="${escHtml(v.code)}" role="button" tabindex="0">
         <div class="img-wrap">
-          <img src="${escHtml(coverUrl(v))}" data-fallback-cover="${escHtml(fallbackCoverUrl(v))}" onload="handleCoverLoad(this)" alt="${escHtml(v.code)}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+          <img src="${escHtml(favoriteGifUrl(v) || coverUrl(v))}" data-fallback-cover="${escHtml(fallbackCoverUrl(v))}" onload="handleCoverLoad(this)" alt="${escHtml(v.code)}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
                onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${escHtml(fallbackCoverUrl(v))}';}else if(!this.dataset.fallback2){this.dataset.fallback2='1';this.src='${escHtml(p(v.cover || ""))}';}else{this.style.display='none';}">
         </div>
         <div class="info">
@@ -66,6 +76,7 @@ function toggleFavorite() {
     prewarmCover(fallbackCoverUrl(state.current));
     const preview = previewUrl(state.current);
     if (preview) fetch(preview).catch(() => {});
+    fetch('/favorite_media_cache', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'prepare', source: src, code: state.current.code }) }).catch(() => {});
   }
   if (src === 'jable') state.favoritesJable = applyRemovedFavorites(list, 'jable');
   else state.favoritesMissav = applyRemovedFavorites(list, 'missav');

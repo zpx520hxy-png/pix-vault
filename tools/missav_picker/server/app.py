@@ -2,8 +2,11 @@ import http.server
 import gzip
 import io
 import json
+import os
 import re
 import shutil
+import subprocess
+import threading
 import time
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
@@ -41,6 +44,128 @@ from .play_proxy import (
 )
 from .img_proxy import proxy_img, _detect_ct
 from .trending import get_trending, get_trending_progress, import_manual_jable_trending
+
+
+def _favorite_media_dir(source, code):
+    safe_source = re.sub(r"[^a-z0-9_-]", "", source.lower())
+    safe_code = re.sub(r"[^a-z0-9_-]", "", code.lower())
+    if safe_source not in ("missav", "jable") or not safe_code:
+        return None
+    return FAVORITE_MEDIA_CACHE_DIR / safe_source / safe_code
+
+
+_GIF_PREP_LOCK = set()
+_GIF_PREP_LOCK_GUARD = threading.Lock()
+
+
+def _prepare_favorite_gif(source, code):
+    cache_dir = _favorite_media_dir(source, code)
+    if not cache_dir:
+        return
+    gif_path = cache_dir / "cover.gif"
+    if gif_path.is_file() and gif_path.stat().st_size > 0:
+        return
+    key = f"{source}:{code}".lower()
+    with _GIF_PREP_LOCK_GUARD:
+        if key in _GIF_PREP_LOCK:
+            return
+        _GIF_PREP_LOCK.add(key)
+    try:
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        preview_path = cache_dir / "preview.mp4"
+        if not preview_path.is_file() or not preview_path.stat().st_size:
+            cached_previews = [
+                path
+                for path in cache_dir.glob("*preview.mp4")
+                if path.is_file() and path.stat().st_size > 0
+            ]
+            if cached_previews:
+                preview_path = max(
+                    cached_previews, key=lambda path: path.stat().st_mtime
+                )
+        if not preview_path.is_file() or not preview_path.stat().st_size:
+            upstream = f"https://fourhoi.com/{code.lower()}/preview.mp4"
+            data = b""
+            try:
+                from curl_cffi import requests as creq
+
+                response = creq.get(
+                    upstream,
+                    impersonate="chrome",
+                    timeout=20,
+                    **proxy_kwargs(),
+                    headers={"Referer": "https://jable.tv/"},
+                )
+                if response.status_code == 200:
+                    data = response.content
+            except Exception:
+                pass
+            if not data:
+                try:
+                    request = urllib.request.Request(
+                        upstream, headers={"Referer": "https://jable.tv/"}
+                    )
+                    with urllib.request.urlopen(request, timeout=20) as response:
+                        data = response.read()
+                except Exception:
+                    pass
+            if data:
+                temp_preview = preview_path.with_suffix(".mp4.tmp")
+                temp_preview.write_bytes(data)
+                os.replace(temp_preview, preview_path)
+        input_path = preview_path
+        input_is_image = False
+        if not input_path.is_file() or not input_path.stat().st_size:
+            cached_images = [
+                path
+                for pattern in ("*.jpg", "*.jpeg", "*.png", "*.webp")
+                for path in cache_dir.glob(pattern)
+                if path.is_file() and path.stat().st_size > 0
+            ]
+            if not cached_images:
+                return
+            input_path = max(cached_images, key=lambda path: path.stat().st_mtime)
+            input_is_image = True
+        temp_gif = cache_dir / "cover.tmp.gif"
+        command = [
+            "ffmpeg",
+            "-y",
+            "-ss",
+            "0",
+        ]
+        if input_is_image:
+            command.extend(["-loop", "1"])
+        command.extend(
+            [
+                "-t",
+                "3",
+                "-i",
+                str(input_path),
+                "-vf",
+                "fps=8,scale=360:-2:flags=lanczos",
+                "-loop",
+                "0",
+                "-f",
+                "gif",
+                str(temp_gif),
+            ]
+        )
+        result = subprocess.run(
+            command,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=60,
+            check=False,
+        )
+        if result.returncode == 0 and temp_gif.is_file() and temp_gif.stat().st_size:
+            os.replace(temp_gif, gif_path)
+        else:
+            temp_gif.unlink(missing_ok=True)
+    except Exception:
+        pass
+    finally:
+        with _GIF_PREP_LOCK_GUARD:
+            _GIF_PREP_LOCK.discard(key)
 
 
 def _rebuild_index():
@@ -116,6 +241,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._handle_jable_codes()
         elif path.startswith("/browser_hls_map_upsert"):
             self._handle_browser_hls_upsert(query)
+        elif path.startswith("/favorite_cover_gif/"):
+            self._handle_favorite_cover_gif(path[len("/favorite_cover_gif/") :])
         elif path.startswith("/trending_progress"):
             self._handle_trending_progress(query)
         elif path.startswith("/trending"):
@@ -183,6 +310,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 / safe_code
                 / remainder.replace("/", "_")
             )
+            # Favorite covers, including animated GIF files, are local assets.
+            # The browser may retain them for a year; the server keeps them
+            # until the corresponding favorite is explicitly removed.
+            cache_ttl = 365 * 24 * 3600
         elif transient:
             cache_path = (
                 TREND_PREVIEW_CACHE_DIR / "images" / remainder.replace("/", "_")
@@ -345,6 +476,26 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         )
         self._send_json(body)
 
+    def _handle_favorite_cover_gif(self, rest):
+        parts = rest.removesuffix(".gif").split("/", 1)
+        if len(parts) != 2:
+            self._send_404()
+            return
+        cache_dir = _favorite_media_dir(parts[0], parts[1])
+        if not cache_dir:
+            self._send_404()
+            return
+        gif_path = cache_dir / "cover.gif"
+        if not gif_path.is_file():
+            threading.Thread(
+                target=_prepare_favorite_gif,
+                args=(parts[0], parts[1]),
+                daemon=True,
+            ).start()
+            self._send_404()
+            return
+        self._send_bytes(gif_path.read_bytes(), "image/gif", 365 * 24 * 3600)
+
     def _handle_trending(self, query):
         source = (query.get("source", ["missav"])[0] or "missav").lower()
         period = (query.get("period", ["daily"])[0] or "daily").lower()
@@ -425,13 +576,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if persistent
             else TREND_PREVIEW_CACHE_DIR / "videos" / source / code
         )
-        cache_ttl = CACHE_OK_TTL if persistent else TREND_MEDIA_TTL
+        cache_ttl = 365 * 24 * 3600 if persistent else TREND_MEDIA_TTL
         cache_path = cache_dir / "preview.mp4"
-        if (
-            cache_path
-            and cache_path.is_file()
-            and (time.time() - cache_path.stat().st_mtime) < cache_ttl
-        ):
+        cache_is_fresh = cache_path.is_file() and (
+            persistent or (time.time() - cache_path.stat().st_mtime) < cache_ttl
+        )
+        if cache_is_fresh:
             data = cache_path.read_bytes()
             self._send_bytes(data, "video/mp4", cache_ttl)
             return
@@ -710,10 +860,20 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if (
                 source not in ("missav", "jable")
                 or not code
-                or action not in ("remove", "remove_temp")
+                or action not in ("remove", "remove_temp", "prepare")
             ):
                 self.send_response(400)
                 self.end_headers()
+                return
+            if action == "prepare":
+                threading.Thread(
+                    target=_prepare_favorite_gif,
+                    args=(source, code),
+                    daemon=True,
+                ).start()
+                self._send_json(
+                    json.dumps({"ok": True, "queued": True}).encode("utf-8")
+                )
                 return
             removed = 0
             directories = (

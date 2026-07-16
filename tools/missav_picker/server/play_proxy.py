@@ -476,13 +476,16 @@ def proxy_ts_segment(code, name, persistent=False):
     if ts_path.is_file() and (time.time() - ts_path.stat().st_mtime) < CACHE_OK_TTL:
         return ts_path.read_bytes(), "cache"
     meta_path = cache_root / "meta.json"
-    hls_url = ""
+    # Browser-captured URLs are newer than the playlist metadata written by a
+    # prior playback. Prefer them so later seeks do not keep using expired HLS
+    # signatures for uncached segments.
+    hls_url = (read_browser_hls_map().get(code) or "").strip()
     if meta_path.is_file():
         try:
             meta_raw = meta_path.read_text(encoding="utf-8").strip()
-            if meta_raw.startswith("http"):
+            if not hls_url and meta_raw.startswith("http"):
                 hls_url = meta_raw
-            else:
+            elif not hls_url:
                 meta = json.loads(meta_raw)
                 hls_url = meta.get("hls_url", "")
         except Exception:

@@ -158,4 +158,11 @@ def evict_temp_play_cache():
 
 
 def evict_img_cache():
-    evict_cache(CACHE_MAX_BYTES)
+    # Favorites are explicit user selections and remain on disk until removed
+    # from the favorites UI. Only disposable image caches participate in LRU.
+    if not CACHE_DIR.is_dir():
+        return
+    for child in CACHE_DIR.iterdir():
+        if child.name == "favorites" or not child.is_dir():
+            continue
+        evict_cache(CACHE_MAX_BYTES, child.name)
