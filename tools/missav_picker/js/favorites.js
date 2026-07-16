@@ -58,9 +58,14 @@ function toggleFavorite() {
   if (idx >= 0) {
     list.splice(idx, 1);
     state.removedFavorites[key] = Date.now();
+    removeFavoriteMedia(src, state.current.code);
   } else {
     delete state.removedFavorites[key];
     list.unshift(normFavorite(state.current, src));
+    prewarmCover(coverUrl(state.current));
+    prewarmCover(fallbackCoverUrl(state.current));
+    const preview = previewUrl(state.current);
+    if (preview) fetch(preview).catch(() => {});
   }
   if (src === 'jable') state.favoritesJable = applyRemovedFavorites(list, 'jable');
   else state.favoritesMissav = applyRemovedFavorites(list, 'missav');
@@ -81,10 +86,14 @@ function toggleFavorite() {
   updateCount();
   scheduleSyncSave();
 }
+function removeFavoriteMedia(src, code, temporaryOnly) {
+  fetch('/favorite_media_cache', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: temporaryOnly ? 'remove_temp' : 'remove', source: src, code }) }).catch(() => {});
+}
 function removeFavorite(src, code) {
   state.removedFavorites[src + ':' + code] = Date.now();
   if (src === 'jable') state.favoritesJable = state.favoritesJable.filter(v => v.code !== code);
   else state.favoritesMissav = state.favoritesMissav.filter(v => v.code !== code);
+  removeFavoriteMedia(src, code);
   saveFavorites(src);
   saveRemovedFavorites();
   renderFavorites();
@@ -96,6 +105,7 @@ function removeFavorite(src, code) {
 function clearFavorites(src) {
   const list = src === 'jable' ? state.favoritesJable : state.favoritesMissav;
   list.forEach(v => { if (v && v.code) state.removedFavorites[src + ':' + v.code] = Date.now(); });
+  list.forEach(v => { if (v && v.code) removeFavoriteMedia(src, v.code); });
   if (src === 'jable') state.favoritesJable = [];
   else state.favoritesMissav = [];
   localStorage.removeItem(favStorageKey(src));

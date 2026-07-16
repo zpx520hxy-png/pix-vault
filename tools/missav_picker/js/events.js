@@ -17,9 +17,8 @@ $('sourceChips').addEventListener('click', function(e) {
   $('selectedBar').innerHTML = '';
   $('rollBtn').disabled = true;
   $('rollBtn').textContent = '⏳ 加载中...';
-  // 切换片源时,刷新热门区
+  // 切换片源时只切换热门区视图；榜单仅由用户点击刷新加载。
   renderTrending();
-  loadTrending();
   if (src === 'jable') {
     DATA = null;
     $('tagChips').innerHTML = '';
@@ -143,7 +142,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSidebar
 
 let cardTouchStart = null;
 let lastCardTouch = 0;
-const videoCardSelector = '.short-card[data-card-action],.browse-card[data-card-action],.hist-card[data-card-action],.fav-card[data-card-action],.trend-card[data-card-action],.playable-card[data-card-action]';
+const videoCardSelector = '.short-card[data-card-action],.browse-card[data-card-action],.hist-card[data-card-action],.fav-card[data-card-action],.trend-card[data-card-action]';
 function interactiveChild(target) {
   return target && target.closest && target.closest('a,button,input,textarea,select,label,.card-collapse');
 }
@@ -158,7 +157,6 @@ function activateVideoCard(card, e) {
   else if (action === 'history') showFromHistory(code);
   else if (action === 'favorite') openFavorite(card.dataset.source || state.source || 'missav', code);
   else if (action === 'trending') openTrendingCard(card, e);
-  else if (action === 'playable') showFromPlayableJable(code);
 }
 document.addEventListener('touchstart', e => {
   const card = e.target.closest && e.target.closest(videoCardSelector);
@@ -229,7 +227,7 @@ function syncMotionToggle() {
 
 function markMotionReveal(root) {
   const scope = root && root.querySelectorAll ? root : document;
-  const selector = 'header, .trending, .playable-jable, .filters, .candidate-info, .selected-bar, .roll-btn, .shortlist, #browseArea, #resultArea, .history, .trend-card, .playable-card, .browse-card, .fav-card, .hist-card, .short-card, .result-card, .trash-card';
+  const selector = 'header, .trending, .filters, .candidate-info, .selected-bar, .roll-btn, .shortlist, #browseArea, #resultArea, .history, .trend-card, .browse-card, .fav-card, .hist-card, .short-card, .result-card, .trash-card';
   const nodes = [];
   if (scope.matches && scope.matches(selector)) nodes.push(scope);
   scope.querySelectorAll(selector).forEach(node => nodes.push(node));

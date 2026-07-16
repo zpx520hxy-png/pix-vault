@@ -6,7 +6,16 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-from .config import ROOT, CACHE_DIR, CACHE_FAIL_TTL, CACHE_OK_TTL, proxy_kwargs
+from .config import (
+    ROOT,
+    CACHE_DIR,
+    CACHE_FAIL_TTL,
+    CACHE_OK_TTL,
+    FAVORITE_MEDIA_CACHE_DIR,
+    TREND_PREVIEW_CACHE_DIR,
+    TREND_MEDIA_TTL,
+    proxy_kwargs,
+)
 from .cache import inc_hit, inc_miss, inc_fail, evict_img_cache
 
 _CREQ_SESSION = None
@@ -48,15 +57,29 @@ def _detect_ct(data):
     return "image/jpeg"
 
 
-def proxy_img(path_remainder):
+def proxy_img(path_remainder, persistent=False, source="", code="", transient=False):
     cache_key = path_remainder.replace("/", "_")
-    cache_path = CACHE_DIR / cache_key
-    neg_path = cache_path.with_suffix(".fail")
-    if neg_path.is_file() and (time.time() - neg_path.stat().st_mtime) < CACHE_FAIL_TTL:
+    safe_source = re.sub(r"[^a-z0-9_-]", "", source.lower())
+    safe_code = re.sub(r"[^a-z0-9_-]", "", code.lower())
+    cache_root = None
+    cache_ttl = CACHE_OK_TTL
+    if persistent and safe_source and safe_code:
+        cache_root = FAVORITE_MEDIA_CACHE_DIR / safe_source / safe_code
+    elif transient:
+        cache_root = TREND_PREVIEW_CACHE_DIR / "images"
+        cache_ttl = TREND_MEDIA_TTL
+    cache_path = cache_root / cache_key if cache_root else None
+    neg_path = cache_path.with_suffix(".fail") if cache_path else None
+    if (
+        neg_path
+        and neg_path.is_file()
+        and (time.time() - neg_path.stat().st_mtime) < CACHE_FAIL_TTL
+    ):
         return None, "neg_cache"
     if (
-        cache_path.is_file()
-        and (time.time() - cache_path.stat().st_mtime) < CACHE_OK_TTL
+        cache_path
+        and cache_path.is_file()
+        and (time.time() - cache_path.stat().st_mtime) < cache_ttl
     ):
         data = cache_path.read_bytes()
         ct = _detect_ct(data)
@@ -99,15 +122,16 @@ def proxy_img(path_remainder):
         except Exception:
             inc_fail()
             try:
-                neg_path.parent.mkdir(parents=True, exist_ok=True)
-                neg_path.touch()
+                if neg_path:
+                    neg_path.parent.mkdir(parents=True, exist_ok=True)
+                    neg_path.touch()
             except OSError:
                 pass
             return None, "fetch_error"
     try:
-        cache_path.parent.mkdir(parents=True, exist_ok=True)
-        cache_path.write_bytes(data)
+        if cache_path:
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            cache_path.write_bytes(data)
     except OSError:
         pass
-    evict_img_cache()
     return (data, ct), "fetched"

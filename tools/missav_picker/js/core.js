@@ -27,24 +27,28 @@ const state = {
 function currentSourceOf(v) {
   return (v && (v.source || (DATA && DATA.source) || state.source)) || 'missav';
 }
+function favoriteMediaQuery(v) {
+  if (!isManualFavorite(v)) return '';
+  return `?persist=favorite&source=${encodeURIComponent(currentSourceOf(v))}&code=${encodeURIComponent(String(v.code || '').toLowerCase())}`;
+}
 function coverUrl(v) {
   // v2 统一走本地 /img/ 代理。
   // Jable CDN 在本机不稳定，优先走 fourhoi 的轻量封面，失败时再回退原 cover。
   const code = (v.code || '').toLowerCase();
   if (currentSourceOf(v) === 'jable' && (v.cover || code)) {
-    return p(code ? `fourhoi.com/${code}/cover-t.jpg` : v.cover);
+    return p(code ? `fourhoi.com/${code}/cover-t.jpg` : v.cover) + favoriteMediaQuery(v);
   }
   if (currentSourceOf(v) === 'missav' && code) {
-    return p(`fourhoi.com/${code}/cover-t.jpg`);
+    return p(`fourhoi.com/${code}/cover-t.jpg`) + favoriteMediaQuery(v);
   }
-  return p(v.cover || '');
+  return p(v.cover || '') + favoriteMediaQuery(v);
 }
 function fallbackCoverUrl(v) {
   const code = (v && v.code || '').toLowerCase();
   if (currentSourceOf(v) === 'jable' && v && v.cover) {
-    return p(v.cover);
+    return p(v.cover) + favoriteMediaQuery(v);
   }
-  return code ? p(`fourhoi.com/${code}/cover-t.jpg`) : '';
+  return code ? p(`fourhoi.com/${code}/cover-t.jpg`) + favoriteMediaQuery(v) : '';
 }
 function handleCoverLoad(img) {
   if (!img || img.naturalWidth !== 1 || img.naturalHeight !== 1 || img.dataset.placeholderChecked) return;
@@ -71,15 +75,15 @@ function prewarmCoverBatch(items, limit) {
 function previewUrl(v) {
   const code = (v && v.code || '').toLowerCase();
   if (currentSourceOf(v) === 'jable' && code) {
-    return p(`fourhoi.com/${code}/preview.mp4`);
+    return p(`fourhoi.com/${code}/preview.mp4`) + favoriteMediaQuery(v);
   }
   if (currentSourceOf(v) === 'missav' && code && !v.preview) {
-    return `/trend_preview/missav/${code}.mp4`;
+    return `/trend_preview/missav/${code}.mp4${favoriteMediaQuery(v)}`;
   }
   if (v.preview && String(v.preview).charAt(0) === '/') {
     return v.preview;
   }
-  return p(v.preview || '');
+  return p(v.preview || '') + favoriteMediaQuery(v);
 }
 function escHtml(value) {
   return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({
@@ -467,12 +471,14 @@ function syncPayloadSignature(payload) {
     .filter(Boolean)
     .sort((a, b) => a.localeCompare(b))
     .join('|');
+  const trendSig = JSON.stringify(payload.trendSnapshots || null);
   return JSON.stringify({
     updatedAt: payload.updatedAt || 0,
     source: payload.source || '',
     current: refSig(payload.current),
     history: (payload.history || []).map(refSig).join('|'),
-    favoriteActresses: actressSig
+    favoriteActresses: actressSig,
+    trendSnapshots: trendSig
   });
 }
 
@@ -508,6 +514,7 @@ function exportSyncState() {
     favoritesJable: state.favoritesJable,
     favoriteActresses,
     removedFavorites: state.removedFavorites || {},
+    trendSnapshots: typeof getTrendSnapshotsForSync === 'function' ? getTrendSnapshotsForSync() : null,
     browsePage,
     browseOpen: $('browseArea').style.display !== 'none'
   };
@@ -597,6 +604,9 @@ async function applySyncState(payload) {
     );
     saveHistory();
     browsePage = payload.browsePage || 0;
+    if (typeof applyTrendSnapshotsFromSync === 'function') {
+      applyTrendSnapshotsFromSync(payload.trendSnapshots);
+    }
 
     document.querySelectorAll('#typeChips .chip').forEach(c => c.classList.remove('active'));
     const typeChip = document.querySelector(`#typeChips .chip[data-type="${state.type}"]`);
@@ -611,20 +621,8 @@ async function applySyncState(payload) {
     if (state.current) renderResult(); else $('resultArea').innerHTML = `<div class="empty"><div class="emoji">🎰</div><div>设置筛选条件，点上面的按钮开始随机</div></div>`;
     renderShortlist();
     renderHistory();
-    // source 可能在 pullSyncState 后从 missav 切到 jable,需要同步刷新热门区
+    // source 可能在 pullSyncState 后从 missav 切到 jable,只同步热门区视图。
     if (typeof renderTrending === 'function') renderTrending();
-    if (typeof loadTrending === 'function') {
-      loadTrending();
-      // 如果初始 missav 请求仍在飞,loadTrending() 会因为 trendLoading 直接 return,
-      // 延迟补打一枪,确保切到 jable 后一定能真正拉到 jable 热门。
-      setTimeout(() => {
-        try {
-          const srcNow = state.source;
-          const cached = trendCache[srcNow] && trendCache[srcNow][trendPeriod];
-          if (!cached) loadTrending(true);
-        } catch (e) {}
-      }, 1200);
-    }
     if (payload.browseOpen) {
       renderBrowse();
       $('browseArea').style.display = 'block';
@@ -663,9 +661,7 @@ async function pullSyncState() {
   try {
     const r = await fetch('/sync_state.json?_=' + Date.now());
     const payload = await r.json();
-    const incomingHistory = Array.isArray(payload.history) ? payload.history.length : 0;
-    const sig = syncPayloadSignature(payload);
-    if ((payload.updatedAt || 0) > (SYNC_LAST_UPDATED || 0) || incomingHistory > state.history.length || sig !== SYNC_LAST_SIGNATURE) {
+    if ((payload.updatedAt || 0) > (SYNC_LAST_UPDATED || 0)) {
       await applySyncState(payload);
     }
   } catch(e) {}

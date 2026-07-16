@@ -146,14 +146,15 @@ function renderResult() {
 // ── jable 播放器 ──
 let _jpHls = null, _jpVideo = null;
 
-async function ensurePlayReady(code, timeoutMs = 30000) {
+async function ensurePlayReady(code, persistent, timeoutMs = 30000) {
+  const persist = persistent ? '?persist=favorite' : '';
   try {
-    await fetch(`/play/${code}/request`, { cache: 'no-store' });
+    await fetch(`/play/${code}/request${persist}`, { cache: 'no-store' });
   } catch (e) {}
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     try {
-      const r = await fetch(`/play/${code}/status?_=${Date.now()}`, { cache: 'no-store' });
+      const r = await fetch(`/play/${code}/status?persist=${persistent ? 'favorite' : ''}&_=${Date.now()}`, { cache: 'no-store' });
       const d = await r.json();
       if (d.status === 'ready') return { ok: true, status: d.status };
       if (d.status === 'failed' || d.status === 'not_found') return { ok: false, status: d.status, error: d.error || '' };
@@ -177,7 +178,7 @@ async function playCurrentJable() {
   if (cancelBtn) cancelBtn.hidden = false;
   loading.textContent = '⏳ 正在准备播放链路...';
   loading.classList.remove('hide');
-  const result = await ensurePlayReady(code);
+  const result = await ensurePlayReady(code, isManualFavorite(v));
   if (!result.ok) {
     loading.textContent = result.status === 'not_found' ? '⚠️ 当前未找到可播放链路' : '⚠️ 播放准备失败';
     if (directBtn) directBtn.hidden = false;
@@ -221,6 +222,7 @@ function cancelJablePlayback() {
   if (buffered) buffered.style.width = '0%';
   if (directBtn) directBtn.hidden = false;
   if (cancelBtn) cancelBtn.hidden = true;
+  if (state.current && currentSourceOf(state.current) === 'jable' && !isManualFavorite(state.current)) removeFavoriteMedia('jable', state.current.code, true);
 }
 
 function fmtTime(s) {
@@ -307,27 +309,28 @@ function initJplayer(v) {
     // 默认选最高清(-1 = auto, 但配置里强制 capLevelToPlayerSize=false 已让自动选最高)
   }
 
-  const src = `/play/${encodeURIComponent(String(v.code || '').toLowerCase())}/playlist.m3u8`;
+  const src = `/play/${encodeURIComponent(String(v.code || '').toLowerCase())}/playlist.m3u8${isManualFavorite(v) ? '?persist=favorite' : ''}`;
   const isHls = /\.m3u8(\?|#|$)/i.test(src);
   let hlsReady = false;
 
   if (isHls && window.Hls && Hls.isSupported()) {
     const hls = new Hls({
-      capLevelToPlayerSize: false,  // 不根据播放器尺寸降画质 → 始终最高清
-      startLevel: -1,               // 自动选最高起步
-      maxBufferLength: 120,         // 大缓冲,应对高倍速消耗
-      maxMaxBufferLength: 600,
-      maxBufferSize: 60 * 1000 * 1000, // 60MB,高倍速预载更多分片
+      capLevelToPlayerSize: true,
+      startLevel: 0,
+      maxBufferLength: 45,
+      maxMaxBufferLength: 180,
+      maxBufferSize: 40 * 1000 * 1000,
       backBufferLength: 30,
       enableWorker: true,
       lowLatencyMode: false,
-      abrEwmaDefaultEstimate: 1000000,
-      // 分片 404 时不无限重试,跳过坏分片继续播放
-      fragLoadingMaxRetry: 2,
-      fragLoadingRetryDelay: 500,
-      fragLoadingMaxRetryTimeout: 2000,
-      manifestLoadingMaxRetry: 2,
-      levelLoadingMaxRetry: 2,
+      abrEwmaDefaultEstimate: 500000,
+      abrBandWidthFactor: 0.8,
+      abrBandWidthUpFactor: 0.65,
+      fragLoadingMaxRetry: 4,
+      fragLoadingRetryDelay: 750,
+      fragLoadingMaxRetryTimeout: 6000,
+      manifestLoadingMaxRetry: 4,
+      levelLoadingMaxRetry: 4,
     });
     _jpHls = hls;
     hls.loadSource(src);
@@ -335,7 +338,7 @@ function initJplayer(v) {
     hls.on(Hls.Events.MANIFEST_PARSED, function(_, data) {
       hlsReady = true;
       buildQualityMenu(data.levels);
-      // 强制最高画质
+      // 让自适应码率根据实际带宽选清晰度，避免最高画质耗尽缓冲。
       hls.currentLevel = -1;
       loading.classList.add('hide');
       video.play().catch(function(){});

@@ -29,18 +29,10 @@ async function refreshCacheStatus() {
     const r = await fetch('cache_plan?_=' + Date.now());
     if (!r.ok) return;
     const d = await r.json();
-    if (!d.ok || !d.plan) { el.textContent = '缓存预热: 初始化中...'; return; }
-    const p = d.plan;
-    const cc = p.current_cache || {};
-    const ready = (p.status || {}).ready || 0;
-    const pending = (p.status || {}).pending || 0;
-    const failed = (p.status || {}).failed || 0;
-    const notFound = (p.status || {}).not_found || 0;
-    const total = (p.targets || []).length;
-    el.innerHTML =
-      '<b>缓存预热</b> ' + ready + '/' + total + ' 已就绪 · ' +
-      pending + ' 解析中 · ' + failed + ' 失败 · ' + notFound + ' 不支持 · ' +
-      cc.play_mb + 'MB 播放 · ' + cc.image_mb + 'MB 图片';
+      if (!d.ok || !d.plan) { el.textContent = '播放缓存: 暂无'; return; }
+      const cc = d.plan.current_cache || {};
+      el.innerHTML =
+        '<b>播放缓存</b> ' + (cc.play_mb || 0) + 'MB · 图片缓存 ' + (cc.image_mb || 0) + 'MB';
   } catch (e) {
     el.textContent = '缓存预热: 获取失败';
   }

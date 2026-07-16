@@ -10,6 +10,8 @@ from .config import (
     CACHE_MAX_BYTES,
     PLAY_CACHE_MAX_BYTES,
     PLAY_CACHE_DIR,
+    TEMP_PLAY_CACHE_DIR,
+    TEMP_PLAY_CACHE_TTL,
     BROWSER_HLS_MAP_FILE,
 )
 
@@ -139,6 +141,20 @@ def evict_cache(max_bytes=CACHE_MAX_BYTES, subdir=None):
 
 def evict_play_cache():
     evict_cache(PLAY_CACHE_MAX_BYTES, "play")
+
+
+def evict_temp_play_cache():
+    if not TEMP_PLAY_CACHE_DIR.is_dir():
+        return
+    cutoff = time.time() - TEMP_PLAY_CACHE_TTL
+    for directory in TEMP_PLAY_CACHE_DIR.iterdir():
+        try:
+            if directory.is_dir() and directory.stat().st_mtime < cutoff:
+                import shutil
+
+                shutil.rmtree(directory, ignore_errors=True)
+        except OSError:
+            pass
 
 
 def evict_img_cache():

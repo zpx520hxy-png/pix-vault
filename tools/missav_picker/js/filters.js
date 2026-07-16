@@ -81,7 +81,7 @@ function chipHTML(a) {
 
 function renderActressGrid(filter='') {
   const D = DATA || IDX || {};
-  const meta = IDX || D;
+  const meta = IDX || DATA || D;
   const groups = meta.actress_groups || {};
   const display = meta.actress_display || {};
   const favoriteNames = favoriteActressSet();
@@ -185,7 +185,7 @@ function renderSelBar() {
     sb.innerHTML = ''; return;
   }
   const D = DATA || IDX || {};
-  const meta = IDX || D;
+  const meta = IDX || DATA || D;
   const parts = [];
   if (state.type !== 'all') {
     const tl = {all:'',solo:'👤 单人',multi:'👥 多人',saved:'⭐ 仅收藏'}[state.type];

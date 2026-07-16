@@ -2,15 +2,16 @@
 function init(stage) {
   if (stage === 'index') {
     // 索引已加载(actresses/groups/avatars/display/tags),立即渲染 UI
-    $('stats').textContent = `📊 ${IDX.video_count} 部作品 · ${IDX.actresses.length} 位女优 · ${IDX.tags.length} 个标签 · 按空格快速抽`;
+    const videoCount = IDX.total_videos ?? IDX.video_count ?? 0;
+    $('stats').textContent = `📊 ${videoCount} 部作品 · ${IDX.actresses.length} 位女优 · ${IDX.tags.length} 个标签 · 按空格快速抽`;
     loadFavoriteActresses();
     renderTagChips();
     renderActressGrid();
     loadFavorites();
     loadHistory();
     loadRemovedVideos();
-    // 热门板块(随当前片源)
-    loadTrending();
+    // 热门榜单仅由用户点击刷新加载，避免每次打开页面都请求上游片源。
+    renderTrending();
     // 异步加载完整数据
     $('rollBtn').disabled = true;
     $('rollBtn').textContent = '⏳ 加载作品数据...';
@@ -20,6 +21,7 @@ function init(stage) {
         DATA = d;
         $('rollBtn').disabled = false;
         $('rollBtn').textContent = '🎲 随机抽一部';
+        renderActressGrid(($('actressSearch') && $('actressSearch').value) || '');
         updateCount();
       })
       .catch(e => { $('stats').textContent = '加载失败,请刷新'; });
