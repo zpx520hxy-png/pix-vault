@@ -46,6 +46,9 @@ from .img_proxy import proxy_img, _detect_ct
 from .trending import get_trending, get_trending_progress, import_manual_jable_trending
 
 
+FOURHOI_REFERER = "https://missav.ws/"
+
+
 def _favorite_media_dir(source, code):
     safe_source = re.sub(r"[^a-z0-9_-]", "", source.lower())
     safe_code = re.sub(r"[^a-z0-9_-]", "", code.lower())
@@ -94,7 +97,7 @@ def _prepare_favorite_gif(source, code):
                     impersonate="chrome",
                     timeout=20,
                     **proxy_kwargs(),
-                    headers={"Referer": "https://jable.tv/"},
+                    headers={"Referer": FOURHOI_REFERER},
                 )
                 if response.status_code == 200:
                     data = response.content
@@ -103,7 +106,7 @@ def _prepare_favorite_gif(source, code):
             if not data:
                 try:
                     request = urllib.request.Request(
-                        upstream, headers={"Referer": "https://jable.tv/"}
+                        upstream, headers={"Referer": FOURHOI_REFERER}
                     )
                     with urllib.request.urlopen(request, timeout=20) as response:
                         data = response.read()
@@ -570,7 +573,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         source, code = parts[0].lower(), parts[1].lower()
         persistent = (query.get("persist", [""])[0] or "").lower() == "favorite"
         upstream = f"https://fourhoi.com/{code}/preview.mp4"
-        referer = "https://missav.ws/" if source == "missav" else "https://jable.tv/"
+        referer = FOURHOI_REFERER
         cache_dir = (
             FAVORITE_MEDIA_CACHE_DIR / source / code
             if persistent
