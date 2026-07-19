@@ -239,9 +239,9 @@ function renderTrendingMeta(data) {
     meta.textContent = `片源失败${at ? ' · ' + at : ''}${age}`;
   } else if (mode === 'stale_remote') {
     const staleAt = formatTrendTime(data.staleFetchedAt);
-    meta.textContent = `片源暂不可达，显示上次榜单${staleAt ? ' · ' + staleAt : ''}`;
+    meta.textContent = `最近同步榜单${staleAt ? ' · ' + staleAt : ''}${age}`;
   } else if (mode === 'fallback') {
-    meta.textContent = `片源暂不可达，已显示本地榜单${at ? ' · ' + at : ''}${age}`;
+    meta.textContent = `本地热度榜单${at ? ' · ' + at : ''}${age}`;
   } else if (mode === 'manual') {
     meta.textContent = `浏览器导入榜单${at ? ' · ' + at : ''}`;
   } else {

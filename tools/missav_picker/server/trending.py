@@ -502,6 +502,20 @@ def _hydrate_trending_items(source, items):
     return out
 
 
+def _fill_trending_items(items, fallback, limit=20):
+    result = []
+    seen = set()
+    for item in list(items or []) + list(fallback or []):
+        code = (item.get("code") or "").lower()
+        if not code or code in seen:
+            continue
+        seen.add(code)
+        result.append(item)
+        if len(result) >= limit:
+            break
+    return result
+
+
 def _scrape_trending(source, period, fresh=False):
     tried = []
     source_url = ""
@@ -518,6 +532,8 @@ def _scrape_trending(source, period, fresh=False):
     )
     if source == "missav":
         items = []
+        homepage_items = []
+        homepage_url = ""
         for index, (url, kind) in enumerate(candidates, 1):
             _set_trend_progress(source, period, attempted=index, stage="抓取榜单")
             parsed = []
@@ -535,9 +551,22 @@ def _scrape_trending(source, period, fresh=False):
                 source_url = url
                 source_mode = kind
                 break
+            if parsed and not homepage_items:
+                homepage_items = parsed
+                homepage_url = url
         if not items:
-            items = _local_fallback_trending(source, period)
-            source_mode = "fallback"
+            if homepage_items:
+                items = homepage_items
+                source_url = homepage_url
+                source_mode = "homepage"
+            else:
+                items = _local_fallback_trending(source, period)
+                source_mode = "fallback"
+        if len(items) < 20:
+            items = _fill_trending_items(
+                items,
+                _local_fallback_trending(source, period),
+            )
     else:
         data_file = ROOT / "jable_data.json"
         local_codes = set()
@@ -644,6 +673,16 @@ def get_trending(source, period, force=False):
                 "sourceMode": "error",
                 "remote": False,
             }
+        if not data.get("remote"):
+            stale_remote = _last_remote_trend(source, period)
+            if stale_remote:
+                stale_remote["items"] = _fill_trending_items(
+                    stale_remote.get("items"),
+                    data.get("items"),
+                )
+                stale_remote["tried"] = data.get("tried") or []
+                stale_remote["refreshFallback"] = True
+                data = stale_remote
         if manual_cached and source == "jable" and not data.get("remote"):
             age = time.time() - (manual_cached.get("_ts", 0) or 0)
             response = _cached_response(manual_cached, age)
