@@ -17,7 +17,7 @@ $('sourceChips').addEventListener('click', function(e) {
   $('selectedBar').innerHTML = '';
   $('rollBtn').disabled = true;
   $('rollBtn').textContent = '⏳ 加载中...';
-  // 切换片源时只切换热门区视图；榜单仅由用户点击刷新加载。
+  // 切换片源时只切换热门区视图；榜单缓存由 trending.js 在页面加载时读取。
   renderTrending();
   if (src === 'jable') {
     DATA = null;

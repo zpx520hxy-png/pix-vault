@@ -6,6 +6,18 @@ let trendLoading = { missav: { daily: false, weekly: false }, jable: { daily: fa
 let trendProgressTimers = { missav: { daily: null, weekly: null }, jable: { daily: null, weekly: null } };
 let trendRefreshBatch = null;
 const TREND_SNAPSHOT_KEY = 'missav_picker_trend_snapshots_v1';
+const TREND_SNAPSHOT_VERSION = 2;
+
+function isCurrentTrendSnapshot(snapshot) {
+  return isTrendSnapshot(snapshot)
+    && snapshot.snapshotVersion === TREND_SNAPSHOT_VERSION;
+}
+
+function stampTrendSnapshot(snapshot) {
+  if (!isTrendSnapshot(snapshot)) return snapshot;
+  snapshot.snapshotVersion = TREND_SNAPSHOT_VERSION;
+  return snapshot;
+}
 
 function restoreTrendSnapshots() {
   try {
@@ -13,7 +25,7 @@ function restoreTrendSnapshots() {
     ['missav', 'jable'].forEach(source => {
       ['daily', 'weekly'].forEach(period => {
         const snapshot = stored[source] && stored[source][period];
-        if (snapshot && Array.isArray(snapshot.items)) trendCache[source][period] = snapshot;
+        if (isCurrentTrendSnapshot(snapshot)) trendCache[source][period] = snapshot;
       });
     });
   } catch (e) {}
@@ -21,6 +33,11 @@ function restoreTrendSnapshots() {
 
 function saveTrendSnapshots() {
   try {
+    ['missav', 'jable'].forEach(source => {
+      ['daily', 'weekly'].forEach(period => {
+        stampTrendSnapshot(trendCache[source] && trendCache[source][period]);
+      });
+    });
     localStorage.setItem(TREND_SNAPSHOT_KEY, JSON.stringify(trendCache));
   } catch (e) {}
 }
@@ -43,7 +60,7 @@ function applyTrendSnapshotsFromSync(snapshots) {
   ['missav', 'jable'].forEach(source => {
     ['daily', 'weekly'].forEach(period => {
       const snapshot = snapshots[source] && snapshots[source][period];
-      if (!isTrendSnapshot(snapshot)) return;
+      if (!isCurrentTrendSnapshot(snapshot)) return;
       trendCache[source][period] = snapshot;
       trendCacheVersion[source][period] += 1;
       changed = true;
@@ -429,7 +446,7 @@ function openTrendingCard(card, e) {
   finish(DATA && DATA.videos ? DATA.videos.find(x => (x.code || '').toLowerCase() === code) : null);
 }
 
-async function loadTrending(force, sourceOverride, periodOverride) {
+async function loadTrending(force, sourceOverride, periodOverride, allowImport = force) {
   const src = sourceOverride || trendSource();
   const period = periodOverride || trendPeriod;
   if (isTrendingLoading(src, period)) return;
@@ -444,7 +461,7 @@ async function loadTrending(force, sourceOverride, periodOverride) {
     if (trendCacheVersion[src][period] !== cacheVersion) return;
     trendCache[src] = trendCache[src] || { daily: null, weekly: null };
     trendCache[src][period] = data;
-    if (force || !data.imported) {
+    if (allowImport && (force || !data.imported)) {
       await importTrendingVideos(src, period, data);
       data.imported = true;
     }
@@ -472,6 +489,9 @@ document.querySelectorAll('.period-chip[data-period]').forEach(b => {
     b.classList.add('active');
     trendPeriod = b.dataset.period;
     renderTrending();
+    if (!trendCache[trendSource()][trendPeriod]) {
+      loadTrending(false, trendSource(), trendPeriod, false);
+    }
   });
 });
 document.getElementById('trendingRefresh').addEventListener('click', async () => {
@@ -536,6 +556,15 @@ if (jableTrendImportForm) jableTrendImportForm.addEventListener('submit', async 
   } finally {
     submit.disabled = false;
   }
+});
+
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    const requests = ['missav', 'jable'].flatMap(source =>
+      ['daily', 'weekly'].map(period => loadTrending(false, source, period, false))
+    );
+    Promise.all(requests);
+  }, 0);
 });
 
 // 收起 / 展开

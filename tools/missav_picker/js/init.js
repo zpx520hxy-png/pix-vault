@@ -10,7 +10,7 @@ function init(stage) {
     loadFavorites();
     loadHistory();
     loadRemovedVideos();
-    // 热门榜单仅由用户点击刷新加载，避免每次打开页面都请求上游片源。
+    // 热门榜单由 trending.js 在页面加载后读取本地服务缓存。
     renderTrending();
     // 异步加载完整数据
     $('rollBtn').disabled = true;
