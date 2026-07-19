@@ -27,6 +27,8 @@ TREND_PROGRESS = {
     }
     for source in ("missav", "jable")
 }
+JABLE_METADATA_PATH = ROOT / ".jable_trending_metadata.json"
+MISSAV_METADATA_PATH = ROOT / ".missav_trending_metadata.json"
 
 TREND_REMOTE_URLS = {
     "missav": {
@@ -146,6 +148,9 @@ def _cache_ttl(data):
 def _cached_response(data, age):
     data = dict(data)
     data.pop("_ts", None)
+    source = str(data.get("source") or "")
+    if source in ("missav", "jable"):
+        data["items"] = _hydrate_trending_items(source, data.get("items") or [])
     data["cacheHit"] = True
     data["cacheAgeSeconds"] = int(age)
     return data
@@ -449,6 +454,25 @@ def _local_video_map(source):
     return {(v.get("code") or "").lower(): v for v in videos if v.get("code")}
 
 
+def trending_metadata_path(source):
+    return JABLE_METADATA_PATH if source == "jable" else MISSAV_METADATA_PATH
+
+
+def _trending_metadata_map(source):
+    path = trending_metadata_path(source)
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return {
+        str(code).lower(): value
+        for code, value in data.items()
+        if isinstance(value, dict)
+    }
+
+
 def _removed_video_keys():
     path = ROOT / ".removed_videos.json"
     if not path.is_file():
@@ -462,6 +486,7 @@ def _removed_video_keys():
 
 def _hydrate_trending_items(source, items):
     local = _local_video_map(source)
+    metadata = _trending_metadata_map(source)
     removed = _removed_video_keys()
     out = []
     seen = set()
@@ -470,6 +495,7 @@ def _hydrate_trending_items(source, items):
         if not code or code in seen or f"{source}:{code}" in removed:
             continue
         local_v = local.get(code) or {}
+        metadata_v = metadata.get(code) or {}
         seen.add(code)
         url = local_v.get("url") or it.get("url") or ""
         if not url:
@@ -486,9 +512,12 @@ def _hydrate_trending_items(source, items):
             local_cover = ""
         remote_title = (it.get("title") or "").strip()
         local_title = (local_v.get("title") or "").strip()
+        metadata_title = (metadata_v.get("title") or "").strip()
         title = (
             local_title
             if _has_chinese_title(local_title)
+            else metadata_title
+            if _has_chinese_title(metadata_title)
             else remote_title
             if _has_chinese_title(remote_title)
             else "暂无中文简介"
@@ -501,6 +530,14 @@ def _hydrate_trending_items(source, items):
                 "url": url,
                 "date": local_v.get("date") or it.get("date") or "",
                 "local": bool(local_v),
+                "original_title": metadata_v.get("original_title")
+                or local_v.get("original_title")
+                or "",
+                "actresses": metadata_v.get("actresses")
+                or local_v.get("actresses")
+                or [],
+                "tags": metadata_v.get("tags") or local_v.get("tags") or [],
+                "is_multi": bool(metadata_v.get("is_multi") or local_v.get("is_multi")),
             }
         )
         if len(out) >= 20:

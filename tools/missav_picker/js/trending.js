@@ -6,7 +6,7 @@ let trendLoading = { missav: { daily: false, weekly: false }, jable: { daily: fa
 let trendProgressTimers = { missav: { daily: null, weekly: null }, jable: { daily: null, weekly: null } };
 let trendRefreshBatch = null;
 const TREND_SNAPSHOT_KEY = 'missav_picker_trend_snapshots_v1';
-const TREND_SNAPSHOT_VERSION = 2;
+const TREND_SNAPSHOT_VERSION = 4;
 
 function isCurrentTrendSnapshot(snapshot) {
   return isTrendSnapshot(snapshot)
@@ -221,6 +221,13 @@ function trendCover(item, local, code) {
   return usable || (code ? `fourhoi.com/${code}/cover-t.jpg` : '');
 }
 
+function trendTitle(item, local) {
+  const remoteTitle = String(item && item.title || '').trim();
+  const localTitle = String(local && local.title || '').trim();
+  if (localTitle && (!remoteTitle || remoteTitle === '暂无中文简介')) return localTitle;
+  return remoteTitle || localTitle;
+}
+
 function trendMediaUrl(url) {
   const proxied = p(url);
   if (!proxied) return '';
@@ -317,7 +324,7 @@ function renderTrending() {
     const local = localMap.get(code);
     if (isVideoRemoved(code, trendSource())) return null;
     return Object.assign({}, local || {}, it, {
-      title: it.title || (local && local.title) || '',
+      title: trendTitle(it, local),
       cover: trendCover(it, local, code),
       url: it.url || (local && local.url) || '',
       local: !!local
@@ -335,8 +342,11 @@ function renderTrending() {
     const dataKind = code ? 'mp4' : '';
     const safeTitle = escHtml(it.title || it.code || '');
     const safeUrl = it.url || (isJ ? `https://jable.tv/videos/${code}/` : `https://missav.ws/cn/${code}`);
+    const actressText = Array.isArray(it.actresses) && it.actresses.length
+      ? it.actresses.slice(0, 2).join('、')
+      : '女优待补全';
     return `
-       <div class="trend-card ${isJ ? 'is-jable' : ''}" data-card-action="trending" data-code="${escHtml(code)}" data-url="${escHtml(safeUrl)}" data-title="${safeTitle}" data-cover="${escHtml(cover)}" role="button" tabindex="0" title="${safeTitle}">
+       <div class="trend-card ${isJ ? 'is-jable' : ''}" data-card-action="trending" data-code="${escHtml(code)}" data-url="${escHtml(safeUrl)}" data-title="${safeTitle}" data-original-title="${escHtml(it.original_title || '')}" data-actresses="${escHtml(JSON.stringify(it.actresses || []))}" data-tags="${escHtml(JSON.stringify(it.tags || []))}" data-cover="${escHtml(cover)}" role="button" tabindex="0" title="${safeTitle}">
          <div class="cover">
             <span class="rank">${i + 1}</span>
             <img src="${escHtml(trendMediaUrl(cover))}" data-fallback-cover="${escHtml(trendMediaUrl('fourhoi.com/' + code + '/cover-t.jpg'))}" onload="handleCoverLoad(this)" alt="${escHtml(it.code || '')}" loading="lazy" referrerpolicy="no-referrer"
@@ -345,41 +355,14 @@ function renderTrending() {
               ${preview ? `<video data-hls-src="${escHtml(preview)}" data-kind="${escHtml(dataKind)}" muted loop playsinline disableRemotePlayback referrerpolicy="no-referrer" preload="none" poster="${escHtml(cover)}"></video>` : ''}
            </div>
          </div>
-         <div class="info">
-           <div class="code">${escHtml(it.code || '')}</div>
-           <div class="title">${escHtml((it.title || '（无标题）').slice(0, 60))}</div>
-         </div>
+          <div class="info">
+            <div class="code">${escHtml(it.code || '')}</div>
+            <div class="title">${escHtml((it.title || '（无标题）').slice(0, 60))}</div>
+            ${actressText ? `<div class="trend-actress">${escHtml(actressText)}</div>` : ''}
+          </div>
        </div>`;
   }).join('');
   prewarmCoverBatch(visibleItems, 20);
-}
-
-async function importTrendingVideos(source, period, data) {
-  const mode = data && (data.sourceMode || (data.remote ? 'remote' : 'fallback'));
-  if (!data || !data.remote || mode === 'fallback' || !Array.isArray(data.items) || !data.items.length) return;
-  try {
-    const response = await fetch('/add_trending_videos', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ source, videos: data.items })
-    });
-    const result = await response.json();
-    if (!response.ok || !result.ok) throw new Error('save failed');
-    data.importMessage = `${period === 'daily' ? '今日' : '本周'}热门已入库：新增 ${result.added} 部，已存在 ${result.skipped} 部`;
-    if (DATA && DATA.source === source && Array.isArray(DATA.videos)) {
-      const existing = new Set(DATA.videos.map(video => String(video.code || '').toUpperCase()));
-      data.items.forEach(video => {
-        const code = String(video.code || '').toUpperCase();
-        if (code && !existing.has(code)) {
-          DATA.videos.push(Object.assign({ source, actresses: [], tags: [], is_multi: false }, video));
-          existing.add(code);
-        }
-      });
-      updateCount();
-    }
-  } catch (e) {
-    data.importMessage = `${period === 'daily' ? '今日' : '本周'}热门入库失败`;
-  }
 }
 
 function openTrendingCard(card, e) {
@@ -389,6 +372,14 @@ function openTrendingCard(card, e) {
   if (!code) return;
   if (e) { e.preventDefault(); e.stopPropagation(); }
   const isJableTrend = card.classList.contains('is-jable');
+  const readCardList = name => {
+    try {
+      const values = JSON.parse(card.dataset[name] || '[]');
+      return Array.isArray(values) ? values : [];
+    } catch (e) {
+      return [];
+    }
+  };
   const finish = (v) => {
     const cardVideo = {
       code: code.toUpperCase(),
@@ -398,8 +389,9 @@ function openTrendingCard(card, e) {
       url: card.dataset.url || (isJableTrend ? `https://jable.tv/videos/${code}/` : `https://missav.ws/cn/${code}`),
       source: isJableTrend ? 'jable' : 'missav',
       is_multi: false,
-      actresses: [],
-      tags: []
+      original_title: card.dataset.originalTitle || '',
+      actresses: readCardList('actresses'),
+      tags: readCardList('tags')
     };
     if (!v) {
       v = cardVideo;
@@ -410,6 +402,7 @@ function openTrendingCard(card, e) {
         preview: v.preview || cardVideo.preview,
         url: v.url || cardVideo.url,
         source: 'jable',
+        original_title: v.original_title || cardVideo.original_title,
         actresses: Array.isArray(v.actresses) ? v.actresses : [],
         tags: Array.isArray(v.tags) ? v.tags : []
       });
@@ -443,10 +436,11 @@ function openTrendingCard(card, e) {
     }).catch(() => finish(null));
     return;
   }
-  finish(DATA && DATA.videos ? DATA.videos.find(x => (x.code || '').toLowerCase() === code) : null);
+  const local = DATA && DATA.videos ? DATA.videos.find(x => (x.code || '').toLowerCase() === code) : null;
+  finish(local);
 }
 
-async function loadTrending(force, sourceOverride, periodOverride, allowImport = force) {
+async function loadTrending(force, sourceOverride, periodOverride) {
   const src = sourceOverride || trendSource();
   const period = periodOverride || trendPeriod;
   if (isTrendingLoading(src, period)) return;
@@ -461,10 +455,6 @@ async function loadTrending(force, sourceOverride, periodOverride, allowImport =
     if (trendCacheVersion[src][period] !== cacheVersion) return;
     trendCache[src] = trendCache[src] || { daily: null, weekly: null };
     trendCache[src][period] = data;
-    if (allowImport && (force || !data.imported)) {
-      await importTrendingVideos(src, period, data);
-      data.imported = true;
-    }
     saveTrendSnapshots();
     stopTrendingProgressPolling(src, period, true);
     renderTrending();
@@ -490,7 +480,7 @@ document.querySelectorAll('.period-chip[data-period]').forEach(b => {
     trendPeriod = b.dataset.period;
     renderTrending();
     if (!trendCache[trendSource()][trendPeriod]) {
-      loadTrending(false, trendSource(), trendPeriod, false);
+      loadTrending(false, trendSource(), trendPeriod);
     }
   });
 });
@@ -561,7 +551,7 @@ if (jableTrendImportForm) jableTrendImportForm.addEventListener('submit', async 
 window.addEventListener('load', () => {
   setTimeout(() => {
     const requests = ['missav', 'jable'].flatMap(source =>
-      ['daily', 'weekly'].map(period => loadTrending(false, source, period, false))
+      ['daily', 'weekly'].map(period => loadTrending(false, source, period))
     );
     Promise.all(requests);
   }, 0);

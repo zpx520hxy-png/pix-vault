@@ -43,7 +43,12 @@ from .play_proxy import (
     is_play_cache_complete,
 )
 from .img_proxy import proxy_img, _detect_ct
-from .trending import get_trending, get_trending_progress, import_manual_jable_trending
+from .trending import (
+    get_trending,
+    get_trending_progress,
+    import_manual_jable_trending,
+    trending_metadata_path,
+)
 
 
 FOURHOI_REFERER = "https://missav.ws/"
@@ -281,6 +286,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._handle_add_trending_videos()
         elif path == "/import_jable_trending":
             self._handle_import_jable_trending()
+        elif path == "/save_jable_metadata":
+            self._handle_save_jable_metadata()
+        elif path == "/save_missav_metadata":
+            self._handle_save_missav_metadata()
         elif path == "/favorite_media_cache":
             self._handle_favorite_media_cache()
         else:
@@ -844,6 +853,107 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                         "skipped": len(videos) - added,
                         "total": len(stored),
                     },
+                    ensure_ascii=False,
+                ).encode("utf-8")
+            )
+        except Exception:
+            self.send_response(500)
+            self.end_headers()
+
+    def _handle_save_jable_metadata(self):
+        self._handle_save_trending_metadata("jable")
+
+    def _handle_save_missav_metadata(self):
+        self._handle_save_trending_metadata("missav")
+
+    def _handle_save_trending_metadata(self, source):
+        try:
+            length = int(self.headers.get("Content-Length", "0") or "0")
+            if length <= 0 or length > 128 * 1024:
+                self.send_response(400)
+                self.end_headers()
+                return
+            payload = json.loads(self.rfile.read(length))
+            records = payload.get("videos") or []
+            if not isinstance(records, list) or len(records) > 50:
+                self.send_response(502)
+                self.end_headers()
+                return
+            data_file = DATA_FILES[source]
+            data = (
+                json.loads(data_file.read_text(encoding="utf-8"))
+                if data_file.is_file()
+                else {"videos": []}
+            )
+            stored = {
+                (video.get("code") or "").upper(): video
+                for video in data.get("videos") or []
+            }
+            updated = []
+            metadata = {}
+            metadata_path = trending_metadata_path(source)
+            if metadata_path.is_file():
+                try:
+                    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+                except Exception:
+                    metadata = {}
+            if not isinstance(metadata, dict):
+                metadata = {}
+            cached = []
+            for record in records:
+                if not isinstance(record, dict):
+                    continue
+                code = str(record.get("code") or "").upper().strip()
+                if not code:
+                    continue
+                video = stored.get(code)
+                title = str(record.get("title") or "").strip()
+                original_title = str(record.get("original_title") or "").strip()
+                actresses = [
+                    str(value).strip()
+                    for value in record.get("actresses") or []
+                    if str(value).strip()
+                ]
+                tags = [
+                    str(value).strip()
+                    for value in record.get("tags") or []
+                    if str(value).strip()
+                ]
+                entry = {
+                    "title": title[:500],
+                    "original_title": original_title[:500],
+                    "actresses": actresses[:12],
+                    "tags": tags[:20],
+                    "is_multi": len(actresses) > 1,
+                    "metadata_fetched_at": int(time.time() * 1000),
+                }
+                metadata[code] = entry
+                cached.append(code)
+                if not video:
+                    continue
+                if title:
+                    video["title"] = title[:500]
+                if original_title:
+                    video["original_title"] = original_title[:500]
+                if actresses:
+                    video["actresses"] = actresses[:12]
+                if tags:
+                    video["tags"] = tags[:20]
+                video["is_multi"] = len(video.get("actresses") or []) > 1
+                video["metadata_fetched_at"] = int(time.time() * 1000)
+                updated.append(code)
+            if updated:
+                data_file.write_text(
+                    json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+                )
+            if cached:
+                metadata_path.write_text(
+                    json.dumps(metadata, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+            self._send_json(
+                json.dumps(
+                    {"ok": True, "updated": updated, "cached": cached},
                     ensure_ascii=False,
                 ).encode("utf-8")
             )

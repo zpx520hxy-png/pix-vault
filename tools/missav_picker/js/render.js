@@ -88,6 +88,7 @@ function renderResult() {
         </div>
         <div class="badges">${badges.join('')}</div>
         <div class="title">${escHtml(v.title || '（无标题）')}</div>
+        ${v.original_title && v.original_title !== v.title ? `<div class="meta" style="margin-top:6px"><strong>原题</strong>：${escHtml(v.original_title)}</div>` : ''}
         <div class="meta">
           <strong>女优</strong>：${actressText}<br>
           <strong>发布日期</strong>：${escHtml(v.date || '—')}
