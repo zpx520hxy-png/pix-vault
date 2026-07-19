@@ -44,12 +44,18 @@ TREND_REMOTE_URLS = {
     },
     "jable": {
         "daily": [
-            ("https://jable.tv/hot/", "period"),
+            (
+                "https://jable.tv/hot/?mode=async&function=get_block&block_id=list_videos_common_videos_list&sort_by=video_viewed_today",
+                "period",
+            ),
             ("https://jable.tv/videos/?sort=popular", "period"),
             ("https://jable.tv/", "homepage"),
         ],
         "weekly": [
-            ("https://jable.tv/hot/?mode=weekly", "period"),
+            (
+                "https://jable.tv/hot/?mode=async&function=get_block&block_id=list_videos_common_videos_list&sort_by=video_viewed_week",
+                "period",
+            ),
             ("https://jable.tv/videos/?mode=weekly", "period"),
             ("https://jable.tv/", "homepage"),
         ],
