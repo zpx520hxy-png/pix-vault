@@ -277,8 +277,8 @@ function initPageMotion() {
       pop.remove();
     };
     pop.className = 'click-boob-pop';
-    pop.textContent = '(.)(.)';
     pop.setAttribute('aria-hidden', 'true');
+    pop.innerHTML = '<svg viewBox="0 0 220 120" focusable="false"><path class="click-boob-arc" d="M28 78C31 50 47 34 68 34C88 34 99 48 110 64C121 48 132 34 152 34C173 34 189 50 192 78"/><circle class="click-boob-dot" cx="68" cy="62" r="4.5"/><circle class="click-boob-dot" cx="152" cy="62" r="4.5"/></svg>';
     pop.style.left = x + 'px';
     pop.style.top = y + 'px';
     pop.addEventListener('animationend', remove, { once: true });

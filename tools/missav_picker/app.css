@@ -163,6 +163,16 @@
   }
   .glow-btn.desel:hover { color: #ff8a8a; border-color: rgba(255,79,79,.5); background: rgba(255,79,79,.08); transform: translateY(-1px); }
   .glow-btn.desel:active { transform: translateY(0) scale(.97); }
+  .selection-actions {
+    display: inline-grid;
+    grid-template-columns: repeat(2, 48px);
+    gap: 6px;
+    justify-content: end;
+    vertical-align: middle;
+  }
+  .selection-actions .glow-btn { width: 48px; justify-content: center; }
+  .filter-block > label .selection-actions { float: right; }
+  .section-header .selection-actions { margin-left: auto; margin-right: -10px; }
 
   input[type="text"], input[type="search"] {
     width: 100%;
@@ -769,12 +779,11 @@
     isolation: isolate;
     font-family: "Aptos Display", "Segoe UI Variable", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
     background:
-      radial-gradient(circle at var(--pointer-x) var(--pointer-y), rgba(255, 255, 255, .12) 0%, transparent 42%),
       linear-gradient(118deg, rgba(255,255,255,.035), transparent 34% 66%, rgba(103,232,249,.035)),
       radial-gradient(ellipse at 18% 4%, rgba(255,79,135,.18), transparent 38rem),
       radial-gradient(ellipse at 88% 8%, rgba(103,232,249,.10), transparent 34rem),
       linear-gradient(145deg, #07090f 0%, #11131f 46%, #09080e 100%);
-    background-size: 100% 100%, 140% 140%, 112% 112%, 118% 118%, 100% 100%;
+    background-size: 140% 140%, 112% 112%, 118% 118%, 100% 100%;
     animation: ambientDrift 32s ease-in-out infinite alternate;
     letter-spacing: 0.01em;
   }
@@ -789,6 +798,17 @@
     mask-image: linear-gradient(to bottom, rgba(0,0,0,.66), rgba(0,0,0,.34) 58%, transparent 86%);
     animation: gridFloat 38s linear infinite;
   }
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 24rem 16rem at var(--pointer-x) var(--pointer-y), rgba(255,255,255,.12) 0%, rgba(255,79,135,.14) 15%, rgba(246,193,119,.07) 34%, transparent 70%),
+      radial-gradient(ellipse 15rem 11rem at calc(var(--pointer-x) + 72px) calc(var(--pointer-y) - 42px), rgba(103,232,249,.10), transparent 66%),
+      radial-gradient(ellipse 13rem 10rem at calc(var(--pointer-x) - 82px) calc(var(--pointer-y) + 62px), rgba(255,79,135,.09), transparent 68%);
+  }
   body.motion-off, body.motion-off::before { animation: none !important; }
   html.motion-off *, html.motion-off *::before, html.motion-off *::after {
     animation: none !important;
@@ -799,17 +819,20 @@
     position: fixed;
     z-index: 1050;
     pointer-events: none;
-    color: var(--accent);
-    font-family: "Aptos Display", "Segoe UI Variable", "Microsoft YaHei UI", sans-serif;
-    font-size: 24px;
-    font-weight: 800;
-    letter-spacing: -.08em;
-    line-height: 1;
-    text-shadow: 0 0 10px rgba(246,193,119,.78), 0 0 24px rgba(255,79,135,.44);
-    transform: translate(-50%, -50%);
+    width: 68px;
+    aspect-ratio: 11 / 6;
     will-change: transform, opacity;
     animation: clickBoobPop .64s var(--ease-out) both;
   }
+  .click-boob-pop svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  .click-boob-arc {
+    fill: none;
+    stroke: var(--primary);
+    stroke-width: 7;
+    stroke-linecap: round;
+    filter: drop-shadow(0 0 4px rgba(255,79,135,.9)) drop-shadow(0 0 10px rgba(246,193,119,.48));
+  }
+  .click-boob-dot { fill: var(--text); filter: drop-shadow(0 0 4px rgba(247,239,232,.8)); }
   #resultArea.result-focus .result-card {
     animation: resultFocus .72s var(--ease-out) both;
   }
@@ -1248,9 +1271,9 @@
   @keyframes pageRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
   @keyframes cardIn { from { opacity: 0; transform: translateY(16px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
   @keyframes ambientDrift {
-    0% { background-position: 0 0, 0% 0%, 0% 0%, 100% 0%, 0 0; }
-    50% { background-position: 0 0, 18% 12%, 7% 4%, 88% 7%, 0 0; }
-    100% { background-position: 0 0, 32% 18%, 14% 8%, 82% 13%, 0 0; }
+    0% { background-position: 0% 0%, 0% 0%, 100% 0%, 0 0; }
+    50% { background-position: 18% 12%, 7% 4%, 88% 7%, 0 0; }
+    100% { background-position: 32% 18%, 14% 8%, 82% 13%, 0 0; }
   }
   @keyframes gridFloat {
     0% { background-position: 0 0, 0 0, 0 0; opacity: .58; }
