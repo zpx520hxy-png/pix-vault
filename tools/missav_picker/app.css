@@ -1313,6 +1313,12 @@
     header h1 { font-size: 28px; letter-spacing: -0.035em; }
     .filters { padding: 18px; border-radius: 22px; }
     .chip { padding: 9px 13px; font-size: 13px; }
+    .filters #tagChips {
+      display: grid;
+      width: 100%;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
     .shortlist-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
   .trending {

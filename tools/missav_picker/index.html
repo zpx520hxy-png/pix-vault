@@ -1817,10 +1817,15 @@
   .filters .filter-block { width: 100%; min-width: 0; }
   .filters #sourceChips,
   .filters #typeChips,
-  .filters #tagChips,
   .filters #excludeChips {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .filters #tagChips {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
   }
   .filters #sourceChips .chip,
