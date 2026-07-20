@@ -774,7 +774,7 @@
   html { scroll-behavior: smooth; }
   html.motion-off { scroll-behavior: auto !important; }
   body, body * {
-    cursor: url('assets/rocket-cursor.svg') 25 6, auto !important;
+    cursor: url('assets/rocket-cursor.svg') 45 21, auto !important;
   }
   body {
     position: relative;
@@ -826,6 +826,7 @@
     width: 150px;
     height: 150px;
     will-change: transform, opacity;
+    transform-origin: 75px 142px;
     animation: rocketMilkSpray .62s var(--ease-out) both;
   }
   .rocket-milk-spray svg { display: block; overflow: visible; }
@@ -1295,9 +1296,9 @@
     100% { background-position: 72px 72px, 72px 72px, 18px 14px; opacity: .50; }
   }
   @keyframes rocketMilkSpray {
-    0% { opacity: 0; transform: translate(-75px, -142px) scale(.68); }
-    22% { opacity: 1; transform: translate(-75px, -142px) scale(1); }
-    100% { opacity: 0; transform: translate(-75px, -164px) scale(1.08); }
+    0% { opacity: 0; transform: translate(-75px, -142px) rotate(-32deg) scale(.68); }
+    22% { opacity: 1; transform: translate(-75px, -142px) rotate(-32deg) scale(1); }
+    100% { opacity: 0; transform: translate(-75px, -164px) rotate(-32deg) scale(1.08); }
   }
   @keyframes resultFocus {
     0% { transform: translateY(14px) scale(.992); box-shadow: 0 0 0 rgba(255,79,135,0), var(--shadow-lg); }
