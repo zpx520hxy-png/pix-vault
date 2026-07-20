@@ -178,6 +178,38 @@ document.addEventListener('click', e => {
   const card = e.target.closest && e.target.closest(videoCardSelector);
   if (card) activateVideoCard(card, e);
 });
+
+function startFavoritePreview(card) {
+  const video = card && card.querySelector('.fav-preview');
+  if (!video || !video.dataset.previewSrc) return;
+  if (!video.getAttribute('src')) {
+    video.src = video.dataset.previewSrc;
+    video.load();
+  }
+  card.classList.add('preview-on');
+  const play = () => video.play().catch(() => {});
+  if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) play();
+  else video.addEventListener('canplay', play, { once: true });
+}
+function stopFavoritePreview(card) {
+  const video = card && card.querySelector('.fav-preview');
+  if (!video) return;
+  card.classList.remove('preview-on');
+  video.pause();
+  try { video.currentTime = 0; } catch (e) {}
+}
+document.addEventListener('pointerover', e => {
+  if (e.pointerType !== 'mouse') return;
+  const card = e.target.closest && e.target.closest('.fav-card');
+  if (!card || card.contains(e.relatedTarget)) return;
+  startFavoritePreview(card);
+});
+document.addEventListener('pointerout', e => {
+  if (e.pointerType !== 'mouse') return;
+  const card = e.target.closest && e.target.closest('.fav-card');
+  if (!card || card.contains(e.relatedTarget)) return;
+  stopFavoritePreview(card);
+});
 document.addEventListener('keydown', e => {
   if (e.key !== 'Enter' && e.key !== ' ') return;
   const card = e.target.closest && e.target.closest(videoCardSelector);

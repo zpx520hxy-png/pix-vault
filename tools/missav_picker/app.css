@@ -85,6 +85,15 @@
   .section-count { color: var(--text-mute); font-size: 11px; font-weight: 400; }
   .section-count::before { content: '('; }
   .section-count::after { content: ')'; }
+  .favorite-source-count {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 22px; height: 20px; margin-left: 6px; padding: 0 7px;
+    border: 1px solid rgba(255,255,255,.2); border-radius: 999px;
+    background: linear-gradient(135deg, rgba(255,79,135,.9), rgba(255,122,89,.9));
+    box-shadow: 0 5px 14px rgba(255,79,135,.24), inset 0 1px 0 rgba(255,255,255,.25);
+    color: #fff; font-size: 11px; font-weight: 800; font-variant-numeric: tabular-nums;
+    letter-spacing: .02em; line-height: 1; vertical-align: middle;
+  }
   .actress-grid-wrap {
     max-height: 220px; overflow-y: auto;
     padding: 4px 0;
@@ -452,10 +461,15 @@
   }
   .fav-card:hover { border-color: var(--primary); transform: translateY(-1px); }
   .fav-card .img-wrap {
-    width: 100%; aspect-ratio: 16/11; background: linear-gradient(135deg, #2a1a2e, #1c1420);
+    position: relative; width: 100%; aspect-ratio: 16/11; background: linear-gradient(135deg, #2a1a2e, #1c1420);
     overflow: hidden;
   }
-  .fav-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .fav-card img, .fav-card .fav-preview { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .fav-card .fav-preview { position: absolute; inset: 0; z-index: 1; opacity: 0; transition: opacity .2s var(--ease-out); pointer-events: none; }
+  @media (hover: hover) {
+    .fav-card.preview-on .fav-preview { opacity: 1; }
+    .fav-card.preview-on .img-wrap img { opacity: 0; }
+  }
   .fav-card .info { padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; }
   .fav-card .code { font-size: 12px; color: var(--primary); font-weight: 700; }
   .fav-card .title {

@@ -31,12 +31,6 @@ function favoriteMediaQuery(v) {
   if (!isManualFavorite(v)) return '';
   return `?persist=favorite&source=${encodeURIComponent(currentSourceOf(v))}&code=${encodeURIComponent(String(v.code || '').toLowerCase())}`;
 }
-function favoriteGifUrl(v) {
-  if (!isManualFavorite(v)) return '';
-  const source = currentSourceOf(v);
-  const code = String(v && v.code || '').toLowerCase();
-  return source && code ? `/favorite_cover_gif/${encodeURIComponent(source)}/${encodeURIComponent(code)}.gif` : '';
-}
 function coverUrl(v) {
   // v2 统一走本地 /img/ 代理。
   // Jable CDN 在本机不稳定，优先走 fourhoi 的轻量封面，失败时再回退原 cover。
