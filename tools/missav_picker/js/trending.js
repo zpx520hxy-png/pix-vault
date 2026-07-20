@@ -216,7 +216,9 @@ function isPlaceholderCover(url) {
   return /assets\/images\/placeholder(?:-[a-z]+)?\.jpg/i.test(String(url || ''));
 }
 function trendCover(item, local, code) {
-  const covers = [item && item.cover, local && local.cover];
+  const covers = trendIsJable()
+    ? [local && local.cover, item && item.cover]
+    : [item && item.cover, local && local.cover];
   const usable = covers.find(cover => cover && !isPlaceholderCover(cover));
   return usable || (code ? `fourhoi.com/${code}/cover-t.jpg` : '');
 }
@@ -352,7 +354,7 @@ function renderTrending() {
             <img src="${escHtml(trendMediaUrl(cover))}" data-fallback-cover="${escHtml(trendMediaUrl('fourhoi.com/' + code + '/cover-t.jpg'))}" onload="handleCoverLoad(this)" alt="${escHtml(it.code || '')}" loading="lazy" referrerpolicy="no-referrer"
                  onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${escHtml(trendMediaUrl('fourhoi.com/' + code + '/cover-t.jpg'))}';}else{this.parentElement.innerHTML='<span class=rank>${i + 1}</span><div class=placeholder>🎞 ${escHtml(it.code || '')}</div>';}">
            <div class="preview">
-              ${preview ? `<video data-hls-src="${escHtml(preview)}" data-kind="${escHtml(dataKind)}" muted loop playsinline disableRemotePlayback referrerpolicy="no-referrer" preload="none" poster="${escHtml(cover)}"></video>` : ''}
+               ${preview ? `<video data-hls-src="${escHtml(preview)}" data-kind="${escHtml(dataKind)}" muted loop playsinline disableRemotePlayback referrerpolicy="no-referrer" preload="none" poster="${escHtml(trendMediaUrl(cover))}" onloadeddata="this.parentElement.classList.add('is-ready')" onerror="this.parentElement.classList.remove('is-ready');this.removeAttribute('src');"></video>` : ''}
            </div>
          </div>
           <div class="info">
