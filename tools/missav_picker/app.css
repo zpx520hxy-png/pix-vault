@@ -773,6 +773,9 @@
   }
   html { scroll-behavior: smooth; }
   html.motion-off { scroll-behavior: auto !important; }
+  body, body * {
+    cursor: url('assets/rocket-cursor.svg') 25 6, auto !important;
+  }
   body {
     position: relative;
     overflow-x: hidden;
@@ -809,30 +812,41 @@
       radial-gradient(ellipse 15rem 11rem at calc(var(--pointer-x) + 72px) calc(var(--pointer-y) - 42px), rgba(103,232,249,.10), transparent 66%),
       radial-gradient(ellipse 13rem 10rem at calc(var(--pointer-x) - 82px) calc(var(--pointer-y) + 62px), rgba(255,79,135,.09), transparent 68%);
   }
+  input[type="text"], input[type="search"], textarea { cursor: text !important; }
   body.motion-off, body.motion-off::before { animation: none !important; }
   html.motion-off *, html.motion-off *::before, html.motion-off *::after {
     animation: none !important;
     transition: none !important;
     scroll-behavior: auto !important;
   }
-  .click-boob-pop {
+  .rocket-milk-spray {
     position: fixed;
     z-index: 1050;
     pointer-events: none;
-    width: 68px;
-    aspect-ratio: 11 / 6;
+    width: 150px;
+    height: 150px;
     will-change: transform, opacity;
-    animation: clickBoobPop .64s var(--ease-out) both;
+    animation: rocketMilkSpray .62s var(--ease-out) both;
   }
-  .click-boob-pop svg { display: block; width: 100%; height: 100%; overflow: visible; }
-  .click-boob-arc {
+  .rocket-milk-spray svg { display: block; overflow: visible; }
+  .rocket-milk-visual { position: absolute; inset: 0; width: 150px; height: 150px; }
+  .rocket-milk-stream {
+    fill: none;
+    stroke: #f7efe8;
+    stroke-width: 9;
+    stroke-linecap: round;
+    filter: drop-shadow(0 0 5px rgba(255,255,255,.72));
+  }
+  .rocket-milk-drop { fill: #f7efe8; filter: drop-shadow(0 0 4px rgba(255,255,255,.72)); }
+  .rocket-boob-mark { position: absolute; left: 25px; top: 86px; width: 100px; height: 55px; }
+  .rocket-boob-arc {
     fill: none;
     stroke: var(--primary);
     stroke-width: 7;
     stroke-linecap: round;
     filter: drop-shadow(0 0 4px rgba(255,79,135,.9)) drop-shadow(0 0 10px rgba(246,193,119,.48));
   }
-  .click-boob-dot { fill: var(--text); filter: drop-shadow(0 0 4px rgba(247,239,232,.8)); }
+  .rocket-boob-dot { fill: var(--text); filter: drop-shadow(0 0 4px rgba(247,239,232,.8)); }
   #resultArea.result-focus .result-card {
     animation: resultFocus .72s var(--ease-out) both;
   }
@@ -1280,10 +1294,10 @@
     50% { opacity: .34; }
     100% { background-position: 72px 72px, 72px 72px, 18px 14px; opacity: .50; }
   }
-  @keyframes clickBoobPop {
-    0% { opacity: 0; transform: translate(-50%, -32%) scale(.7); }
-    24% { opacity: 1; transform: translate(-50%, -58%) scale(1.08); }
-    100% { opacity: 0; transform: translate(-50%, -142%) scale(.96); }
+  @keyframes rocketMilkSpray {
+    0% { opacity: 0; transform: translate(-75px, -142px) scale(.68); }
+    22% { opacity: 1; transform: translate(-75px, -142px) scale(1); }
+    100% { opacity: 0; transform: translate(-75px, -164px) scale(1.08); }
   }
   @keyframes resultFocus {
     0% { transform: translateY(14px) scale(.992); box-shadow: 0 0 0 rgba(255,79,135,0), var(--shadow-lg); }

@@ -276,14 +276,14 @@ function initPageMotion() {
       removed = true;
       pop.remove();
     };
-    pop.className = 'click-boob-pop';
+    pop.className = 'rocket-milk-spray';
     pop.setAttribute('aria-hidden', 'true');
-    pop.innerHTML = '<svg viewBox="0 0 220 120" focusable="false"><path class="click-boob-arc" d="M28 78C31 50 47 34 68 34C88 34 99 48 110 64C121 48 132 34 152 34C173 34 189 50 192 78"/><circle class="click-boob-dot" cx="68" cy="62" r="4.5"/><circle class="click-boob-dot" cx="152" cy="62" r="4.5"/></svg>';
+    pop.innerHTML = '<svg class="rocket-milk-visual" viewBox="0 0 150 150" focusable="false"><path class="rocket-milk-stream" d="M75 142C74 110 57 73 42 41"/><path class="rocket-milk-stream" d="M75 142C87 108 103 77 111 51"/><circle class="rocket-milk-drop" cx="35" cy="30" r="5"/><circle class="rocket-milk-drop" cx="119" cy="39" r="4"/><circle class="rocket-milk-drop" cx="24" cy="56" r="3.5"/><circle class="rocket-milk-drop" cx="130" cy="65" r="2.8"/></svg><svg class="rocket-boob-mark" viewBox="0 0 220 120" focusable="false"><path class="rocket-boob-arc" d="M28 78C31 50 47 34 68 34C88 34 99 48 110 64C121 48 132 34 152 34C173 34 189 50 192 78"/><circle class="rocket-boob-dot" cx="68" cy="62" r="4.5"/><circle class="rocket-boob-dot" cx="152" cy="62" r="4.5"/></svg>';
     pop.style.left = x + 'px';
     pop.style.top = y + 'px';
     pop.addEventListener('animationend', remove, { once: true });
     document.body.appendChild(pop);
-    setTimeout(remove, 800);
+    setTimeout(remove, 760);
   };
 
   document.addEventListener('pointermove', e => {
@@ -321,7 +321,7 @@ if ($('motionToggle')) $('motionToggle').addEventListener('click', () => {
   document.body.classList.toggle('motion-force', next && prefersReducedMotion);
   syncMotionToggle();
   if (!next) {
-    document.querySelectorAll('.click-boob-pop').forEach(node => node.remove());
+    document.querySelectorAll('.rocket-milk-spray').forEach(node => node.remove());
     return;
   }
   document.body.classList.add('motion-ready');
