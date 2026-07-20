@@ -193,9 +193,6 @@ def _rebuild_index():
                 if a.strip()
             )
         )
-        tags = sorted(
-            set(t.strip() for v in videos for t in (v.get("tags") or []) if t.strip())
-        )
         tag_counts = collections.Counter()
         for v in videos:
             for t in set(t.strip() for t in (v.get("tags") or []) if t.strip()):
@@ -210,8 +207,12 @@ def _rebuild_index():
                         "actress_avatars": data.get("actress_avatars", {}),
                         "actress_display": data.get("actress_display", {}),
                         "actress_aid": data.get("actress_aid", {}),
-                        "tags": tags,
+                        "tags": sorted(
+                            tag_counts,
+                            key=lambda tag: (-tag_counts[tag], tag.casefold()),
+                        ),
                         "tag_counts": dict(tag_counts),
+                        "tag_groups": data.get("tag_groups", {}),
                         "total_videos": len(videos),
                     },
                     ensure_ascii=False,

@@ -29,6 +29,7 @@ TREND_PROGRESS = {
 }
 JABLE_METADATA_PATH = ROOT / ".jable_trending_metadata.json"
 MISSAV_METADATA_PATH = ROOT / ".missav_trending_metadata.json"
+ACTRESS_MATCH_CACHE = {"signature": None, "candidates": ()}
 
 TREND_REMOTE_URLS = {
     "missav": {
@@ -454,6 +455,94 @@ def _local_video_map(source):
     return {(v.get("code") or "").lower(): v for v in videos if v.get("code")}
 
 
+def _normalize_actress_text(value):
+    value = str(value or "").strip()
+    if not value:
+        return ""
+    value = re.sub(r"[\s\W_]+", "", value, flags=re.UNICODE)
+    return value.casefold()
+
+
+def _actress_name_variants(name):
+    name = str(name or "").strip()
+    if not name:
+        return []
+    variants = [name]
+    base = re.split(r"\s*[（(]", name, maxsplit=1)[0].strip()
+    if base:
+        variants.append(base)
+    for group in re.findall(r"[（(]([^）)]+)[）)]", name):
+        variants.extend(re.split(r"[、,/|;；]", group))
+    return [variant.strip() for variant in variants if variant.strip()]
+
+
+def _actress_title_candidates():
+    paths = (ROOT / "picker_data.json", ROOT / "jable_data.json")
+    signature = tuple(
+        (path.stat().st_mtime_ns, path.stat().st_size) if path.is_file() else (0, 0)
+        for path in paths
+    )
+    if ACTRESS_MATCH_CACHE["signature"] == signature:
+        return ACTRESS_MATCH_CACHE["candidates"]
+
+    candidates = {}
+    ambiguous = set()
+    for path in paths:
+        if not path.is_file():
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        for video in data.get("videos") or []:
+            for actress in video.get("actresses") or []:
+                display = str(actress or "").strip()
+                if not display:
+                    continue
+                for variant in _actress_name_variants(display):
+                    normalized = _normalize_actress_text(variant)
+                    if len(normalized) < 3 or (
+                        normalized.isascii() and len(normalized) < 5
+                    ):
+                        continue
+                    existing = candidates.get(normalized)
+                    if existing and existing != display:
+                        ambiguous.add(normalized)
+                    else:
+                        candidates[normalized] = display
+    for normalized in ambiguous:
+        candidates.pop(normalized, None)
+    result = tuple(
+        sorted(candidates.items(), key=lambda item: len(item[0]), reverse=True)
+    )
+    ACTRESS_MATCH_CACHE.update(signature=signature, candidates=result)
+    return result
+
+
+def _match_actresses_from_titles(*titles):
+    text = _normalize_actress_text(" ".join(str(title or "") for title in titles))
+    if not text:
+        return []
+    matches = []
+    seen = set()
+    for candidate, display in _actress_title_candidates():
+        if candidate in text and display not in seen:
+            matches.append(display)
+            seen.add(display)
+    return matches
+
+
+def _extract_title_credit(*titles):
+    for title in titles:
+        title = str(title or "").strip()
+        if not title:
+            continue
+        match = re.search(r"(?:[—–]|[!！。]\s*|\d\s+)([\u4e00-\u9fff]{2,5})$", title)
+        if match:
+            return [match.group(1)]
+    return []
+
+
 def trending_metadata_path(source):
     return JABLE_METADATA_PATH if source == "jable" else MISSAV_METADATA_PATH
 
@@ -522,6 +611,21 @@ def _hydrate_trending_items(source, items):
             if _has_chinese_title(remote_title)
             else "暂无中文简介"
         )
+        actresses = metadata_v.get("actresses") or local_v.get("actresses") or []
+        if not actresses:
+            actresses = _match_actresses_from_titles(
+                metadata_v.get("original_title"),
+                metadata_title,
+                local_v.get("original_title"),
+                local_title,
+                it.get("title"),
+            )
+        if not actresses:
+            actresses = _extract_title_credit(
+                metadata_title,
+                local_title,
+                it.get("title"),
+            )
         out.append(
             {
                 "code": local_v.get("code") or it.get("code") or code,
@@ -533,9 +637,7 @@ def _hydrate_trending_items(source, items):
                 "original_title": metadata_v.get("original_title")
                 or local_v.get("original_title")
                 or "",
-                "actresses": metadata_v.get("actresses")
-                or local_v.get("actresses")
-                or [],
+                "actresses": actresses,
                 "tags": metadata_v.get("tags") or local_v.get("tags") or [],
                 "is_multi": bool(metadata_v.get("is_multi") or local_v.get("is_multi")),
             }
