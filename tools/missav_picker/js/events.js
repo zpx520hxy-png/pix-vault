@@ -185,7 +185,6 @@ document.addEventListener('keydown', e => {
 });
 
 const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-let motionPulseTimer = null;
 let motionObserver = null;
 function motionStorageKey() { return 'missav_picker_motion_enabled_v1'; }
 function getMotionPreference() {
@@ -261,15 +260,41 @@ function initPageMotion() {
     });
   }).observe(document.body, { childList: true, subtree: true });
 
+  let pointerFrame = null;
+  let pointerX = 0;
+  let pointerY = 0;
+  const updatePointerGlow = () => {
+    pointerFrame = null;
+    document.documentElement.style.setProperty('--pointer-x', pointerX + 'px');
+    document.documentElement.style.setProperty('--pointer-y', pointerY + 'px');
+  };
+  const showClickPop = (x, y) => {
+    const pop = document.createElement('span');
+    let removed = false;
+    const remove = () => {
+      if (removed) return;
+      removed = true;
+      pop.remove();
+    };
+    pop.className = 'click-boob-pop';
+    pop.textContent = '(.)(.)';
+    pop.setAttribute('aria-hidden', 'true');
+    pop.style.left = x + 'px';
+    pop.style.top = y + 'px';
+    pop.addEventListener('animationend', remove, { once: true });
+    document.body.appendChild(pop);
+    setTimeout(remove, 800);
+  };
+
+  document.addEventListener('pointermove', e => {
+    if (!motionAllowed() || (e.pointerType && e.pointerType !== 'mouse')) return;
+    pointerX = e.clientX;
+    pointerY = e.clientY;
+    if (pointerFrame === null) pointerFrame = requestAnimationFrame(updatePointerGlow);
+  }, { passive: true });
   document.addEventListener('pointerdown', e => {
     if (!motionAllowed()) return;
-    document.documentElement.style.setProperty('--click-x', e.clientX + 'px');
-    document.documentElement.style.setProperty('--click-y', e.clientY + 'px');
-    document.body.classList.remove('motion-pulse');
-    void document.body.offsetWidth;
-    document.body.classList.add('motion-pulse');
-    clearTimeout(motionPulseTimer);
-    motionPulseTimer = setTimeout(() => document.body.classList.remove('motion-pulse'), 900);
+    showClickPop(e.clientX, e.clientY);
   }, { passive: true });
 
 }
@@ -296,7 +321,7 @@ if ($('motionToggle')) $('motionToggle').addEventListener('click', () => {
   document.body.classList.toggle('motion-force', next && prefersReducedMotion);
   syncMotionToggle();
   if (!next) {
-    document.body.classList.remove('motion-pulse');
+    document.querySelectorAll('.click-boob-pop').forEach(node => node.remove());
     return;
   }
   document.body.classList.add('motion-ready');

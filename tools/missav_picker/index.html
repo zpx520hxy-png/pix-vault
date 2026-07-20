@@ -802,8 +802,8 @@
     --shadow-lg: 0 26px 80px rgba(0, 0, 0, 0.48);
     --shadow-glow: 0 18px 52px rgba(255, 79, 135, 0.18);
     --ease-out: cubic-bezier(.16, 1, .3, 1);
-    --click-x: 50%;
-    --click-y: 18%;
+    --pointer-x: 50%;
+    --pointer-y: 18%;
   }
   html { scroll-behavior: smooth; }
   html.motion-off { scroll-behavior: auto !important; }
@@ -813,7 +813,7 @@
     isolation: isolate;
     font-family: "Aptos Display", "Segoe UI Variable", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
     background:
-      radial-gradient(circle at var(--click-x) var(--click-y), rgba(255, 255, 255, .12) 0%, transparent 42%),
+      radial-gradient(circle at var(--pointer-x) var(--pointer-y), rgba(255, 255, 255, .12) 0%, transparent 42%),
       linear-gradient(118deg, rgba(255,255,255,.035), transparent 34% 66%, rgba(103,232,249,.035)),
       radial-gradient(ellipse at 18% 4%, rgba(255,79,135,.18), transparent 38rem),
       radial-gradient(ellipse at 88% 8%, rgba(103,232,249,.10), transparent 34rem),
@@ -839,26 +839,21 @@
     transition: none !important;
     scroll-behavior: auto !important;
   }
-  body::after {
-    content: '';
+  .click-boob-pop {
     position: fixed;
-    left: var(--click-x);
-    top: var(--click-y);
-    width: 36rem;
-    height: 36rem;
+    z-index: 1050;
     pointer-events: none;
-    z-index: 0;
-    border-radius: 50%;
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(.12);
-    background:
-      radial-gradient(circle, rgba(255,255,255,.18), transparent 0 12%),
-      radial-gradient(circle, rgba(255,79,135,.30), transparent 0 34%),
-      radial-gradient(circle, rgba(103,232,249,.16), transparent 0 54%);
-    mix-blend-mode: screen;
-    filter: blur(3px);
+    color: var(--accent);
+    font-family: "Aptos Display", "Segoe UI Variable", "Microsoft YaHei UI", sans-serif;
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -.08em;
+    line-height: 1;
+    text-shadow: 0 0 10px rgba(246,193,119,.78), 0 0 24px rgba(255,79,135,.44);
+    transform: translate(-50%, -50%);
+    will-change: transform, opacity;
+    animation: clickBoobPop .64s var(--ease-out) both;
   }
-  body.motion-pulse::after { animation: clickPulse .85s var(--ease-out); }
   #resultArea.result-focus .result-card {
     animation: resultFocus .72s var(--ease-out) both;
   }
@@ -1310,10 +1305,10 @@
     50% { opacity: .34; }
     100% { background-position: 72px 72px, 72px 72px, 18px 14px; opacity: .50; }
   }
-  @keyframes clickPulse {
-    0% { opacity: 0; transform: translate(-50%, -50%) scale(.12); }
-    18% { opacity: 1; }
-    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.45); }
+  @keyframes clickBoobPop {
+    0% { opacity: 0; transform: translate(-50%, -32%) scale(.7); }
+    24% { opacity: 1; transform: translate(-50%, -58%) scale(1.08); }
+    100% { opacity: 0; transform: translate(-50%, -142%) scale(.96); }
   }
   @keyframes resultFocus {
     0% { transform: translateY(14px) scale(.992); box-shadow: 0 0 0 rgba(255,79,135,0), var(--shadow-lg); }
@@ -1664,7 +1659,6 @@
       transition: opacity .62s var(--ease-out) var(--motion-delay, 0ms), transform .62s var(--ease-out) var(--motion-delay, 0ms), filter .62s var(--ease-out) var(--motion-delay, 0ms) !important;
     }
     body.motion-force.motion-ready .motion-reveal.in-view { opacity: 1 !important; transform: translate3d(0, 0, 0) scale(1) !important; filter: saturate(1) blur(0) !important; }
-    body.motion-force.motion-pulse::after { animation: clickPulse .85s var(--ease-out) !important; }
   }
 
 /* 回到顶部按钮 (DOM 在 <body> 末尾, 样式从 app.css 复制过来因为 index.html 未 link app.css) */
