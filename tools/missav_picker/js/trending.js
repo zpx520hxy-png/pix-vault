@@ -5,6 +5,9 @@ let trendCacheVersion = { missav: { daily: 0, weekly: 0 }, jable: { daily: 0, we
 let trendLoading = { missav: { daily: false, weekly: false }, jable: { daily: false, weekly: false } };
 let trendProgressTimers = { missav: { daily: null, weekly: null }, jable: { daily: null, weekly: null } };
 let trendRefreshBatch = null;
+let trendLibraryStatus = { missav: null, jable: null };
+let trendLibraryStatusTimer = { missav: null, jable: null };
+let trendImportMode = 'trending';
 const TREND_SNAPSHOT_KEY = 'missav_picker_trend_snapshots_v1';
 const TREND_SNAPSHOT_VERSION = 4;
 
@@ -61,8 +64,9 @@ function applyTrendSnapshotsFromSync(snapshots) {
     ['daily', 'weekly'].forEach(period => {
       const snapshot = snapshots[source] && snapshots[source][period];
       if (!isCurrentTrendSnapshot(snapshot)) return;
+      const current = trendCache[source][period];
+      if (current) return;
       trendCache[source][period] = snapshot;
-      trendCacheVersion[source][period] += 1;
       changed = true;
     });
   });
@@ -94,11 +98,10 @@ function renderTrendingProgress(progress, source, period) {
   if (!box || !fill || !label) return;
   const attempted = Number(progress && progress.attempted) || 0;
   const total = Number(progress && progress.total) || 0;
-  const items = Number(progress && progress.items) || 0;
   const percent = total ? Math.max(8, Math.min(100, attempted / total * 100)) : 8;
   box.classList.add('active');
   fill.style.width = `${percent}%`;
-  label.textContent = `${progress && progress.stage || '连接片源'} · 已尝试 ${attempted}/${total || '?'} 个入口 · 解析 ${items} 部`;
+  label.textContent = '正在同步热门...';
 }
 
 function renderTrendRefreshBatchProgress() {
@@ -111,14 +114,13 @@ function renderTrendRefreshBatchProgress() {
   const entries = periods.map(period => trendRefreshBatch.progress[period] || {});
   const attempted = entries.reduce((sum, progress) => sum + (Number(progress.attempted) || 0), 0);
   const total = entries.reduce((sum, progress) => sum + (Number(progress.total) || 0), 0);
-  const items = entries.reduce((sum, progress) => sum + (Number(progress.items) || 0), 0);
   const completed = periods.filter(period => trendRefreshBatch.completed.has(period));
   const percent = total ? Math.max(8, Math.min(100, attempted / total * 100)) : (completed.length ? completed.length / periods.length * 100 : 8);
-  const daily = trendRefreshBatch.progress.daily || {};
-  const weekly = trendRefreshBatch.progress.weekly || {};
   box.classList.add('active');
   fill.style.width = `${percent}%`;
-  label.textContent = `同步今日和本周 · ${completed.length}/2 完成 · 今日 ${Number(daily.items) || 0} 部 / 本周 ${Number(weekly.items) || 0} 部 · 共解析 ${items} 部`;
+  label.textContent = completed.length === periods.length
+    ? '热门已更新'
+    : '正在同步今日和本周热门...';
 }
 
 function startTrendRefreshBatch(source) {
@@ -134,7 +136,8 @@ function finishTrendRefreshBatch(source) {
   if (box && fill && label && source === trendSource()) {
     box.classList.add('active');
     fill.style.width = '100%';
-    label.textContent = '今日和本周热门已同步完成';
+    label.textContent = '热门已更新';
+    setTimeout(() => hideTrendingProgress(source, trendPeriod), 1400);
   }
   trendRefreshBatch = null;
 }
@@ -226,8 +229,11 @@ function trendCover(item, local, code) {
 function trendTitle(item, local) {
   const remoteTitle = String(item && item.title || '').trim();
   const localTitle = String(local && local.title || '').trim();
-  if (localTitle && (!remoteTitle || remoteTitle === '暂无中文简介')) return localTitle;
-  return remoteTitle || localTitle;
+  const candidate = localTitle && (!remoteTitle || remoteTitle === '暂无中文简介')
+    ? localTitle
+    : (remoteTitle || localTitle);
+  if (candidate && candidate !== '暂无中文简介') return candidate;
+  return String(item && item.code || local && local.code || '').toUpperCase();
 }
 
 function trendMediaUrl(url) {
@@ -275,12 +281,8 @@ function renderTrendingMeta(data) {
     meta.textContent = `${label}${at ? ' · ' + at : ''}${age}`;
   }
   if (data.importMessage) meta.textContent += ` · ${data.importMessage}`;
-  const tried = Array.isArray(data.tried) ? data.tried : [];
   if (data.sourceUrl) meta.title = data.sourceUrl;
-  else if (tried.length) {
-    const failures = tried.map(item => `${item.status || '?'} ${item.error || '未解析'} (${item.items || 0} 部)`).join(' · ');
-    meta.title = `已尝试 ${tried.length} 个入口：${failures}`;
-  } else meta.removeAttribute('title');
+  else meta.removeAttribute('title');
 }
 
 function _trendingSkeleton(n) {
@@ -301,7 +303,15 @@ function renderTrending() {
   const data = trendCache[src] && trendCache[src][trendPeriod];
   const grid = $('trendingGrid');
   const importButton = $('jableTrendImport');
-  if (importButton) importButton.hidden = src !== 'jable';
+  const addButton = $('trendingAddToLibrary');
+  if (importButton) importButton.hidden = false;
+  if (addButton) {
+    const isJable = src === 'jable';
+    addButton.textContent = '＋ 入库';
+    addButton.title = `粘贴 ${trendLabel()} 作品链接手动加入作品库`;
+    addButton.disabled = false;
+  }
+  renderTrendingLibraryStatus(src, trendPeriod);
   $('trendingSource').textContent = trendLabel();
   $('trendingEmoji').textContent = trendIsJable() ? '🪐' : '🔥';
   $('trendingHeading').textContent = (trendPeriod === 'daily' ? '今日热门' : '本周热门');
@@ -325,10 +335,14 @@ function renderTrending() {
     const code = (it.code || '').toLowerCase();
     const local = localMap.get(code);
     if (isVideoRemoved(code, trendSource())) return null;
+    const actresses = Array.isArray(it.actresses) && it.actresses.length
+      ? it.actresses
+      : (Array.isArray(local && local.actresses) ? local.actresses : []);
     return Object.assign({}, local || {}, it, {
       title: trendTitle(it, local),
       cover: trendCover(it, local, code),
       url: it.url || (local && local.url) || '',
+      actresses,
       local: !!local
     });
   }).filter(Boolean).slice(0, 20);
@@ -359,13 +373,110 @@ function renderTrending() {
          </div>
           <div class="info">
             <div class="code">${escHtml(it.code || '')}</div>
-            <div class="title">${escHtml((it.title || '（无标题）').slice(0, 60))}</div>
+            <div class="title">${escHtml(it.title || '（无标题）')}</div>
             ${actressText ? `<div class="trend-actress">${escHtml(actressText)}</div>` : ''}
           </div>
        </div>`;
   }).join('');
   prewarmCoverBatch(visibleItems, 20);
 }
+
+function renderTrendingLibraryStatus(source, period) {
+  const status = $('trendingLibraryStatus');
+  if (!status) return;
+  const libraryStatus = trendLibraryStatus[source];
+  if (!libraryStatus) {
+    status.hidden = true;
+    status.textContent = '';
+    status.className = 'trending-library-status';
+    return;
+  }
+  status.hidden = false;
+  status.className = `trending-library-status ${libraryStatus.type || ''}`;
+  if (libraryStatus.html) status.innerHTML = libraryStatus.html;
+  else status.textContent = libraryStatus.text;
+}
+
+function setTrendingLibraryStatus(source, period, type, text, duration = 0, html = '') {
+  clearTimeout(trendLibraryStatusTimer[source]);
+  trendLibraryStatus[source] = { period, type, text, html };
+  renderTrendingLibraryStatus(source, period);
+  if (!duration) return;
+  trendLibraryStatusTimer[source] = setTimeout(() => {
+    trendLibraryStatus[source] = null;
+    if (source === trendSource()) renderTrendingLibraryStatus(source, trendPeriod);
+  }, duration);
+}
+
+async function refreshCurrentLibraryData(source) {
+  if (source !== trendSource()) return;
+  const dataFile = source === 'jable' ? 'jable_data.json' : 'picker_data.json';
+  const response = await fetch(`${dataFile}?_=${Date.now()}`);
+  if (!response.ok) throw new Error('作品库刷新失败');
+  DATA = await response.json();
+  if (source === 'jable') {
+    const actresses = {};
+    DATA.videos.forEach(video => (video.actresses || []).forEach(actress => { actresses[actress] = true; }));
+    DATA.actresses = Object.keys(actresses);
+    $('stats').textContent = `📊 ${DATA.videos.length} 部作品 · ${DATA.actresses.length} 位女优 · Jable.TV`;
+  } else {
+    $('stats').textContent = `📊 ${DATA.videos.length} 部作品 · ${(DATA.actresses || []).length} 位女优 · 按空格快速抽`;
+  }
+  renderTagChips();
+  renderActressGrid();
+  updateCount();
+}
+
+function trendingLibraryStatusHtml(source, result) {
+  const added = Number(result.added) || 0;
+  const total = Number(result.total) || 0;
+  const beforeCount = Math.max(0, total - added);
+  const libraryName = source === 'jable' ? 'Jable.TV' : 'MissAV';
+  return `<span class="trending-library-label">${libraryName} 作品库</span><span class="trending-library-before">${beforeCount} 部</span><span class="trending-library-delta">＋${added} 部</span><span class="trending-library-total">现有 ${total} 部</span>`;
+}
+
+async function addTrendingVideosToLibrary(source, period, videos, workingText) {
+  const validVideos = Array.isArray(videos) ? videos.filter(video => video && video.code) : [];
+  if (!validVideos.length) throw new Error('没有可加入作品库的热门作品');
+  setTrendingLibraryStatus(source, period, 'working', workingText, 0);
+  const response = await fetch('/add_trending_videos', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ source, videos: validVideos })
+  });
+  const result = await response.json();
+  if (!response.ok || !result.ok) throw new Error(result.error || '作品库入库失败');
+  await refreshCurrentLibraryData(source);
+  setTrendingLibraryStatus(
+    source,
+    period,
+    Number(result.added) ? 'success' : 'unchanged',
+    '',
+    0,
+    trendingLibraryStatusHtml(source, result)
+  );
+  return result;
+}
+
+function collectRefreshedTrendingVideos(source) {
+  const seenCodes = new Set();
+  return ['daily', 'weekly'].flatMap(period => {
+    const data = trendCache[source] && trendCache[source][period];
+    return data && !data.error && Array.isArray(data.items) ? data.items : [];
+  }).filter(video => {
+    const code = String(video && video.code || '').trim().toUpperCase();
+    if (!code || seenCodes.has(code)) return false;
+    seenCodes.add(code);
+    return true;
+  });
+}
+
+const trendingAddToLibraryButton = $('trendingAddToLibrary');
+if (trendingAddToLibraryButton) trendingAddToLibraryButton.addEventListener('click', async () => {
+  const source = trendSource();
+  const period = trendPeriod;
+  openTrendImport('library');
+});
 
 function openTrendingCard(card, e) {
   if (!card) return;
@@ -458,6 +569,7 @@ async function loadTrending(force, sourceOverride, periodOverride) {
     trendCache[src] = trendCache[src] || { daily: null, weekly: null };
     trendCache[src][period] = data;
     saveTrendSnapshots();
+    if (typeof scheduleSyncSave === 'function') scheduleSyncSave();
     stopTrendingProgressPolling(src, period, true);
     renderTrending();
   } catch (e) {
@@ -481,20 +593,26 @@ document.querySelectorAll('.period-chip[data-period]').forEach(b => {
     b.classList.add('active');
     trendPeriod = b.dataset.period;
     renderTrending();
-    if (!trendCache[trendSource()][trendPeriod]) {
-      loadTrending(false, trendSource(), trendPeriod);
-    }
   });
 });
 document.getElementById('trendingRefresh').addEventListener('click', async () => {
   const source = trendSource();
+  const period = trendPeriod;
   const button = document.getElementById('trendingRefresh');
   button.disabled = true;
   button.textContent = '↻ 刷新中';
   startTrendRefreshBatch(source);
   try {
     await Promise.all(['daily', 'weekly'].map(period => loadTrending(true, source, period)));
+    await addTrendingVideosToLibrary(
+      source,
+      period,
+      collectRefreshedTrendingVideos(source),
+      '正在同步作品库...'
+    );
     scheduleSyncSave();
+  } catch (error) {
+    setTrendingLibraryStatus(source, period, 'error', error.message || '作品库同步失败');
   } finally {
     finishTrendRefreshBatch(source);
     button.disabled = false;
@@ -503,13 +621,23 @@ document.getElementById('trendingRefresh').addEventListener('click', async () =>
   }
 });
 
-function openJableTrendImport() {
-  if (trendSource() !== 'jable') return;
+function openTrendImport(mode = 'trending') {
+  const source = trendSource();
   const dialog = $('jableTrendImportDialog');
+  const title = $('jableTrendImportTitle');
+  const description = $('jableTrendImportDescription');
   const periodLabel = $('jableTrendImportPeriod');
   const text = $('jableTrendImportText');
-  if (!dialog || !periodLabel || !text) return;
+  const submit = $('jableTrendImportSubmit');
+  if (!dialog || !title || !description || !periodLabel || !text || !submit) return;
+  trendImportMode = mode;
+  const addingToLibrary = mode === 'library';
+  title.firstChild.textContent = addingToLibrary ? `手动加入 ${trendLabel()} ` : `导入 ${trendLabel()} `;
   periodLabel.textContent = trendPeriod === 'daily' ? '今日热门' : '本周热门';
+  description.textContent = addingToLibrary
+    ? `粘贴已通过验证的 ${trendLabel()} 作品链接或番号，系统会解析后直接加入作品库。`
+    : `在已通过验证的 ${trendLabel()} 榜单页复制作品链接或番号后粘贴。导入内容仅保存为当前周期的本地榜单，不会绕过网站验证。`;
+  submit.textContent = addingToLibrary ? '加入作品库' : '保存当前榜单';
   text.value = '';
   if (typeof dialog.showModal === 'function') dialog.showModal();
   else dialog.setAttribute('open', '');
@@ -517,7 +645,7 @@ function openJableTrendImport() {
 }
 
 const jableTrendImportButton = $('jableTrendImport');
-if (jableTrendImportButton) jableTrendImportButton.addEventListener('click', openJableTrendImport);
+if (jableTrendImportButton) jableTrendImportButton.addEventListener('click', () => openTrendImport('trending'));
 
 const jableTrendImportForm = $('jableTrendImportForm');
 if (jableTrendImportForm) jableTrendImportForm.addEventListener('submit', async event => {
@@ -529,34 +657,40 @@ if (jableTrendImportForm) jableTrendImportForm.addEventListener('submit', async 
   submit.disabled = true;
   status.textContent = '正在保存榜单...';
   try {
-    const response = await fetch('/import_jable_trending', {
+    const source = trendSource();
+    const response = await fetch('/import_trending_videos', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ period: trendPeriod, text: text.value })
+      body: JSON.stringify({ source, period: trendPeriod, text: text.value })
     });
     const result = await response.json();
     if (!response.ok || !result.ok || !result.data) throw new Error(result.error || '导入失败');
-    trendCache.jable[trendPeriod] = result.data;
-    trendCacheVersion.jable[trendPeriod] += 1;
+    trendCache[source][trendPeriod] = result.data;
+    trendCacheVersion[source][trendPeriod] += 1;
     saveTrendSnapshots();
     scheduleSyncSave();
     renderTrending();
-    status.textContent = `已保存 ${result.data.items.length} 部作品`;
+    if (trendImportMode === 'library') {
+      const libraryResult = await addTrendingVideosToLibrary(
+        source,
+        trendPeriod,
+        result.data.items,
+        '正在加入作品库...'
+      );
+      status.textContent = `已手动加入 ${Number(libraryResult.added) || 0} 部作品`;
+    } else {
+      status.textContent = `已保存 ${result.data.items.length} 部作品`;
+    }
     setTimeout(() => $('jableTrendImportDialog').close(), 500);
   } catch (error) {
-    status.textContent = error.message || '导入失败，请粘贴 Jable 作品链接或番号';
+    status.textContent = error.message || `导入失败，请粘贴 ${trendLabel()} 作品链接或番号`;
   } finally {
     submit.disabled = false;
   }
 });
 
 window.addEventListener('load', () => {
-  setTimeout(() => {
-    const requests = ['missav', 'jable'].flatMap(source =>
-      ['daily', 'weekly'].map(period => loadTrending(false, source, period))
-    );
-    Promise.all(requests);
-  }, 0);
+  renderTrending();
 });
 
 // 收起 / 展开

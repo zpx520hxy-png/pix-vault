@@ -4,6 +4,7 @@ import os
 import time
 import hashlib
 import threading
+import html as html_lib
 from pathlib import Path
 
 from .config import ROOT, TREND_CACHE_DIR, TREND_OK_TTL, TREND_FAIL_TTL, proxy_kwargs
@@ -93,14 +94,21 @@ def _write_trend_cache(source, period, data):
     os.replace(tmp, path)
 
 
-def import_manual_jable_trending(period, raw_text):
+def import_manual_trending(source, period, raw_text):
+    source = str(source or "").lower()
+    if source not in ("missav", "jable"):
+        raise ValueError("invalid source")
     if period not in ("daily", "weekly"):
         raise ValueError("invalid period")
     text = str(raw_text or "")
     codes = []
     seen = set()
-    patterns = (
-        r"https?://(?:www\.)?jable\.tv/videos/([a-z0-9-]+)/?",
+    source_patterns = (
+        (r"https?://(?:www\.)?jable\.tv/videos/([a-z0-9-]+)/?",)
+        if source == "jable"
+        else (r"https?://(?:www\.)?missav\.ws/(?:[a-z0-9-]+/)*([a-z0-9]+-\d{2,8})/?",)
+    )
+    patterns = source_patterns + (
         r"(?:^|[^a-z0-9])([a-z]{2,12}-\d{2,8})(?=$|[^a-z0-9])",
     )
     for pattern in patterns:
@@ -117,12 +125,22 @@ def import_manual_jable_trending(period, raw_text):
     if not codes:
         raise ValueError("no jable video links or codes found")
     items = _hydrate_trending_items(
-        "jable",
-        [{"code": code, "url": f"https://jable.tv/videos/{code}/"} for code in codes],
+        source,
+        [
+            {
+                "code": code,
+                "url": (
+                    f"https://jable.tv/videos/{code}/"
+                    if source == "jable"
+                    else f"https://missav.ws/cn/{code}"
+                ),
+            }
+            for code in codes
+        ],
     )
     now = int(time.time() * 1000)
     data = {
-        "source": "jable",
+        "source": source,
         "period": period,
         "items": items,
         "fetchedAt": now,
@@ -134,10 +152,14 @@ def import_manual_jable_trending(period, raw_text):
         "upstreamStatus": "",
         "retryAfterSeconds": 0,
     }
-    _write_trend_cache("jable", period, data)
+    _write_trend_cache(source, period, data)
     data["cacheHit"] = False
     data["cacheAgeSeconds"] = 0
     return data
+
+
+def import_manual_jable_trending(period, raw_text):
+    return import_manual_trending("jable", period, raw_text)
 
 
 def _cache_ttl(data):
@@ -162,6 +184,7 @@ def _last_remote_trend(source, period):
     if not cached or not cached.get("items"):
         return None
     cached.pop("_ts", None)
+    cached["items"] = _hydrate_trending_items(source, cached.get("items") or [])
     cached["sourceMode"] = "stale_remote"
     cached["remote"] = False
     cached["staleFetchedAt"] = cached.get("fetchedAt")
@@ -266,6 +289,17 @@ def _has_chinese_title(text):
     return bool(re.search(r"[\u4e00-\u9fff]", text)) and not bool(
         re.search(r"[\u3040-\u30ff]", text)
     )
+
+
+def _usable_trending_title(text, code=""):
+    text = str(text or "").strip()
+    if not text or text == "暂无中文简介":
+        return ""
+    normalized = re.sub(r"[\s-]+", "", text).casefold()
+    code_normalized = re.sub(r"[\s-]+", "", str(code or "")).casefold()
+    if code_normalized and normalized == code_normalized:
+        return ""
+    return text
 
 
 def _find_jable_cover(html):
@@ -487,6 +521,17 @@ def _actress_title_candidates():
 
     candidates = {}
     ambiguous = set()
+
+    def add_candidate(value, display):
+        normalized = _normalize_actress_text(value)
+        if len(normalized) < 3 or (normalized.isascii() and len(normalized) < 5):
+            return
+        existing = candidates.get(normalized)
+        if existing and existing != display:
+            ambiguous.add(normalized)
+        else:
+            candidates[normalized] = display
+
     for path in paths:
         if not path.is_file():
             continue
@@ -495,21 +540,19 @@ def _actress_title_candidates():
         except Exception:
             continue
         for video in data.get("videos") or []:
-            for actress in video.get("actresses") or []:
+            actresses = [
+                str(actress or "").strip()
+                for actress in video.get("actresses") or []
+                if str(actress or "").strip()
+            ]
+            for actress in actresses:
                 display = str(actress or "").strip()
-                if not display:
-                    continue
                 for variant in _actress_name_variants(display):
-                    normalized = _normalize_actress_text(variant)
-                    if len(normalized) < 3 or (
-                        normalized.isascii() and len(normalized) < 5
-                    ):
-                        continue
-                    existing = candidates.get(normalized)
-                    if existing and existing != display:
-                        ambiguous.add(normalized)
-                    else:
-                        candidates[normalized] = display
+                    add_candidate(variant, display)
+            if len(actresses) == 1:
+                for title in (video.get("title"), video.get("original_title")):
+                    for alias in _extract_title_credit(title):
+                        add_candidate(alias, actresses[0])
     for normalized in ambiguous:
         candidates.pop(normalized, None)
     result = tuple(
@@ -537,7 +580,7 @@ def _extract_title_credit(*titles):
         title = str(title or "").strip()
         if not title:
             continue
-        match = re.search(r"(?:[—–]|[!！。]\s*|\d\s+)([\u4e00-\u9fff]{2,5})$", title)
+        match = re.search(r"(?:[—–]|[!！。…]\s*|\d\s+)([\u4e00-\u9fff]{2,5})$", title)
         if match:
             return [match.group(1)]
     return []
@@ -562,6 +605,79 @@ def _trending_metadata_map(source):
     }
 
 
+def _clean_html_text(value):
+    value = re.sub(r"<[^>]+>", " ", value or "")
+    return re.sub(r"\s+", " ", html_lib.unescape(value)).strip()
+
+
+def _parse_jable_detail_metadata(page_html, code):
+    if not page_html:
+        return {}
+    title = ""
+    for pattern in (
+        r"<h1[^>]*>(.*?)</h1>",
+        r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)',
+        r"<title[^>]*>(.*?)</title>",
+    ):
+        match = re.search(pattern, page_html, re.I | re.S)
+        if match:
+            candidate = _clean_html_text(match.group(1))
+            if _usable_trending_title(candidate, code):
+                title = candidate
+                break
+    actresses = []
+    for match in re.finditer(
+        r'href=["\']/models/[^"\']+["\'][^>]*>(.*?)</a>',
+        page_html,
+        re.I | re.S,
+    ):
+        name = _clean_html_text(match.group(1))
+        if name and name.casefold() not in {a.casefold() for a in actresses}:
+            actresses.append(name)
+    return {
+        key: value
+        for key, value in (
+            ("title", title),
+            ("original_title", title),
+            ("actresses", actresses[:12]),
+        )
+        if value
+    }
+
+
+def _enrich_jable_trending_metadata(items):
+    metadata = _trending_metadata_map("jable")
+    missing = [
+        item for item in items or [] if (item.get("code") or "").lower() not in metadata
+    ]
+    if not missing:
+        return
+    changed = False
+    for item in missing[:20]:
+        code = str(item.get("code") or "").lower()
+        if not code:
+            continue
+        page, diagnostic = _trend_http_get(
+            item.get("url") or f"https://jable.tv/videos/{code}/",
+            referer="https://jable.tv/",
+            fresh=True,
+        )
+        parsed = _parse_jable_detail_metadata(page, code)
+        if parsed:
+            metadata[code.upper()] = parsed
+            changed = True
+        if not page and diagnostic.get("error") == "challenge":
+            break
+        time.sleep(0.2)
+    if changed:
+        path = trending_metadata_path("jable")
+        tmp = path.with_suffix(".json.tmp")
+        tmp.write_text(
+            json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        os.replace(tmp, path)
+
+
 def _removed_video_keys():
     path = ROOT / ".removed_videos.json"
     if not path.is_file():
@@ -575,6 +691,7 @@ def _removed_video_keys():
 
 def _hydrate_trending_items(source, items):
     local = _local_video_map(source)
+    alternate = _local_video_map("missav" if source == "jable" else "jable")
     metadata = _trending_metadata_map(source)
     removed = _removed_video_keys()
     out = []
@@ -584,6 +701,7 @@ def _hydrate_trending_items(source, items):
         if not code or code in seen or f"{source}:{code}" in removed:
             continue
         local_v = local.get(code) or {}
+        alternate_v = alternate.get(code) or {}
         metadata_v = metadata.get(code) or {}
         seen.add(code)
         url = local_v.get("url") or it.get("url") or ""
@@ -602,28 +720,56 @@ def _hydrate_trending_items(source, items):
         remote_title = (it.get("title") or "").strip()
         local_title = (local_v.get("title") or "").strip()
         metadata_title = (metadata_v.get("title") or "").strip()
-        title = (
-            local_title
-            if _has_chinese_title(local_title)
-            else metadata_title
-            if _has_chinese_title(metadata_title)
-            else remote_title
-            if _has_chinese_title(remote_title)
-            else "暂无中文简介"
+        title_candidates = (
+            local_title,
+            metadata_title,
+            (alternate_v.get("title") or "").strip(),
+            remote_title,
+            metadata_v.get("original_title"),
+            local_v.get("original_title"),
+            alternate_v.get("original_title"),
         )
-        actresses = metadata_v.get("actresses") or local_v.get("actresses") or []
+        title = next(
+            (
+                candidate
+                for candidate in title_candidates
+                if _has_chinese_title(candidate)
+                and _usable_trending_title(candidate, code)
+            ),
+            "",
+        )
+        if not title:
+            title = next(
+                (
+                    candidate
+                    for candidate in title_candidates
+                    if _usable_trending_title(candidate, code)
+                ),
+                "暂无中文简介",
+            )
+        if title == "暂无中文简介":
+            title = str(it.get("code") or local_v.get("code") or code).upper()
+        actresses = (
+            metadata_v.get("actresses")
+            or local_v.get("actresses")
+            or alternate_v.get("actresses")
+            or []
+        )
         if not actresses:
             actresses = _match_actresses_from_titles(
                 metadata_v.get("original_title"),
                 metadata_title,
                 local_v.get("original_title"),
                 local_title,
+                alternate_v.get("original_title"),
+                alternate_v.get("title"),
                 it.get("title"),
             )
         if not actresses:
             actresses = _extract_title_credit(
                 metadata_title,
                 local_title,
+                alternate_v.get("title"),
                 it.get("title"),
             )
         out.append(
@@ -767,6 +913,8 @@ def _scrape_trending(source, period, fresh=False):
                     break
             if not source_url and items:
                 source_mode = "fallback"
+    if source == "jable" and source_mode in ("period", "homepage"):
+        _enrich_jable_trending_metadata(items)
     items = _hydrate_trending_items(source, items)
     challenge_only = bool(tried) and all(
         item.get("error") == "challenge" for item in tried
@@ -824,6 +972,9 @@ def get_trending(source, period, force=False):
                 stale_remote["items"] = _fill_trending_items(
                     stale_remote.get("items"),
                     data.get("items"),
+                )
+                stale_remote["items"] = _hydrate_trending_items(
+                    source, stale_remote.get("items") or []
                 )
                 stale_remote["tried"] = data.get("tried") or []
                 stale_remote["refreshFallback"] = True

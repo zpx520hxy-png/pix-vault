@@ -1360,6 +1360,10 @@
     display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
     margin-bottom: 16px;
   }
+  .trending-title-stack {
+    display: flex; flex: 1 1 auto; flex-direction: column; align-items: flex-start; gap: 7px;
+    min-width: 0;
+  }
   .trending-title {
     display: inline-flex; align-items: baseline; gap: 10px;
     color: var(--text);
@@ -1390,6 +1394,37 @@
     box-shadow: 0 10px 26px rgba(255,79,135,.32);
   }
   .period-chip.ghost { background: transparent; }
+  .trending-library-status {
+    width: fit-content;
+    max-width: 100%;
+    padding: 7px 10px;
+    border: 1px solid rgba(255,255,255,.16);
+    border-radius: 10px;
+    background: rgba(255,255,255,.82);
+    color: #1c2028;
+    box-shadow: 0 8px 24px rgba(0,0,0,.18);
+    backdrop-filter: blur(16px) saturate(130%);
+    -webkit-backdrop-filter: blur(16px) saturate(130%);
+    font-size: 12px;
+    line-height: 1.5;
+    animation: trending-toast-in .24s var(--ease-out);
+  }
+  .trending-library-status.working { color: #8a5a00; border-color: rgba(196,139,19,.35); }
+  .trending-library-status.success { border-color: rgba(32,143,80,.35); }
+  .trending-library-status.unchanged { border-color: rgba(63,110,165,.3); }
+  .trending-library-status.error { color: #a51f36; border-color: rgba(185,42,67,.4); background: rgba(255,240,242,.88); }
+  .trending-library-status span { display: inline-block; }
+  .trending-library-label { margin-right: 9px; font-weight: 700; }
+  .trending-library-before { color: #1c2028; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .trending-library-delta { margin-left: 7px; color: #14804a; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .trending-library-total { margin-left: 9px; color: #586274; }
+  @keyframes trending-toast-in {
+    from { opacity: 0; transform: translateY(10px) scale(.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @media (max-width: 640px) {
+    .trending-library-status { width: 100%; }
+  }
   .trending-body {
     position: relative;
     overflow: visible;

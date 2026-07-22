@@ -295,23 +295,30 @@ def fetch_jable_hlsurl(code):
     creq = _get_creq()
     if not creq:
         return ""
-    try:
-        r = creq.get(
-            f"https://jable.tv/videos/{code}/",
-            impersonate="chrome124",
-            timeout=20,
-            **proxy_kwargs(),
-            headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-                "Referer": "https://jable.tv/",
-            },
-        )
-        m = re.search(
-            r'hlsUrl["\']?\s*[:=]\s*["\'](https?://[^"\']+\.m3u8[^"\']*)', r.text
-        )
-        return m.group(1) if m else ""
-    except Exception:
-        return ""
+    for attempt in range(3):
+        try:
+            r = creq.get(
+                f"https://jable.tv/videos/{code}/",
+                impersonate="chrome124",
+                timeout=8,
+                **proxy_kwargs(),
+                headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+                    "Referer": "https://jable.tv/",
+                },
+            )
+            if r.status_code == 200:
+                m = re.search(
+                    r'hlsUrl["\']?\s*[:=]\s*["\'](https?://[^"\']+\.m3u8[^"\']*)',
+                    r.text,
+                )
+                if m:
+                    return m.group(1)
+        except Exception:
+            pass
+        if attempt < 2:
+            time.sleep(0.5)
+    return ""
 
 
 def resolve_hls_url(code):
