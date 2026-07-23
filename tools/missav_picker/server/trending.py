@@ -31,6 +31,14 @@ TREND_PROGRESS = {
 JABLE_METADATA_PATH = ROOT / ".jable_trending_metadata.json"
 MISSAV_METADATA_PATH = ROOT / ".missav_trending_metadata.json"
 ACTRESS_MATCH_CACHE = {"signature": None, "candidates": ()}
+ACTRESS_NAME_VARIANTS = str.maketrans(
+    {
+        "宮": "宫",
+        "島": "岛",
+        "滿": "满",
+        "鷲": "鹫",
+    }
+)
 
 TREND_REMOTE_URLS = {
     "missav": {
@@ -493,6 +501,7 @@ def _normalize_actress_text(value):
     value = str(value or "").strip()
     if not value:
         return ""
+    value = value.translate(ACTRESS_NAME_VARIANTS)
     value = re.sub(r"[\s\W_]+", "", value, flags=re.UNICODE)
     return value.casefold()
 
@@ -575,15 +584,56 @@ def _match_actresses_from_titles(*titles):
     return matches
 
 
+def _is_title_credit(value):
+    value = re.sub(r"\s+", "", str(value or ""))
+    if not 3 <= len(value) <= 8:
+        return False
+    if not re.fullmatch(r"[\u3040-\u30ff\u4e00-\u9fff\u30fc]+", value):
+        return False
+    kanji = len(re.findall(r"[\u4e00-\u9fff]", value))
+    kana = len(re.findall(r"[\u3040-\u30ff\u30fc]", value))
+    return kana > 0 or 4 <= kanji <= 6
+
+
 def _extract_title_credit(*titles):
     for title in titles:
         title = str(title or "").strip()
         if not title:
             continue
-        match = re.search(r"(?:[—–]|[!！。…]\s*|\d\s+)([\u4e00-\u9fff]{2,5})$", title)
-        if match:
+        match = re.search(r"[（(]([^（）()]+)[）)]\s*$", title)
+        if match and _is_title_credit(match.group(1)):
+            return [re.sub(r"\s+", "", match.group(1))]
+        match = re.search(
+            r"(?:[—–]|[!！。…]\s*|\d\s+|\s+)([\u3040-\u30ff\u4e00-\u9fff\u30fc]{3,8})$",
+            title,
+        )
+        if match and _is_title_credit(match.group(1)):
             return [match.group(1)]
     return []
+
+
+def _resolve_title_credits(*titles):
+    credits = _extract_title_credit(*titles)
+    if not credits:
+        return []
+    candidates = _actress_title_candidates()
+    direct = dict(candidates)
+    resolved = []
+    for credit in credits:
+        normalized = _normalize_actress_text(credit)
+        display = direct.get(normalized)
+        if not display:
+            surname = re.match(r"[\u4e00-\u9fff]{2}", normalized)
+            if surname:
+                matches = {
+                    candidate_display
+                    for candidate, candidate_display in candidates
+                    if candidate.startswith(surname.group(0))
+                }
+                if len(matches) == 1:
+                    display = matches.pop()
+        resolved.append(display or credit)
+    return list(dict.fromkeys(resolved))
 
 
 def trending_metadata_path(source):
@@ -766,7 +816,7 @@ def _hydrate_trending_items(source, items):
                 it.get("title"),
             )
         if not actresses:
-            actresses = _extract_title_credit(
+            actresses = _resolve_title_credits(
                 metadata_title,
                 local_title,
                 alternate_v.get("title"),
@@ -791,6 +841,15 @@ def _hydrate_trending_items(source, items):
         if len(out) >= 20:
             break
     return out
+
+
+def hydrate_trending_items(source, items):
+    source = str(source or "").lower()
+    if source not in ("missav", "jable"):
+        raise ValueError("invalid source")
+    if not isinstance(items, list):
+        raise ValueError("invalid items")
+    return _hydrate_trending_items(source, items[:100])
 
 
 def _fill_trending_items(items, fallback, limit=20):

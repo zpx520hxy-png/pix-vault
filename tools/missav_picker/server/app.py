@@ -46,6 +46,7 @@ from .img_proxy import proxy_img, _detect_ct
 from .trending import (
     get_trending,
     get_trending_progress,
+    hydrate_trending_items,
     import_manual_trending,
     trending_metadata_path,
 )
@@ -289,6 +290,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._handle_import_jable_trending()
         elif path == "/import_trending_videos":
             self._handle_import_trending_videos()
+        elif path == "/hydrate_trending_snapshots":
+            self._handle_hydrate_trending_snapshots()
         elif path == "/save_jable_metadata":
             self._handle_save_jable_metadata()
         elif path == "/save_missav_metadata":
@@ -546,6 +549,27 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             get_trending_progress(source, period), ensure_ascii=False
         ).encode("utf-8")
         self._send_json(body)
+
+    def _handle_hydrate_trending_snapshots(self):
+        try:
+            length = int(self.headers.get("Content-Length", "0") or "0")
+            if length <= 0 or length > 512 * 1024:
+                self.send_response(400)
+                self.end_headers()
+                return
+            body = json.loads(self.rfile.read(length))
+            source = (body.get("source") or "").lower()
+            items = body.get("items") or []
+            hydrated = hydrate_trending_items(source, items)
+            self._send_json(
+                json.dumps({"items": hydrated}, ensure_ascii=False).encode("utf-8")
+            )
+        except (TypeError, ValueError, json.JSONDecodeError):
+            self.send_response(400)
+            self.end_headers()
+        except Exception:
+            self.send_response(500)
+            self.end_headers()
 
     def _handle_import_jable_trending(self):
         self._handle_import_trending_videos("jable")
