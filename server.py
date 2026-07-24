@@ -5,7 +5,7 @@
 
 配置（环境变量）：
   PIXVAULT_PORT     — 端口（默认 8720）
-  PIXVAULT_IMAGES   — 图片根目录（默认 ../generated_images）
+  PIXVAULT_IMAGES   — 图片根目录（默认 ./generated_images）
 """
 
 import json
@@ -24,6 +24,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 
 try:
     from PIL import Image
+
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
@@ -35,7 +36,7 @@ STATIC_DIR = BASE_DIR / "static"
 IMG_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"}
 
 PORT = int(os.environ.get("PIXVAULT_PORT", "8720"))
-ROOT = Path(os.environ.get("PIXVAULT_IMAGES", BASE_DIR.parent / "generated_images"))
+ROOT = Path(os.environ.get("PIXVAULT_IMAGES", BASE_DIR / "generated_images"))
 PID_FILE = BASE_DIR / ".pix-vault.pid"
 THUMB_DIR = BASE_DIR / ".thumbs"
 THUMB_MAX_WIDTH = 480
@@ -59,40 +60,61 @@ _FILTER_CACHE_MAX = 32
 
 # 文件名标签 → 直接映射
 FILENAME_TAG_MAP = {
-    "写实": "写实", "动漫": "动漫",
+    "写实": "写实",
+    "动漫": "动漫",
     "NSFW": "NSFW",
     # 注意：不含「正常」— 文件夹分类是权威来源，「正常」由 build_tag_index 自动给无 NSFW 的图补
-    "单人": "单人", "双人": "双人", "多人": "多人",
-    "巨乳": "巨乳", "贫乳": "贫乳",
-    "特写": "特写", "半身": "半身", "全身": "全身",
-    "POV": "POV", "背光": "背光", "低角度": "低角度",
-    "pony": "pony", "realvis": "realvis", "noobai": "noobai", "animagine": "animagine",
+    "单人": "单人",
+    "双人": "双人",
+    "多人": "多人",
+    "巨乳": "巨乳",
+    "贫乳": "贫乳",
+    "特写": "特写",
+    "半身": "半身",
+    "全身": "全身",
+    "POV": "POV",
+    "背光": "背光",
+    "低角度": "低角度",
+    "pony": "pony",
+    "realvis": "realvis",
+    "noobai": "noobai",
+    "animagine": "animagine",
 }
 
 # 文件夹 → 默认标签（仅用于无文件名标签的旧图片）
 FOLDER_DEFAULTS = {
-    "pony_nsfw_1000":    ["动漫", "NSFW", "巨乳", "pony"],
+    "pony_nsfw_1000": ["动漫", "NSFW", "巨乳", "pony"],
     "pony_nsfw_1000_v2": ["动漫", "NSFW", "巨乳", "pony"],
     "pony_nsfw_1000_v3": ["动漫", "NSFW", "巨乳", "pony"],
-    "noobai_1000":       ["动漫", "NSFW", "巨乳", "noobai"],
-    "sex_animagine":     ["动漫", "NSFW", "animagine"],
-    "sex_pony":          ["动漫", "NSFW", "pony"],
-    "real_100":          ["写实", "realvis"],
-    "sexy_100":          ["写实", "realvis"],
-    "sexy_100_nude":     ["写实", "NSFW", "realvis"],
-    "lingerie_50":       ["写实", "realvis"],
-    "stability":         ["写实", "stability"],
-    "siliconflow":       ["写实"],
-    "comfyui":           ["写实"],
-    "gpt_generate":      ["写实"],
-    "quick_nsfw":        ["NSFW"],
-    "mixed_1000":        [],
-    "model_test":        [],
-    "qq_bot_avatar":     [],
+    "noobai_1000": ["动漫", "NSFW", "巨乳", "noobai"],
+    "sex_animagine": ["动漫", "NSFW", "animagine"],
+    "sex_pony": ["动漫", "NSFW", "pony"],
+    "real_100": ["写实", "realvis"],
+    "sexy_100": ["写实", "realvis"],
+    "sexy_100_nude": ["写实", "NSFW", "realvis"],
+    "lingerie_50": ["写实", "realvis"],
+    "stability": ["写实", "stability"],
+    "siliconflow": ["写实"],
+    "comfyui": ["写实"],
+    "gpt_generate": ["写实"],
+    "quick_nsfw": ["NSFW"],
+    "mixed_1000": [],
+    "model_test": [],
+    "qq_bot_avatar": [],
 }
 
 # 上层标签优先级（画风/分级/人数/身材 排前面）
-TAG_ORDER = {"NSFW":0,"正常":1,"写实":2,"动漫":3,"单人":4,"双人":5,"多人":6,"巨乳":7,"贫乳":8}
+TAG_ORDER = {
+    "NSFW": 0,
+    "正常": 1,
+    "写实": 2,
+    "动漫": 3,
+    "单人": 4,
+    "双人": 5,
+    "多人": 6,
+    "巨乳": 7,
+    "贫乳": 8,
+}
 
 
 def parse_filename_tags(name: str) -> set[str]:
@@ -119,7 +141,9 @@ def build_tag_index(images: list[dict]) -> tuple[dict[str, int], list[str]]:
             normal_count += 1
     if normal_count > 0:
         tag_counts["正常"] = normal_count
-    sorted_tags = sorted(tag_counts.keys(), key=lambda t: (TAG_ORDER.get(t, 99), -tag_counts[t]))
+    sorted_tags = sorted(
+        tag_counts.keys(), key=lambda t: (TAG_ORDER.get(t, 99), -tag_counts[t])
+    )
     return tag_counts, sorted_tags
 
 
@@ -169,16 +193,18 @@ def scan_images(root: Path) -> list[dict]:
 
                 # 相对路径 — 避免构造 Path 对象
                 abs_path = entry.path
-                rel = abs_path[len(root_str):].lstrip("\\/")
+                rel = abs_path[len(root_str) :].lstrip("\\/")
                 rel_str = rel.replace("\\", "/")
 
-                images.append({
-                    "path": rel_str,
-                    "category": cat_name,
-                    "name": entry.name,
-                    "size": size,
-                    "tags": sorted(tags),
-                })
+                images.append(
+                    {
+                        "path": rel_str,
+                        "category": cat_name,
+                        "name": entry.name,
+                        "size": size,
+                        "tags": sorted(tags),
+                    }
+                )
 
     walk(root_str, None)
     images.sort(key=lambda x: x["path"])
@@ -211,14 +237,16 @@ def list_favorites(fav_dir: Path) -> list[dict]:
                     size = entry.stat().st_size
                 except OSError:
                     size = 0
-                rel = entry.path[len(fav_str):].lstrip("\\/").replace("\\", "/")
-                favs.append({
-                    "path": "favorites/" + rel,
-                    "category": "favorites",
-                    "name": entry.name,
-                    "size": size,
-                    "tags": [],
-                })
+                rel = entry.path[len(fav_str) :].lstrip("\\/").replace("\\", "/")
+                favs.append(
+                    {
+                        "path": "favorites/" + rel,
+                        "category": "favorites",
+                        "name": entry.name,
+                        "size": size,
+                        "tags": [],
+                    }
+                )
 
     walk(fav_str)
     favs.sort(key=lambda x: x["path"])
@@ -226,6 +254,7 @@ def list_favorites(fav_dir: Path) -> list[dict]:
 
 
 # ── 缩略图 ────────────────────────────────────────────────
+
 
 def _thumb_lock_for(rel: str) -> threading.Lock:
     """每张图一个锁，避免并发请求重复生成。"""
@@ -281,10 +310,14 @@ def get_thumb_path(rel: str, src: Path) -> Path | None:
                     im = bg
                 elif im.mode != "RGB":
                     im = im.convert("RGB")
-                im.thumbnail((THUMB_MAX_WIDTH, THUMB_MAX_WIDTH * 4), Image.Resampling.LANCZOS)
+                im.thumbnail(
+                    (THUMB_MAX_WIDTH, THUMB_MAX_WIDTH * 4), Image.Resampling.LANCZOS
+                )
                 # 临时文件 + 原子替换，避免半截缩略图
                 tmp = thumb_path.with_suffix(".jpg.tmp")
-                im.save(tmp, "JPEG", quality=THUMB_QUALITY, optimize=True, progressive=True)
+                im.save(
+                    tmp, "JPEG", quality=THUMB_QUALITY, optimize=True, progressive=True
+                )
                 os.replace(tmp, thumb_path)
         except Exception as e:
             print(f"thumb fail {rel}: {e}")
@@ -294,6 +327,7 @@ def get_thumb_path(rel: str, src: Path) -> Path | None:
 
 
 # ── HTTP Handler ──────────────────────────────────────────
+
 
 class Handler(BaseHTTPRequestHandler):
     images: list[dict] = []
@@ -377,7 +411,9 @@ class Handler(BaseHTTPRequestHandler):
             pool = [img for img in pool if img["category"] in cats_filter]
         if tags_param:
             tags_filter = set(tags_param.split(","))
-            pool = [img for img in pool if tags_filter.issubset(set(img.get("tags", [])))]
+            pool = [
+                img for img in pool if tags_filter.issubset(set(img.get("tags", [])))
+            ]
 
         with _filter_cache_lock:
             # 简单 LRU：超出上限就清空（同一会话筛选条件本来也不会很多）
@@ -403,11 +439,13 @@ class Handler(BaseHTTPRequestHandler):
             Handler.images = scan_images(ROOT)
             Handler.tag_counts, Handler.all_tags = build_tag_index(Handler.images)
             Handler.scan_revision += 1
-            self._send_json({
-                "ok": True,
-                "total": len(Handler.images),
-                "tags": Handler.all_tags,
-            })
+            self._send_json(
+                {
+                    "ok": True,
+                    "total": len(Handler.images),
+                    "tags": Handler.all_tags,
+                }
+            )
 
         elif path == "/api/count":
             pool = self._filter_images(params)
@@ -419,16 +457,17 @@ class Handler(BaseHTTPRequestHandler):
                 cat_counts[img["category"]] = cat_counts.get(img["category"], 0) + 1
             # 统计收藏夹图片数（用 scandir，避免 rglob 列举非图片文件）
             fav_count = len(list_favorites(ROOT / "favorites"))
-            self._send_json({
-                "total": len(self.images),
-                "categories": [
-                    {"name": k, "count": v}
-                    for k, v in sorted(cat_counts.items())
-                ],
-                "tags": Handler.all_tags,
-                "tagCounts": Handler.tag_counts,
-                "favCount": fav_count,
-            })
+            self._send_json(
+                {
+                    "total": len(self.images),
+                    "categories": [
+                        {"name": k, "count": v} for k, v in sorted(cat_counts.items())
+                    ],
+                    "tags": Handler.all_tags,
+                    "tagCounts": Handler.tag_counts,
+                    "favCount": fav_count,
+                }
+            )
 
         elif path == "/api/random":
             pool = self._filter_images(params)
@@ -479,7 +518,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json({"images": favs, "count": len(favs)})
 
         elif path.startswith("/img/"):
-            rel = unquote(path[len("/img/"):])
+            rel = unquote(path[len("/img/") :])
             filepath = (ROOT / rel).resolve()
             if not str(filepath).startswith(str(ROOT.resolve())):
                 self.send_error(403)
@@ -487,7 +526,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send_file(filepath)
 
         elif path.startswith("/thumb/"):
-            rel = unquote(path[len("/thumb/"):])
+            rel = unquote(path[len("/thumb/") :])
             src = (ROOT / rel).resolve()
             if not str(src).startswith(str(ROOT.resolve())) or not src.is_file():
                 self.send_error(404)
@@ -509,7 +548,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_file(src)
 
         elif path.startswith("/static/"):
-            rel = unquote(path[len("/static/"):])
+            rel = unquote(path[len("/static/") :])
             safe = Path(rel).as_posix()
             filepath = (STATIC_DIR / safe).resolve()
             if not str(filepath).startswith(str(STATIC_DIR.resolve())):
@@ -569,7 +608,13 @@ class Handler(BaseHTTPRequestHandler):
                     dst = fav_dir / f"{stem}_({i}){ext}"
                     i += 1
             shutil.copy2(src, dst)
-            self._send_json({"ok": True, "action": "added", "dest": str(dst.relative_to(ROOT)).replace("\\", "/")})
+            self._send_json(
+                {
+                    "ok": True,
+                    "action": "added",
+                    "dest": str(dst.relative_to(ROOT)).replace("\\", "/"),
+                }
+            )
 
         elif path == "/api/unfavorite":
             fname = body.get("name", "")
@@ -578,7 +623,10 @@ class Handler(BaseHTTPRequestHandler):
                 return
             fav_dir = ROOT / "favorites"
             target = (fav_dir / fname).resolve()
-            if not str(target).startswith(str(fav_dir.resolve())) or not target.is_file():
+            if (
+                not str(target).startswith(str(fav_dir.resolve()))
+                or not target.is_file()
+            ):
                 self._send_json({"ok": False, "error": "file not in favorites"}, 400)
                 return
             target.unlink()
@@ -596,7 +644,9 @@ class Handler(BaseHTTPRequestHandler):
                 disliked = json.loads(dl_path.read_text("utf-8"))
             if img_path not in disliked:
                 disliked.append(img_path)
-                dl_path.write_text(json.dumps(disliked, ensure_ascii=False, indent=2), "utf-8")
+                dl_path.write_text(
+                    json.dumps(disliked, ensure_ascii=False, indent=2), "utf-8"
+                )
             self._send_json({"ok": True, "action": "added", "count": len(disliked)})
 
         elif path == "/api/undislike":
@@ -610,7 +660,9 @@ class Handler(BaseHTTPRequestHandler):
                 disliked = json.loads(dl_path.read_text("utf-8"))
             if img_path in disliked:
                 disliked.remove(img_path)
-                dl_path.write_text(json.dumps(disliked, ensure_ascii=False, indent=2), "utf-8")
+                dl_path.write_text(
+                    json.dumps(disliked, ensure_ascii=False, indent=2), "utf-8"
+                )
             self._send_json({"ok": True, "action": "removed", "count": len(disliked)})
 
         elif path == "/api/clear_dislikes":
@@ -635,7 +687,9 @@ class Handler(BaseHTTPRequestHandler):
             Handler.images = scan_images(ROOT)
             Handler.tag_counts, Handler.all_tags = build_tag_index(Handler.images)
             Handler.scan_revision += 1
-            self._send_json({"ok": True, "deleted": deleted, "total": len(Handler.images)})
+            self._send_json(
+                {"ok": True, "deleted": deleted, "total": len(Handler.images)}
+            )
 
         else:
             self.send_error(404)
@@ -643,13 +697,16 @@ class Handler(BaseHTTPRequestHandler):
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     """多线程 HTTP 服务器，支持并发请求"""
+
     daemon_threads = True  # 主线程退出时自动清理
 
 
 # ── 主入口 ───────────────────────────────────────────────
 
+
 def main():
     import sys
+
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
@@ -660,7 +717,9 @@ def main():
     Handler.images = scan_images(ROOT)
     Handler.tag_counts, Handler.all_tags = build_tag_index(Handler.images)
     Handler.scan_revision += 1
-    print(f"   Found {len(Handler.images)} images, {len(Handler.all_tags)} tags: {Handler.all_tags}")
+    print(
+        f"   Found {len(Handler.images)} images, {len(Handler.all_tags)} tags: {Handler.all_tags}"
+    )
 
     server = ThreadedHTTPServer(("0.0.0.0", PORT), Handler)
     print(f"\n  Image Browser => http://localhost:{PORT}")

@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-cd /d "D:\360MoveData\Users\Pda\Desktop\claude\pix-vault"
+cd /d "%~dp0"
 echo.
 echo   PixVault — 本地图片画廊
 echo   http://localhost:8720
